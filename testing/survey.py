@@ -75,6 +75,15 @@ def http(port, actor, route, *, payload=None, expected=200):
         conn.close()
 
 
+def human(port, credential, *args):
+    env = {"PATH": os.environ["PATH"], "ICHNIX_WORKSPACE_URL": f"http://127.0.0.1:{port}",
+           "ICHNIX_USER_TOKEN_FILE": str(credential)}
+    result = subprocess.run([sys.executable, str(ROOT / "cli.py"), "human", *args],
+                            capture_output=True, text=True, timeout=30, env=env)
+    require(result.returncode == 0, f"human CLI {args[0]} failed")
+    return json.loads(result.stdout)
+
+
 def collect_events(folder):
     manifest = FIXTURES / "manifest.json"
     signature = folder / "manifest.sig"
@@ -110,6 +119,8 @@ def run(folder, port):
     http(port, reviewer, "/api/handoffs/claim", payload={}, expected=403)
     http(port, creds["survey-owner"], route, expected=401)
     require(http(port, reader, route)["evidence"] == events, "reader evidence mismatch")
+    remote_cases = human(port, reader, "cases")
+    require({row["id"] for row in remote_cases} == {PRIMARY, FOLLOWUP, CONTROL}, "human CLI inventory mismatch")
 
     evidence = cli("handoff", "enqueue", PRIMARY, "evidence-review")
     owner = cli("handoff", "enqueue", FOLLOWUP, "owner-review")
@@ -127,10 +138,10 @@ def run(folder, port):
             result = client.tool("finish_review", job_id=job["id"], disposition=choice)
             require(result["state"] == "complete" and result["disposition"] == choice, "worker receipt mismatch")
 
-    before = http(port, reader, route)
+    before = human(port, reviewer, "context", PRIMARY)
     require(not before["review_history"], "worker wrote a human review")
     for _ in range(2):
-        http(port, reviewer, route + "/reviews", payload=review)
+        human(port, reviewer, "review", PRIMARY, "records-team", "--accept", "--request-id", "survey-review")
     with mcp("local") as advisor:
         listed = advisor.tool("list_cases")
         require({r["id"] for r in listed} == {PRIMARY, FOLLOWUP, CONTROL}, "unexpected local MCP inventory")
@@ -180,7 +191,7 @@ def main():
             receipt = run(folder, service.server_port)
     encoded = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
     if args.out:
-        with args.out.open("x") as file:
+        with os.fdopen(os.open(args.out, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), "w") as file:
             file.write(encoded)
     else:
         sys.stdout.write(encoded)
