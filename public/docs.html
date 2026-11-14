@@ -607,13 +607,31 @@ python3 cli.py handoff status JOB_ID</code></pre>
                 Six held-out cases share three component revisions. Feeding
                 separate labeled cases to the same graph increases top-ranked
                 owner and CI-check accuracy from 0/6 to 2/6, 4/6 and 6/6. The
-                expected answers are held out of ingestion. This small fixture
-                measures retrieval on recurring workflows. Production accuracy
-                and bounty triage savings remain unmeasured.
+                catalog owner alone gets 0/6. Pooling the same training feedback
+                across all components, with the same ranking code, scores 0/6,
+                2/6, 2/6 and 2/6 on both tasks. Only training cases receive
+                owner decisions and CI observations. This comparison measures
+                the value of component-scoped feedback on recurring workflows
+                within HydraDB.
               </p>
               <pre
                 tabindex="0"
               ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
+            </details>
+            <details class="manual-subsection" id="pilot">
+              <summary>
+                How a product security team could evaluate a pilot
+              </summary>
+              <p>
+                The proposed buyer is the product security lead who runs a
+                bounty program across several engineering teams. Start with one
+                program and track the share of reports the first assigned team
+                accepts, reassignments per report, and median time from triage
+                to owner acceptance. Compare with the team's existing process on
+                comparable reports. The synthetic benchmark measures routing
+                accuracy. A customer pilot would establish time savings and
+                willingness to pay.
+              </p>
             </details>
             <details class="manual-subsection" id="agent-metrics">
               <summary>Coding-agent compatibility</summary>

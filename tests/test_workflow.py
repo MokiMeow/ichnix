@@ -4,12 +4,26 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from ichnix.eval_graph import isolated_graph
+from ichnix.eval_graph import evaluate, isolated_graph
 from ichnix.graph import Graph
 from ichnix.staging import checks
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_feedback_is_compared_on_the_same_holdouts_with_and_without_component_scope(self):
+        with isolated_graph() as db:
+            with patch("getpass.getuser", side_effect=KeyError("unmapped container UID")):
+                curve = evaluate(db)["curve"]
+            self.assertEqual([row["training_cases"] for row in curve], [0, 2, 4, 6])
+            for metric in ("owner_top1", "ci_check_top1"):
+                self.assertEqual([round(row[metric] * 6) for row in curve], [0, 2, 4, 6])
+                self.assertEqual([round(row["pooled_" + metric] * 6) for row in curve], [0, 2, 2, 2])
+            self.assertTrue(all(row["catalog_owner_top1"] == 0 for row in curve))
+            for key in ("holdout-billing-archive", "pooled-holdout-billing-archive"):
+                context = db.context(key)
+                self.assertEqual(context["review_history"], [])
+                self.assertEqual(context["evidence"], [])
+
     def test_configured_graph_credentials_work_without_a_home_directory(self):
         with TemporaryDirectory() as temp, patch.dict(os.environ, {}, clear=True):
             token_file = Path(temp) / "hydra-token"

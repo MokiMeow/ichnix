@@ -72,32 +72,39 @@ def report(component, service, kind):
 
 
 def evaluate(graph):
+    # A disjoint control cohort uses the same product code and feedback, but
+    # pools every component under one revision key. Only the routing scope changes.
+    def import_pair(case):
+        pooled = dict(case, id="pooled-" + case["id"], component="pooled-control")
+        return graph.import_report(case), graph.import_report(pooled)
+
     heldout = []
     for group, owner, check in FIXTURES:
         for service in ("billing", "reporting"):
-            case = report(group, service, "holdout")
-            graph.import_report(case)
-            heldout.append((case["id"], owner, check))
+            pair = import_pair(report(group, service, "holdout"))
+            heldout.append((pair, owner, check))
 
     def accuracy(batch):
-        owners = checks = catalog = 0
-        for key, expected_owner, expected_check in heldout:
-            context = graph.context(key)
-            catalog += context["report"]["owner"] == expected_owner
-            owners += context["recommendations"][0]["owner"] == expected_owner
-            ranked = context["ranked_checks"]
-            checks += bool(ranked) and ranked[0]["step"] == expected_check
+        scores = dict.fromkeys(("owner_top1", "ci_check_top1", "pooled_owner_top1",
+                                "pooled_ci_check_top1", "catalog_owner_top1"), 0)
+        for pair, expected_owner, expected_check in heldout:
+            for prefix, key in zip(("", "pooled_"), pair):
+                context = graph.context(key)
+                scores[prefix + "owner_top1"] += context["recommendations"][0]["owner"] == expected_owner
+                ranked = context["ranked_checks"]
+                scores[prefix + "ci_check_top1"] += bool(ranked) and ranked[0]["step"] == expected_check
+                if not prefix:
+                    scores["catalog_owner_top1"] += context["report"]["owner"] == expected_owner
         return {"training_cases": batch, "heldout_cases": len(heldout),
-                "owner_top1": owners / len(heldout), "ci_check_top1": checks / len(heldout),
-                "catalog_owner_top1": catalog / len(heldout)}
+                **{metric: correct / len(heldout) for metric, correct in scores.items()}}
 
     curve = [accuracy(0)]
     for index, (group, owner, check) in enumerate(FIXTURES, start=1):
         for service in ("ledger", "fulfillment"):
             case = report(group, service, "train")
-            graph.import_report(case)
-            graph.record_review(case["id"], owner, True)
-            graph.add_evidence(case["id"], {"step": check, "revision": case["revision"], "result": "passed"})
+            for key in import_pair(case):
+                graph.record_review(key, owner, True, actor="benchmark-reviewer")
+                graph.add_evidence(key, {"step": check, "revision": case["revision"], "result": "passed"})
         curve.append(accuracy(2 * index))
     return {"dataset": "synthetic, three component revisions; two held-out services each",
             "fixed_catalog_owner_top1": curve[0]["catalog_owner_top1"], "curve": curve}

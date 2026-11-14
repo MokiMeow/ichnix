@@ -144,7 +144,11 @@ def public_checks(browser, origin, width):
                 expect(page.get_by_text("This workspace could not supply", exact=False)).to_be_visible()
                 expect(page.locator(".trace")).to_be_visible()
                 page.get_by_text("Learning curve", exact=True).click()
-                expect(page.locator("#evaluation tbody tr")).to_have_count(4)
+                for caption, expected in (("Feedback from the same component revision", "100%"),
+                                          ("Same feedback pooled across components", "33.3%")):
+                    table = page.get_by_role("table", name=caption)
+                    expect(table.locator("tbody tr")).to_have_count(4)
+                    expect(table.locator("tbody tr").last.locator("td")).to_have_text([expected, expected])
         assert not errors, errors
         assert not external, external
     finally:

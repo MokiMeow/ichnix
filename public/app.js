@@ -513,37 +513,68 @@ function initializeConsole() {
     try {
       const response = await request("evaluation");
       const { curve } = await response.json();
-      const table = element("table");
-      table.append(
-        element(
-          "caption",
-          "First recommendation correct across " +
-            curve[0].heldout_cases +
-            " held-out synthetic cases",
-        ),
-      );
-      const head = table.createTHead().insertRow();
-      for (const label of ["Training cases", "Owner", "CI check"]) {
-        const cell = element("th", label);
-        cell.scope = "col";
-        head.append(cell);
-      }
-      const body = table.createTBody();
       const percent = new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: 1,
       });
-      for (const point of curve) {
-        const row = body.insertRow();
-        const trainingCases = element("th", point.training_cases);
-        trainingCases.scope = "row";
-        row.append(
-          trainingCases,
-          element("td", percent.format(point.owner_top1)),
-          element("td", percent.format(point.ci_check_top1)),
+      function scoreTable(caption, ownerMetric, checkMetric) {
+        const table = element("table");
+        table.append(element("caption", caption));
+        const head = table.createTHead().insertRow();
+        for (const label of ["Training cases", "Owner", "CI check"]) {
+          const cell = element("th", label);
+          cell.scope = "col";
+          head.append(cell);
+        }
+        const body = table.createTBody();
+        for (const point of curve) {
+          const trainingCases = element("th", point.training_cases);
+          trainingCases.scope = "row";
+          body
+            .insertRow()
+            .append(
+              trainingCases,
+              element("td", percent.format(point[ownerMetric])),
+              element("td", percent.format(point[checkMetric])),
+            );
+        }
+        return table;
+      }
+      result.replaceChildren(
+        element(
+          "p",
+          "First choice correct across " +
+            curve[0].heldout_cases +
+            " held-out synthetic cases.",
+        ),
+        scoreTable(
+          "Feedback from the same component revision",
+          "owner_top1",
+          "ci_check_top1",
+        ),
+      );
+      if (
+        curve.every(
+          (point) =>
+            Number.isFinite(point.pooled_owner_top1) &&
+            Number.isFinite(point.pooled_ci_check_top1),
+        )
+      ) {
+        result.append(
+          scoreTable(
+            "Same feedback pooled across components",
+            "pooled_owner_top1",
+            "pooled_ci_check_top1",
+          ),
         );
       }
-      result.replaceChildren(table);
+      result.append(
+        element(
+          "p",
+          "Fixed catalog owner accuracy: " +
+            percent.format(curve[0].catalog_owner_top1),
+        ),
+      );
     } catch {
       result.textContent = "Results unavailable. Close and reopen to retry.";
     } finally {
