@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 PUBLIC_ASSETS = {
     "index.html", "console.html", "docs.html", "app.js", "styles.css", "docs.css",
-    "evidence-graph.png", "evidence-atlas.webp", "review-detail.webp",
+    "ichnix-demo.mp4", "evidence-graph.png", "evidence-atlas.webp", "review-detail.webp",
     "fonts/IBMPlexMono-Regular.ttf", "fonts/InstrumentSans.ttf",
     "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
 }

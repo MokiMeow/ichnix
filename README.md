@@ -8,7 +8,7 @@ A self-hosted evidence workspace for product security teams running a bug bounty
 
 **Who would buy it.** The proposed buyer is the product security lead who routes bounty reports across engineering teams. A pilot can start with one program and compare analyst time to a confirmed owner and the number of reassigned cases against the team’s current queue. Customer willingness to pay and time savings have yet to be measured.
 
-[Operator manual](public/docs.html) · [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md)
+[Watch the 54-second demo](public/ichnix-demo.mp4) · [Operator manual](public/docs.html) · [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md)
 
 ## Try the workflow
 
