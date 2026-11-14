@@ -104,7 +104,8 @@ class Handler(BaseHTTPRequestHandler):
         if not path.startswith("/api/"):
             if write:
                 return self.send(405, {"error": "method"})
-            route = {"/": "index.html", "/console": "console.html", "/console/": "console.html"}
+            route = {"/": "index.html", "/console": "console.html", "/console/": "console.html",
+                     "/docs": "docs.html", "/docs/": "docs.html"}
             asset = (PUBLIC / route.get(path, path.lstrip("/"))).resolve()
             if not asset.is_relative_to(PUBLIC) or not asset.is_file() or any(part.startswith(".") for part in asset.relative_to(PUBLIC).parts):
                 return self.send(404, {"error": "missing asset"})

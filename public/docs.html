@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Operator manual · Ichnix</title>
+    <link rel="icon" href="/ichnix.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/docs.css" />
+  </head>
+  <body>
+    <a class="skip" href="#manual">Skip to content</a>
+    <header class="mast">
+      <a class="brand" href="/" aria-label="Ichnix home"
+        ><img src="/ichnix.png" width="34" height="34" alt="" />Ichnix</a
+      >
+      <nav aria-label="Primary">
+        <a href="/docs" aria-current="page">Docs</a
+        ><a href="/console">Review console ↗</a>
+      </nav>
+    </header>
+    <main id="manual" class="manual">
+      <header class="manual-intro">
+        <p class="micro">Documentation</p>
+        <h1>Operator manual</h1>
+        <p>
+          Connect a bounty program, capture evidence from staging, and hand a
+          specific review to an engineer or coding agent.
+        </p>
+      </header>
+      <div class="manual-layout">
+        <nav class="manual-index" aria-label="On this page">
+          <p class="micro">On this page</p>
+          <a href="#install">Self-host a workspace</a
+          ><a href="#acceptance">Run acceptance</a>
+          <a href="#providers">Connect a program</a
+          ><a href="#ci">Capture CI evidence</a>
+          <a href="#agents">Connect a coding agent</a
+          ><a href="#graph">Understand the graph</a>
+          <a href="#results">Read the measurements</a
+          ><a href="#distribution">License and distribution</a>
+        </nav>
+        <article class="manual-article">
+          <section id="install">
+            <h2>Self-host a workspace</h2>
+            <p>
+              Use one installation per organization. Run the following from your
+              checkout on Ubuntu 24.04 x86-64 with Python 3.12, Node 24 and pnpm
+              12. The installer verifies a pinned HydraDB distribution.
+            </p>
+            <pre tabindex="0"><code>pnpm install --frozen-lockfile
+python3 scripts/install-hydra.py
+scripts/start-hydra.sh</code></pre>
+            <p>
+              Leave the graph running. In a second terminal, start the console.
+              Open <code>http://127.0.0.1:8765/console</code> and enter the
+              token from the private file printed by the launcher.
+            </p>
+            <pre tabindex="0"><code>scripts/console.sh</code></pre>
+            <p>
+              In another terminal, check graph access and the local Pele trace
+              renderer.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py check-workspace</code></pre>
+            <p>
+              The default state directory is <code>~/.local/state/ichnix</code>.
+              Set <code>ICHNIX_STATE_DIR</code> consistently to move it. For an
+              existing graph, configure <code>ICHNIX_HYDRA_URL</code>,
+              <code>ICHNIX_HYDRA_TOKEN_FILE</code>,
+              <code>ICHNIX_HYDRA_NAMESPACE</code>,
+              <code>ICHNIX_HYDRA_GRAPH</code> and
+              <code>ICHNIX_HYDRA_CELL</code>. Use authenticated HTTPS for remote
+              connections.
+            </p>
+            <h3>Container deployment</h3>
+            <pre tabindex="0"><code>docker compose up --build --detach --wait
+docker compose ps</code></pre>
+            <p>
+              Compose targets Linux amd64. It binds the console to loopback and
+              keeps graph data, authentication material and console state in
+              named volumes. Put an HTTPS reverse proxy in front of the console
+              for remote staff. For a disposable, read-only sample workspace,
+              use <code>python3 cli.py demo --public-readonly</code>.
+            </p>
+          </section>
+          <section id="acceptance">
+            <h2>Run acceptance</h2>
+            <p>
+              After installing the local runtime, run a complete review in a
+              disposable workspace. This command needs internet access to
+              HackerOne and works without a provider account.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py acceptance</code></pre>
+            <p>
+              <strong>Public source.</strong> The importer retrieves the
+              disclosed title and report ID from curl’s HackerOne program. The
+              public website representation can change independently of the
+              authenticated customer API.
+              <a href="https://hackerone.com/reports/2236133"
+                >HackerOne disclosure #2236133</a
+              >
+              ·
+              <a href="https://curl.se/docs/CVE-2023-46219.html"
+                >curl advisory</a
+              >
+            </p>
+            <p>
+              <strong>Local evidence.</strong> The run assigns a local service
+              and owner, observes three HTTP headers on its own Ichnix instance,
+              signs the staging manifest, checks the results, and records a
+              completed MCP handoff and reviewer decision. Its receipt
+              identifies the service under test, observation time, manifest
+              digest and outcome. Exit code <code>0</code> means these checks
+              passed. The run makes no measurement of curl’s deployment.
+            </p>
+            <p>
+              The public preview serves a
+              <a href="/api/acceptance">filtered acceptance receipt</a>. On a
+              self-hosted workspace, use the command above to generate your own
+              receipt.
+            </p>
+          </section>
+          <section id="providers">
+            <h2>Connect a program</h2>
+            <p>
+              The customer supplies a private catalog mapping report IDs or
+              scoped assets to a service, component, deployed revision and
+              owning team. Unmapped reports are skipped. A source report keeps
+              its provider identity. Attachments, payments and researcher
+              correspondence stay on the bounty platform.
+            </p>
+            <h3>Map a disclosed report</h3>
+            <p>
+              Save this example as <code>private/catalog.json</code>. Its
+              service, component, revision and owner describe a local review
+              workspace.
+            </p>
+            <pre tabindex="0"><code>{
+  "program": "curl",
+  "reports": {
+    "2236133": {
+      "service": "local-acceptance-console",
+      "component": "local-http-response",
+      "revision": "local-acceptance-v1",
+      "owner": "acceptance-reviewer"
+    }
+  }
+}</code></pre>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py import-disclosed --program curl \
+  --report-id 2236133 --catalog private/catalog.json
+python3 cli.py context h1-curl-2236133</code></pre>
+            <h3>HackerOne customer program</h3>
+            <p>
+              Set <code>HACKERONE_API_USER</code> and
+              <code>HACKERONE_API_TOKEN</code> through your secret manager. Use
+              a catalog with your program handle and report IDs or asset
+              identifiers. The importer accepts triaged, retesting and resolved
+              reports.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py sync --program YOUR_HANDLE \
+  --catalog private/catalog.json</code></pre>
+            <p>
+              For signed deliveries, set <code>ICHNIX_PROGRAM</code>,
+              <code>ICHNIX_CATALOG</code> and
+              <code>ICHNIX_WEBHOOK_SECRET</code> on the console. Register
+              <code>/hooks/hackerone</code> on its HTTPS origin.
+              <a href="https://api.hackerone.com/customer-reference/"
+                >HackerOne customer API</a
+              >
+            </p>
+            <h3>Bugcrowd engagement</h3>
+            <p>
+              Set <code>BUGCROWD_API_TOKEN</code> to your read-only customer
+              credential in <code>token-id:token-secret</code> format. Set the
+              catalog’s <code>program</code> to the engagement code. Use
+              submission UUIDs in <code>reports</code> or target UUIDs in
+              <code>assets</code>. The importer accepts triaged, unresolved and
+              resolved submissions and skips duplicates.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py sync-bugcrowd --engagement YOUR_CODE \
+  --catalog private/bugcrowd.json</code></pre>
+            <p>
+              Set <code>ICHNIX_BUGCROWD_ENGAGEMENT</code>,
+              <code>ICHNIX_BUGCROWD_CATALOG</code> and
+              <code>ICHNIX_BUGCROWD_WEBHOOK_SECRET</code> on the console
+              alongside the API token. Register
+              <code>submission.created</code> and
+              <code>submission.updated</code> at <code>/hooks/bugcrowd</code>.
+              The receiver verifies the signature, then fetches current
+              submission metadata and checks its engagement.
+              <a href="https://docs.bugcrowd.com/api/getting-started/"
+                >Bugcrowd API guide</a
+              >
+            </p>
+            <p class="manual-note">
+              Private program sync and signed webhook behavior have been checked
+              with provider-shaped fixtures. Live customer onboarding requires
+              credentials for the organization’s own program.
+            </p>
+          </section>
+          <section id="ci">
+            <h2>Capture CI evidence</h2>
+            <p>
+              Have your deployment pipeline export <code>environment</code> set
+              to <code>staging</code>, its service and revision, and a
+              <code>settings</code> object. In a separate policy, map each
+              service to the expected boolean, integer or string settings. See
+              <code>examples/staging.json</code> and
+              <code>examples/policy.json</code> in the checkout.
+            </p>
+            <p>
+              Give CI and intake private files with the same 32–1024 random
+              bytes. Set <code>ICHNIX_CI_HMAC_KEY_FILE</code> to the appropriate
+              file on each host. Sign the exact manifest bytes in CI, then
+              transfer the manifest and detached signature to the workspace.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py staging --sign \
+  --manifest private/staging.json --out private/staging.sig
+
+python3 cli.py staging h1-curl-2236133 \
+  --policy private/policy.json --manifest private/staging.json \
+  --signature private/staging.sig --run-id pipeline-104</code></pre>
+            <p>
+              Use the same run ID to retry the same CI observation. Evidence
+              includes its revision, result, source digest and verification
+              method. Exit <code>0</code> means all configured values matched,
+              <code>1</code> means a value differed or was missing, and
+              <code>2</code> means intake could not complete. A missing setting
+              appears as inconclusive. The console displays the latest run as a
+              Pele sequence diagram.
+            </p>
+            <p class="manual-note">
+              A signed manifest attests to bytes provided by the holder of the
+              shared key. A review records an owner decision. The original
+              bounty finding requires independent verification by the security
+              team.
+            </p>
+          </section>
+          <section id="agents">
+            <h2>Connect a coding agent</h2>
+            <p>
+              Named identities support three roles. A
+              <code>read</code> credential opens case context. A
+              <code>review</code> credential can also accept or reject an owner.
+              A <code>worker</code> credential can claim, read and finish a
+              leased review. Worker context omits related report titles and
+              reviewer history.
+            </p>
+            <h3>Issue credentials on the console host</h3>
+            <pre tabindex="0"><code>state="$HOME/.local/state/ichnix"
+export ICHNIX_IDENTITY_DB="$state/identities.sqlite3"
+python3 cli.py identity issue analyst --role review \
+  --out "$state/analyst.token"
+python3 cli.py identity issue coding-worker --role worker \
+  --out "$state/coding-worker.token"
+python3 cli.py identity list
+python3 cli.py console --port 8765</code></pre>
+            <p>
+              Start the console in this environment with the port free. Registry
+              mode accepts named tokens and disables the shared operator token.
+              Each review records its actor and UTC timestamp. To withdraw
+              worker access, run
+              <code>python3 cli.py identity revoke coding-worker</code>.
+            </p>
+            <h3>Configure stdio on the worker machine</h3>
+            <p>
+              Transfer only that worker’s credential through your secret
+              manager. Place it in a private file readable by the worker. From
+              the worker’s checkout, generate a client configuration with
+              absolute paths valid on that machine.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py mcp-config --profile worker \
+  --workspace-url https://ichnix.example.org \
+  --worker-token-file "$HOME/.config/ichnix/worker.token" \
+  --out ichnix-mcp.json</code></pre>
+            <p>
+              Use the generated <code>mcpServers</code> entry in a compatible
+              JSON stdio client. For Codex, use
+              <code>--format codex --out ichnix-mcp.toml</code> and add that
+              table to the client configuration. The profile references a
+              credential file. Its contents and each lease secret stay outside
+              the model context. Remote origins require HTTPS. Loopback HTTP
+              works for a local session.
+            </p>
+            <h3>Queue one review</h3>
+            <p>
+              Manual handoffs are the default. To queue reviews automatically
+              after intake and CI, set <code>ICHNIX_AUTO_HANDOFFS=1</code> on
+              the console, CLI and intake processes and point all three at the
+              same private state directory.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py handoff enqueue h1-curl-2236133 owner-review
+python3 cli.py handoff status JOB_ID</code></pre>
+            <p>
+              Use <code>evidence-review</code> when the case already has staging
+              observations. Ask the agent to call <code>claim_review</code>,
+              pass the returned job ID to <code>get_review_context</code>,
+              inspect the material, then call <code>finish_review</code>.
+              Unfinished leases expire and become available again. A completed
+              handoff leaves the owner decision to the reviewer.
+            </p>
+            <p>
+              For a trusted local operator,
+              <code
+                >python3 cli.py mcp-config --profile local --hydra-token-file
+                /private/hydra-token</code
+              >
+              generates a direct graph-reader profile. It offers
+              <code>list_cases</code> and <code>get_case_context</code>.
+              <a
+                href="https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle"
+                >MCP lifecycle and version negotiation</a
+              >
+            </p>
+          </section>
+          <section id="graph">
+            <h2>Understand the graph</h2>
+            <p>
+              HydraDB links a report to a service-specific snapshot, the exact
+              component revision, its CI observations and owner reviews. When
+              another case uses that component revision, a traversal retrieves
+              prior outcomes. This is the learning loop for Track 1, the
+              self-improving graph.
+            </p>
+            <dl class="manual-terms">
+              <dt>Owner ranking</dt>
+              <dd>
+                The catalog owner starts with one positive vote. For each
+                candidate, the score is
+                <code>(accepted + 1) / (accepted + rejected + 2)</code>. Later
+                decisions update the ranking while the case keeps its decision
+                history.
+              </dd>
+              <dt>CI check ranking</dt>
+              <dd>
+                A failed check contributes two points, a passed check one and an
+                inconclusive check zero. Each other snapshot contributes at most
+                its strongest observation for that check. The ranking suggests
+                which existing control to inspect.
+              </dd>
+              <dt>Related titles</dt>
+              <dd>
+                Normalized sparse character-trigram vectors are stored as graph
+                properties. A revision-scoped traversal selects up to 128
+                current reports. Application code ranks them by cosine
+                similarity and returns up to five above the threshold. Similar
+                wording alone cannot establish a common cause.
+              </dd>
+            </dl>
+            <p>
+              One console host coordinates leases in a private SQLite file.
+              HydraDB holds the evidence and relationships. Use local durable
+              storage for the registry and queue, and retain the graph store and
+              authentication material in your backup plan.
+            </p>
+          </section>
+          <section id="results">
+            <h2>Read the measurements</h2>
+            <h3>Retrieval on synthetic cases</h3>
+            <p>
+              Six held-out cases share three component revisions. Feeding
+              separate labeled cases to the same graph increases top-ranked
+              owner and CI-check accuracy from 0/6 to 2/6, 4/6 and 6/6. The
+              expected answers are held out of ingestion. This small fixture
+              measures retrieval on recurring workflows. Production accuracy and
+              bounty triage savings remain unmeasured.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
+            <h3>Worker throughput on one host</h3>
+            <p>
+              Each run processed the same 100 synthetic evidence reviews over
+              loopback using real stdio worker processes, the HTTP console and
+              HydraDB. Per-job time covers the claim, context read, fixture
+              check and completion. Worker startup is measured separately.
+            </p>
+            <table>
+              <caption>
+                100 synthetic jobs per run
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Workers</th>
+                  <th scope="col">Jobs / second</th>
+                  <th scope="col">95th percentile</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">1</th>
+                  <td>11.69</td>
+                  <td>0.170 s</td>
+                </tr>
+                <tr>
+                  <th scope="row">100</th>
+                  <td>14.49</td>
+                  <td>6.729 s</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              At 100 workers the host completed more reviews per second, while
+              individual requests waited longer. The run excludes model
+              inference, internet latency and live customer reports.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py bench-workers --workers 100 --jobs 100</code></pre>
+          </section>
+          <section id="distribution">
+            <h2>License and distribution</h2>
+            <p>
+              Ichnix application code is MIT licensed. The checkout includes its
+              <code>LICENSE</code> and the notices in
+              <code>public/fonts</code> for bundled DM Sans and Anonymous Pro.
+              The HydraDB runtime is distributed separately, under the terms of
+              its upstream distribution.
+              <a href="https://github.com/hydra-db/hydradb"
+                >HydraDB upstream project</a
+              >
+            </p>
+          </section>
+        </article>
+      </div>
+    </main>
+    <footer>
+      <a class="brand" href="/">Ichnix</a><small class="micro">2026</small
+      ><a href="#manual">Back to top ↑</a>
+    </footer>
+  </body>
+</html>
