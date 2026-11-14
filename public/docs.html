@@ -458,11 +458,12 @@ python3 cli.py handoff status JOB_ID</code></pre>
             ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
             <h3>Coding-agent compatibility</h3>
             <p>
-              In a separate end-to-end check, one Codex CLI model session used a
-              generated worker profile to claim a synthetic review, read its
-              stored control result, and complete the handoff. The queue
-              recorded one attempt. The throughput run below measures MCP
-              transport and storage costs.
+              Two Codex CLI sessions used separate worker credentials. The
+              evidence inspector identified a failed retention control and
+              missing masking evidence. The owner router retrieved the records
+              team and the prior retention check. Each session claimed one job
+              and recorded its disposition in one attempt. Both SQLite receipts
+              matched their HydraDB outcomes.
             </p>
             <h3>Worker throughput on one host</h3>
             <p>
@@ -485,22 +486,22 @@ python3 cli.py handoff status JOB_ID</code></pre>
               <tbody>
                 <tr>
                   <th scope="row">1</th>
-                  <td>14.33</td>
-                  <td>0.078 s</td>
+                  <td>13.34</td>
+                  <td>0.087 s</td>
                 </tr>
                 <tr>
                   <th scope="row">100</th>
-                  <td>15.02</td>
-                  <td>6.504 s</td>
+                  <td>11.70</td>
+                  <td>8.315 s</td>
                 </tr>
               </tbody>
             </table>
             <p>
-              At 100 workers the host completed more reviews per second, while
-              individual requests waited longer. Startup took 0.13 seconds for
-              one worker and 11.49 seconds for 100. All 100 jobs in each run
-              completed in one attempt. The run excludes model inference,
-              internet latency and live customer reports.
+              On this host, the single worker finished the batch faster.
+              Starting 100 clients took 11.17 seconds. Starting one took 0.16
+              seconds. All 100 jobs in each run completed in one attempt. The
+              run excludes model inference, internet latency and live customer
+              reports.
             </p>
             <pre
               tabindex="0"
