@@ -404,7 +404,7 @@ python3 cli.py handoff status JOB_ID</code></pre>
             </p>
             <table>
               <caption>
-                100 synthetic jobs per run
+                100 synthetic jobs per run on one two-vCPU host
               </caption>
               <thead>
                 <tr>
@@ -416,20 +416,22 @@ python3 cli.py handoff status JOB_ID</code></pre>
               <tbody>
                 <tr>
                   <th scope="row">1</th>
-                  <td>11.69</td>
-                  <td>0.170 s</td>
+                  <td>14.33</td>
+                  <td>0.078 s</td>
                 </tr>
                 <tr>
                   <th scope="row">100</th>
-                  <td>14.49</td>
-                  <td>6.729 s</td>
+                  <td>15.02</td>
+                  <td>6.504 s</td>
                 </tr>
               </tbody>
             </table>
             <p>
               At 100 workers the host completed more reviews per second, while
-              individual requests waited longer. The run excludes model
-              inference, internet latency and live customer reports.
+              individual requests waited longer. Startup took 0.13 seconds for
+              one worker and 11.49 seconds for 100. All 100 jobs in each run
+              completed in one attempt. The run excludes model inference,
+              internet latency and live customer reports.
             </p>
             <pre
               tabindex="0"
