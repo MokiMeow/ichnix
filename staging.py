@@ -102,13 +102,16 @@ def main():
     parser.add_argument('case_id')
     parser.add_argument('--policy', required=True)
     parser.add_argument('--manifest', required=True)
+    parser.add_argument('--run-id', help='stable CI run identifier for retries of the same export')
     parser.add_argument('--signature', help='detached lowercase hexadecimal HMAC-SHA256 signature')
     args = parser.parse_args()
     graph = Graph()
     report = graph.context(args.case_id)['report']
     manifest, provenance = manifest_input(args.manifest, args.signature)
     events = checks(report, load(args.policy), manifest)
-    run_id = uuid.uuid4().hex
+    run_id = args.run_id if args.run_id is not None else uuid.uuid4().hex
+    if not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,160}", run_id):
+        raise ValueError("invalid CI run identifier")
     for event in events:
         event.update(run_id=run_id, **provenance)
         graph.add_evidence(args.case_id, event, expected_service=report["service"],

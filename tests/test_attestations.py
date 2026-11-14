@@ -33,10 +33,11 @@ class AttestationTests(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     sign(manifest, signature)
                 self.assertEqual(subprocess.run(ingest, capture_output=True).returncode, 2)
-                signed = [*ingest, "--signature", str(signature)]
+                signed = [*ingest, "--signature", str(signature), "--run-id", "build-46"]
                 events = json.loads(subprocess.check_output(signed))
                 self.assertEqual(events[0]["source_method"], "hmac-sha256")
                 self.assertEqual(events[0]["source_digest"], hashlib.sha256(manifest.read_bytes()).hexdigest())
+                self.assertEqual(json.loads(subprocess.check_output(signed)), events)
                 manifest.write_text(json.dumps(export) + " ")
                 self.assertEqual(subprocess.run(signed, capture_output=True).returncode, 2)
                 self.assertEqual(len(graph.context(case["id"])["evidence"]), 1)
