@@ -122,7 +122,7 @@ class Handoffs:
                 raise PermissionError("case mapping changed")
             # Graph retrieval can outlive a short lease or overlap completion.
             active()
-            return context
+            return {key: context[key] for key in ("report", "evidence", "recommendations", "ranked_checks") if key in context}
 
     def finish(self, job_id, worker, token):
         with closing(self._connect()) as db:

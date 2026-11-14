@@ -58,7 +58,10 @@ class WorkerAPITests(unittest.TestCase):
                     proof = {"token": job["token"]}
                     context = "/api/handoffs/" + job["id"] + "/context"
                     self.assertEqual(call(context, "agent-b", proof)[0], 403)
-                    self.assertEqual(call(context, "agent-a", proof)[1]["report"]["id"], job["case_id"])
+                    worker_context = call(context, "agent-a", proof)[1]
+                    self.assertEqual(worker_context["report"]["id"], job["case_id"])
+                    self.assertNotIn("related_reports", worker_context)
+                    self.assertNotIn("review_history", worker_context)
                     graph.import_report(dict(id="api-review", title="Retention review", component="audit",
                                              service="files", revision="v5", owner="records"))
                     self.assertEqual(call(context, "agent-a", proof)[0], 403)
