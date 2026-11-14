@@ -15,6 +15,7 @@ jobs:
         run: |
           docker build --file Containerfile --target test --tag ichnix:tests .
           docker run --rm --read-only --tmpfs /tmp ichnix:tests
+          docker run --rm --read-only --network none --tmpfs /tmp ichnix:tests python3 cli.py survey
       - name: Start the private workspace
         run: |
           docker compose up --build --detach --wait

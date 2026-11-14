@@ -29,3 +29,9 @@
 !LICENSE
 !licenses/
 !licenses/*.txt
+
+!storage.py
+!testing/
+!testing/survey.py
+!testing/fixtures/
+!testing/fixtures/*.json

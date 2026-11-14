@@ -21,6 +21,7 @@ COPY --from=renderer /build/node_modules ./node_modules
 COPY *.py trace.mjs package.json LICENSE ./
 COPY scripts/ ./scripts/
 COPY examples/ ./examples/
+COPY testing/ ./testing/
 COPY public/ ./public/
 RUN install -d -m 0700 -o 10001 -g 10001 /var/lib/ichnix /run/ichnix-auth
 ENV ICHNIX_STATE_DIR=/var/lib/ichnix LD_LIBRARY_PATH=/opt/hydra PYTHONDONTWRITEBYTECODE=1
