@@ -90,7 +90,7 @@ def identify(header, edit=False, worker=False):
                                  (_digest(token),)).fetchone()
         except (sqlite3.Error, OSError, ValueError):
             return None
-        roles = ("worker",) if worker else (("review",) if edit else ("review", "read", "worker"))
+        roles = ("worker",) if worker else (("review",) if edit else ("review", "read"))
         if row and row[1] in roles:
             return row[0]
         return None

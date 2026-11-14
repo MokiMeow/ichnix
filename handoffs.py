@@ -99,17 +99,35 @@ class Handoffs:
             db.commit()
             return {**result, "token": token}
 
-    def finish(self, job_id, worker, token):
+    @staticmethod
+    def _owned_lease(db, job_id, worker, token):
         _worker(worker)
         if not isinstance(token, str) or not 0 < len(token) <= 256:
             raise ValueError("invalid claim token")
+        row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        if not row or worker != row["worker"] or not hmac.compare_digest(_digest(token), row["token_hash"] or ""):
+            raise PermissionError("claim belongs to another worker or lease")
+        return row
+
+    def case_context(self, graph, job_id, worker, token):
+        with closing(self._connect()) as db:
+            def active():
+                row = self._owned_lease(db, job_id, worker, token)
+                if row["state"] != "leased" or row["expires"] <= int(time.time()):
+                    raise PermissionError("lease inactive")
+                return row
+            job = active()
+            context = graph.context(job["case_id"])
+            if any(context["report"][field] != job[field] for field in ("service", "component", "revision")):
+                raise PermissionError("case mapping changed")
+            # Graph retrieval can outlive a short lease or overlap completion.
+            active()
+            return context
+
+    def finish(self, job_id, worker, token):
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
-            if not row:
-                raise KeyError("unknown job")
-            if worker != row["worker"] or not hmac.compare_digest(_digest(token), row["token_hash"] or ""):
-                raise PermissionError("claim belongs to another worker or lease")
+            row = self._owned_lease(db, job_id, worker, token)
             if row["state"] != "complete":
                 if row["state"] != "leased" or row["expires"] <= int(time.time()):
                     raise PermissionError("lease expired")

@@ -47,7 +47,7 @@ class WorkerAPITests(unittest.TestCase):
                     for actor in ("reader", "analyst"):
                         self.assertEqual(call(claim, actor, {})[0], 403)
                     self.assertEqual(call(claim, "agent-a", {"worker": "agent-b"})[0], 400)
-                    self.assertEqual(call("/api/cases/api-review", "agent-a")[0], 200)
+                    self.assertEqual(call("/api/cases/api-review", "agent-a")[0], 401)
                     self.assertEqual(call("/api/cases/api-review/reviews", "agent-a",
                                           {"owner": "records", "accepted": True})[0], 401)
                     status, job = call(claim, "agent-a", {"lease_seconds": 30})
@@ -56,9 +56,16 @@ class WorkerAPITests(unittest.TestCase):
                     self.assertEqual(call(claim, "agent-b", {}), (200, None))
                     finish = "/api/handoffs/" + job["id"] + "/finish"
                     proof = {"token": job["token"]}
+                    context = "/api/handoffs/" + job["id"] + "/context"
+                    self.assertEqual(call(context, "agent-b", proof)[0], 403)
+                    self.assertEqual(call(context, "agent-a", proof)[1]["report"]["id"], job["case_id"])
+                    graph.import_report(dict(id="api-review", title="Retention review", component="audit",
+                                             service="files", revision="v5", owner="records"))
+                    self.assertEqual(call(context, "agent-a", proof)[0], 403)
                     self.assertEqual(call(finish, "agent-b", proof)[0], 403)
                     self.assertEqual(call(finish, "agent-a", proof)[1]["state"], "complete")
                     self.assertEqual(call(finish, "agent-a", proof)[1]["state"], "complete")
+                    self.assertEqual(call(context, "agent-a", proof)[0], 403)
                     revoke(db, "agent-a")
                     self.assertEqual(call(claim, "agent-a", {})[0], 403)
                 finally:

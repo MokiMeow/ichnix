@@ -151,9 +151,12 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("expected JSON object")
         if path == "/api/handoffs/claim" and set(data) <= {"lease_seconds"}:
             return self.send(200, Handoffs().claim(worker, data.get("lease_seconds", 120)))
-        job = re.fullmatch(r"/api/handoffs/([a-f0-9]{64})/finish", path)
+        job = re.fullmatch(r"/api/handoffs/([a-f0-9]{64})/(finish|context)", path)
         if job and set(data) == {"token"}:
-            return self.send(200, Handoffs().finish(job.group(1), worker, data["token"]))
+            queue = Handoffs()
+            if job.group(2) == "context":
+                return self.send(200, queue.case_context(Graph(), job.group(1), worker, data["token"]))
+            return self.send(200, queue.finish(job.group(1), worker, data["token"]))
         raise ValueError("invalid handoff request")
 
     def handle_request(self, write):
