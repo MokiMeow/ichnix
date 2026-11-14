@@ -5,6 +5,7 @@ import json
 import os
 import re
 from pathlib import Path
+from uuid import uuid4
 from time import time_ns
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
@@ -63,7 +64,7 @@ class Graph:
         self.http = build_opener(_NoRedirect())
 
     def _query(self, statement, **params):
-        body = {"cell_id": self.cell, "query": statement, "parameters": params,
+        body = {"query_id": str(uuid4()), "cell_id": self.cell, "query": statement, "parameters": params,
                 "page_size": 256, "consistency": "strong"}
         rows = []
         while True:
