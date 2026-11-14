@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 umask 077
-state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/ichnix"
+state_dir="${ICHNIX_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/ichnix}"
 mkdir -p "$state_dir"
 if [[ ! -s "$state_dir/console-token" ]]; then
   python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > "$state_dir/console-token"

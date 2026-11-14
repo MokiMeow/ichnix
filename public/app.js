@@ -161,9 +161,9 @@ async function renderCase(
     clearTrace();
     traceUrl = URL.createObjectURL(blob);
     const img = element("img", undefined, "trace");
-    img.alt = "Sequence of the recorded evidence listed above";
+    img.alt = "Observed steps in the latest run. Interrupted runs may contain partial evidence.";
     img.src = traceUrl;
-    detail.append(img);
+    detail.append(img, element("p", "Latest run · recorded steps include partial runs", "case-meta"));
   } catch {
     if (view === generation)
       detail.append(element("p", "The evidence diagram is unavailable."));

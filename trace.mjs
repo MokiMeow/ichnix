@@ -8,10 +8,10 @@ const lines = [
   "sequenceDiagram",
   "participant C as Customer CI",
   "participant G as Evidence graph",
-  ...events.slice(0, 24).map((event) =>
+  ...events.slice(0, 64).map((event) =>
     `C->>G: ${label(event.step)} (${label(event.result)})`
   ),
 ];
 process.stdout.write(render(lines.join("\n"), {
-  limit: 8192, outputLimit: 500000, links: false, images: false,
+  limit: 16000, outputLimit: 500000, links: false, images: false,
 }).svg);
