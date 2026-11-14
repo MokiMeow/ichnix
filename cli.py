@@ -87,6 +87,7 @@ def parser():
 
 def mcp_config(args):
     from worker_client import Worker, workspace_origin
+    from storage import state_directory
     command = [str(ROOT / "cli.py"), "mcp"]
     if args.profile == "worker":
         if args.hydra_url or args.hydra_token_file:
@@ -102,9 +103,7 @@ def mcp_config(args):
     else:
         if args.workspace_url or args.worker_token_file:
             raise ValueError("local profiles take HydraDB options")
-        state = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local/state")) / "ichnix"
-        state = Path(os.getenv("ICHNIX_STATE_DIR", state))
-        source = args.hydra_token_file or os.getenv("ICHNIX_HYDRA_TOKEN_FILE") or state / "hydra-token"
+        source = args.hydra_token_file or os.getenv("ICHNIX_HYDRA_TOKEN_FILE") or state_directory() / "hydra-token"
         token_file = Path(source).expanduser().resolve(strict=True)
         if not token_file.is_file() or token_file.stat().st_mode & 0o077 or not 0 < token_file.stat().st_size <= 4096:
             raise ValueError("private HydraDB credential file required")

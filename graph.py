@@ -17,6 +17,7 @@ from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from handoffs import Handoffs, auto_handoffs_enabled
+from storage import state_directory
 
 
 _review_lock = Lock()
@@ -78,11 +79,7 @@ class Graph:
         if not token:
             token_file = os.getenv("ICHNIX_HYDRA_TOKEN_FILE")
             if not token_file:
-                state = os.getenv("ICHNIX_STATE_DIR")
-                if not state:
-                    xdg = os.getenv("XDG_STATE_HOME")
-                    state = (Path(xdg) if xdg else Path.home() / ".local/state") / "ichnix"
-                token_file = Path(state) / "hydra-token"
+                token_file = state_directory() / "hydra-token"
             try:
                 token = Path(token_file).read_text().strip()
             except OSError:

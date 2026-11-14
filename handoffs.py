@@ -11,7 +11,7 @@ import secrets
 import sqlite3
 import time
 
-from storage import connect_private, verify_tables
+from storage import connect_private, state_directory, verify_tables
 
 LEASE_TABLES = {
     "jobs": ("id", "case_id", "service", "component", "revision", "kind", "state", "created",
@@ -48,12 +48,10 @@ def _job_identity(context, kind):
 
 
 def _default_db():
-    base = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local/state")) / "ichnix"
-    base = Path(os.getenv("ICHNIX_STATE_DIR", base))
     graph = [os.getenv(name, default) for name, default in (
         ("ICHNIX_HYDRA_URL", "http://127.0.0.1:8443"), ("ICHNIX_HYDRA_NAMESPACE", "default"),
         ("ICHNIX_HYDRA_GRAPH", "default"), ("ICHNIX_HYDRA_CELL", "cell-0"))]
-    return base / "handoffs" / (_digest(json.dumps(graph)) + ".sqlite3")
+    return state_directory() / "handoffs" / (_digest(json.dumps(graph)) + ".sqlite3")
 
 
 def handoff_path():

@@ -11,6 +11,13 @@ import stat
 import sys
 
 
+def state_directory():
+    if os.getenv("ICHNIX_STATE_DIR"):
+        return Path(os.environ["ICHNIX_STATE_DIR"])
+    xdg = os.getenv("XDG_STATE_HOME")
+    return (Path(xdg) if xdg else Path.home() / ".local/state") / "ichnix"
+
+
 def private_primary_group(gid):
     try:
         user = pwd.getpwuid(os.geteuid())

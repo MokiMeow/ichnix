@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import sqlite3
@@ -15,6 +16,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class StorageTests(unittest.TestCase):
+    def test_configured_container_paths_need_no_home(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from cli import mcp_config, parser
+        from handoffs import handoff_path
+        from storage import state_directory
+        with TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True), patch.object(
+                Path, "home", side_effect=RuntimeError("numeric service account has no home")):
+            token = Path(tmp) / "hydra-token"
+            token.touch(mode=0o600)
+            token.write_text("example" * 8)
+            args = parser().parse_args(["mcp-config", "--profile", "local", "--hydra-token-file", str(token)])
+            output = StringIO()
+            with redirect_stdout(output):
+                mcp_config(args)
+            self.assertEqual(json.loads(output.getvalue())["mcpServers"]["ichnix-local"]["env"]
+                             ["ICHNIX_HYDRA_TOKEN_FILE"], str(token))
+            os.environ["XDG_STATE_HOME"] = tmp
+            self.assertEqual(state_directory(), Path(tmp) / "ichnix")
+            os.environ["ICHNIX_STATE_DIR"] = tmp
+            self.assertEqual(handoff_path().parent, Path(tmp) / "handoffs")
+
     def test_init_check_permissions_lock_and_restart(self):
         with TemporaryDirectory() as directory:
             state = Path(directory) / "operator"
