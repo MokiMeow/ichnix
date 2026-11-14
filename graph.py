@@ -16,6 +16,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from handoffs import Handoffs, auto_handoffs_enabled
+
 
 _review_lock = Lock()
 
@@ -118,6 +120,7 @@ class Graph:
         return "r.key AS id, r.title AS title, r.service AS service, r.revision AS revision, r.component AS component, r.owner AS owner"
 
     def import_report(self, report):
+        auto = auto_handoffs_enabled()
         record = {f: _field(report, f, 240 if f == "title" else 160)
                   for f in ("id", "title", "service", "revision", "component", "owner")}
         rid = _key("case", _case_id(report["id"]))
@@ -138,6 +141,8 @@ class Graph:
         key = record.pop("id")
         vector = json.dumps(_title_vector(record["title"]), separators=(",", ":"))
         self._put("Report", rid, key=key, snapshot=sid, title_vector_v1=vector, **record)
+        if auto:
+            Handoffs().enqueue(self, key, "owner-review", expected_scope=record)
         return key
 
     def cases(self):

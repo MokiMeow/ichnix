@@ -14,6 +14,13 @@ KINDS = ("owner-review", "evidence-review")
 PUBLIC = "id, case_id, service, component, revision, kind, state, worker, expires, attempts"
 
 
+def auto_handoffs_enabled():
+    setting = os.getenv("ICHNIX_AUTO_HANDOFFS", "0")
+    if setting not in ("0", "1"):
+        raise ValueError("ICHNIX_AUTO_HANDOFFS must be 0 or 1")
+    return setting == "1"
+
+
 def _digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -53,11 +60,13 @@ class Handoffs:
         db.row_factory = sqlite3.Row
         return db
 
-    def enqueue(self, graph, case_id, kind):
+    def enqueue(self, graph, case_id, kind, *, expected_scope=None):
         if kind not in KINDS:
             raise ValueError("invalid review kind")
         context = graph.context(case_id)
         report = context["report"]
+        if expected_scope and any(report[k] != expected_scope[k] for k in ("service", "component", "revision")):
+            raise ValueError("case mapping changed before review handoff")
         basis = context["evidence" if kind == "evidence-review" else "recommendations"]
         if not basis:
             raise ValueError("nothing available to review")

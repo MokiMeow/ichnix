@@ -5,12 +5,14 @@ import hashlib
 import hmac
 import os
 import re
+import sqlite3
 import stat
 import sys
 import uuid
 from pathlib import Path
 
 from graph import Graph
+from handoffs import Handoffs, auto_handoffs_enabled
 
 
 def _bytes(path, limit):
@@ -105,17 +107,29 @@ def main():
     parser.add_argument('--run-id', help='stable CI run identifier for retries of the same export')
     parser.add_argument('--signature', help='detached lowercase hexadecimal HMAC-SHA256 signature')
     args = parser.parse_args()
+    auto = auto_handoffs_enabled()
     graph = Graph()
     report = graph.context(args.case_id)['report']
     manifest, provenance = manifest_input(args.manifest, args.signature)
-    events = checks(report, load(args.policy), manifest)
-    run_id = args.run_id if args.run_id is not None else uuid.uuid4().hex
+    policy = load(args.policy)
+    events = checks(report, policy, manifest)
+    run_id = args.run_id
+    if run_id is None:
+        # Replaying an export after a queue outage should reuse its observations.
+        if auto:
+            basis = [report["service"], report["component"], report["revision"], provenance,
+                     policy["services"][report["service"]]]
+            run_id = hashlib.sha256(json.dumps(basis, sort_keys=True).encode()).hexdigest()
+        else:
+            run_id = uuid.uuid4().hex
     if not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,160}", run_id):
         raise ValueError("invalid CI run identifier")
     for event in events:
         event.update(run_id=run_id, **provenance)
         graph.add_evidence(args.case_id, event, expected_service=report["service"],
                            expected_component=report["component"])
+    if auto:
+        Handoffs().enqueue(graph, args.case_id, "evidence-review", expected_scope=report)
     print(json.dumps(events, indent=2))
     return int(any(event['result'] != 'passed' for event in events))
 
@@ -123,6 +137,6 @@ def main():
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (KeyError, ValueError, RuntimeError, OSError) as error:
+    except (KeyError, ValueError, RuntimeError, OSError, sqlite3.Error) as error:
         print(f"staging check unavailable ({type(error).__name__})", file=sys.stderr)
         raise SystemExit(2)
