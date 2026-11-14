@@ -1,6 +1,5 @@
 """Loopback web console. The reverse proxy owns TLS in a deployed installation."""
 import argparse
-import hmac
 import json
 import logging
 import mimetypes
@@ -13,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from credentials import identify
 from graph import Graph
 
 ROOT = Path(__file__).resolve().parent
@@ -74,13 +74,8 @@ class Handler(BaseHTTPRequestHandler):
         return body
 
     def authorized(self, edit=False):
-        supplied = self.headers.get("Authorization", "").encode()
-        roles = ["ICHNIX_REVIEW_TOKEN"] if edit else ["ICHNIX_REVIEW_TOKEN", "ICHNIX_READ_TOKEN"]
-        for role in roles:
-            key = os.environ.get(role, "")
-            if len(key) >= 32 and hmac.compare_digest(supplied, ("Bearer " + key).encode()):
-                return True
-        return False
+        self.review_actor = identify(self.headers.get("Authorization", ""), edit)
+        return self.review_actor is not None
 
     def dispatch(self, write):
         path = unquote(urlsplit(self.path).path)
@@ -91,6 +86,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(404, {"error": "webhook disabled"})
             catalog = json.loads(Path(os.environ["ICHNIX_CATALOG"]).read_text())
             result = process_webhook(self.body(), self.headers, secret, os.environ["ICHNIX_PROGRAM"], catalog, Graph())
+            return self.send(200, result)
+
+        if path == "/hooks/bugcrowd" and write:
+            from connectors import process_bugcrowd_webhook
+            secret = os.getenv("ICHNIX_BUGCROWD_WEBHOOK_SECRET")
+            if not secret:
+                return self.send(404, {"error": "webhook disabled"})
+            catalog = json.loads(Path(os.environ["ICHNIX_BUGCROWD_CATALOG"]).read_text())
+            result = process_bugcrowd_webhook(self.body(), self.headers, secret,
+                                              os.environ["ICHNIX_BUGCROWD_ENGAGEMENT"], catalog, Graph())
             return self.send(200, result)
 
         if not path.startswith("/api/"):
@@ -118,7 +123,8 @@ class Handler(BaseHTTPRequestHandler):
             context = graph.context(case_id)
             if data["owner"] not in [x["owner"] for x in context["recommendations"]]:
                 raise ValueError("unknown recommendation")
-            graph.record_review(case_id, data["owner"], data["accepted"])
+            graph.record_review(case_id, data["owner"], data["accepted"], actor=self.review_actor,
+                                request_id=self.headers.get("Idempotency-Key"))
             return self.send(200, graph.context(case_id))
         if not write and action != "reviews":
             data = graph.context(case_id)
@@ -158,6 +164,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--bind", default="127.0.0.1")
     args = parser.parse_args()
-    if len(os.environ.get("ICHNIX_REVIEW_TOKEN", "")) < 32:
-        parser.error("provide ICHNIX_REVIEW_TOKEN with at least 32 characters")
+    if "ICHNIX_IDENTITY_DB" not in os.environ and len(os.environ.get("ICHNIX_REVIEW_TOKEN", "")) < 32:
+        parser.error("configure ICHNIX_IDENTITY_DB or provide a review token of at least 32 characters")
     ConsoleServer((args.bind, args.port), Handler).serve_forever()

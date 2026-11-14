@@ -1,6 +1,9 @@
 """Versioned remediation evidence stored in a dedicated HydraDB graph."""
 
 import hashlib
+import getpass
+from threading import Lock
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -10,6 +13,9 @@ from time import time_ns
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+
+_review_lock = Lock()
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -134,10 +140,17 @@ class Graph:
         evidence = self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
                                "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id ORDER BY e.observed",
                                id=snapshot)
-        votes = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
-                            "RETURN v.owner AS owner, v.accepted AS accepted", id=snapshot)
+        legacy = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
+                            "RETURN v.id AS decision, v.owner AS owner, v.accepted AS accepted", id=snapshot)
+        audit = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "
+                            "RETURN v.owner AS owner, v.accepted AS accepted, v.actor AS actor, "
+                            "v.at AS at ORDER BY v.at", id=snapshot)
+        events = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW_EVENT]->(v) "
+                             "RETURN v.subject AS decision, v.owner AS owner, v.accepted AS accepted, v.at AS at "
+                             "ORDER BY v.at", id=snapshot)
+        votes = {v["decision"]: v for v in (*legacy, *events)}
         counts = {report["owner"]: [1, 0]}
-        for vote in votes:
+        for vote in votes.values():
             pair = counts.setdefault(vote["owner"], [0, 0])
             pair[0 if vote["accepted"] else 1] += 1
         items = [{"owner": owner, "score": round((yes + 1)/(yes + no + 2), 4),
@@ -145,7 +158,7 @@ class Graph:
                  for owner, (yes, no) in counts.items()]
         items.sort(key=lambda item: (-item["score"], item["owner"] != report["owner"], item["owner"]))
         return {"report": report, "recommendations": items, "evidence": evidence,
-                "ranked_checks": self._ranked_checks(snapshot)}
+                "ranked_checks": self._ranked_checks(snapshot), "review_history": audit}
 
     def ranked_checks(self, case_id):
         return self._ranked_checks(self._report(case_id)["snapshot"])
@@ -187,13 +200,29 @@ class Graph:
         self._link(r["snapshot"], "HAS_EVIDENCE", eid)
         return {**record, "run_id": run}
 
-    def record_review(self, case_id, owner, accepted):
+    def record_review(self, case_id, owner, accepted, *, actor=None, request_id=None):
         r = self._report(case_id)
         owner = _field({"owner": owner}, "owner")
+        actor = _field({"actor": actor if actor is not None else "local:" + getpass.getuser()}, "actor")
         if not isinstance(accepted, bool):
             raise ValueError("accepted must be a boolean")
-        vid = _key("review", r["snapshot"], owner)
-        self._put("Review", vid, owner=owner, accepted=accepted)
-        self._link(r["snapshot"], "REVIEWED", vid)
-        self._link(_key("component", r["component"], r["revision"]), "HAS_REVIEW", vid)
-        return {"owner": owner, "accepted": accepted}
+        if request_id is None:
+            request_id = str(uuid4())
+        if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,96}", request_id):
+            raise ValueError("invalid idempotency key")
+        subject = _key("review", r["snapshot"], owner)
+        event = _key("review-event", case_id, actor, request_id)
+        with _review_lock:
+            prior = self._query("MATCH (v:ReviewEvent {id:$id}) RETURN v.accepted AS accepted, "
+                                "v.subject AS subject, v.at AS at", id=event)
+            if prior:
+                if prior[0]["accepted"] != accepted or prior[0]["subject"] != subject:
+                    raise ValueError("idempotency key already used for a different review")
+                at = prior[0]["at"]
+            else:
+                at = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+                self._put("ReviewEvent", event, subject=subject, owner=owner, accepted=accepted, actor=actor, at=at)
+            # Retrying a partially linked event repairs its evidence trail.
+            self._link(r["snapshot"], "AUDIT", event)
+            self._link(_key("component", r["component"], r["revision"]), "HAS_REVIEW_EVENT", event)
+        return {"owner": owner, "accepted": accepted, "actor": actor, "at": at}
