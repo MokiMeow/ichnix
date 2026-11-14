@@ -18,6 +18,12 @@ from handoffs import Handoffs
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
+PUBLIC_ASSETS = {
+    "index.html", "console.html", "docs.html", "app.js", "styles.css", "docs.css",
+    "evidence-graph.png", "hero.webp", "evidence-atlas.webp", "review-detail.webp",
+    "fonts/AnonymousPro-Regular.ttf", "fonts/DMSans.ttf", "fonts/InstrumentSerif-Regular.ttf",
+    "fonts/AnonymousPro-LICENSE.txt", "fonts/DMSans-LICENSE.txt", "fonts/InstrumentSerif-LICENSE.txt",
+}
 MAX_BODY = 1024 * 1024
 
 
@@ -106,8 +112,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(405, {"error": "method"})
             route = {"/": "index.html", "/console": "console.html", "/console/": "console.html",
                      "/docs": "docs.html", "/docs/": "docs.html"}
-            asset = (PUBLIC / route.get(path, path.lstrip("/"))).resolve()
-            if not asset.is_relative_to(PUBLIC) or not asset.is_file() or any(part.startswith(".") for part in asset.relative_to(PUBLIC).parts):
+            name = route.get(path, path.removeprefix("/"))
+            if name not in PUBLIC_ASSETS:
+                return self.send(404, {"error": "missing asset"})
+            asset = PUBLIC / name
+            if asset.resolve() != asset or not asset.is_file():
                 return self.send(404, {"error": "missing asset"})
             return self.send(200, asset.read_bytes(), mimetypes.guess_type(asset)[0] or "application/octet-stream")
 
