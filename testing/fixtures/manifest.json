@@ -1,0 +1,9 @@
+{
+  "environment": "staging",
+  "service": "ledger",
+  "revision": "r7",
+  "settings": {
+    "retention_days": 60,
+    "audit_enabled": true
+  }
+}

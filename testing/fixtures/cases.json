@@ -1,0 +1,26 @@
+[
+  {
+    "id": "SURVEY-101",
+    "title": "Ledger archive retention review",
+    "service": "ledger",
+    "component": "archive",
+    "revision": "r7",
+    "owner": "records-team"
+  },
+  {
+    "id": "SURVEY-102",
+    "title": "Reporting archive retention review",
+    "service": "reports",
+    "component": "archive",
+    "revision": "r7",
+    "owner": "records-team"
+  },
+  {
+    "id": "SURVEY-103",
+    "title": "Index catalog ownership review",
+    "service": "search",
+    "component": "index",
+    "revision": "r3",
+    "owner": "catalog-team"
+  }
+]

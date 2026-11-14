@@ -1,0 +1,9 @@
+{
+  "services": {
+    "ledger": {
+      "retention_days": 30,
+      "audit_enabled": true,
+      "mask_identifiers": true
+    }
+  }
+}
