@@ -156,7 +156,8 @@ class Graph:
         stored = report.pop("vector")
         vector = json.loads(stored) if stored else _title_vector(report["title"])
         evidence = self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
-                               "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id ORDER BY e.observed",
+                               "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id, "
+                               "e.digest AS source_digest, e.method AS source_method ORDER BY e.observed",
                                id=snapshot)
         legacy = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
                             "RETURN v.id AS decision, v.owner AS owner, v.accepted AS accepted", id=snapshot)
@@ -232,12 +233,21 @@ class Graph:
             raise ValueError("evidence revision differs from current case")
         run = _field(evidence, "run_id") if "run_id" in evidence else None
         parts = [*record.values(), run] if run else list(record.values())
+        provenance = {}
+        if "source_digest" in evidence or "source_method" in evidence:
+            digest = _field(evidence, "source_digest", 64)
+            method = _field(evidence, "source_method", 16)
+            if not re.fullmatch(r"[0-9a-f]{64}", digest) or method not in {"hmac-sha256", "local-file"}:
+                raise ValueError("invalid CI provenance")
+            provenance = {"digest": digest, "method": method}
+            parts.extend((digest, method))
         eid = _key("evidence", r["snapshot"], *parts)
         exists = self._query("MATCH (e:Evidence {id:$id}) RETURN e.id AS id", id=eid)
         if not exists:
-            self._put("Evidence", eid, observed=time_ns(), run=run or "", **record)
+            self._put("Evidence", eid, observed=time_ns(), run=run or "", **provenance, **record)
         self._link(r["snapshot"], "HAS_EVIDENCE", eid)
-        return {**record, "run_id": run}
+        return {**record, "run_id": run, "source_digest": provenance.get("digest"),
+                "source_method": provenance.get("method")}
 
     def record_review(self, case_id, owner, accepted, *, actor=None, request_id=None):
         r = self._report(case_id)
