@@ -2,9 +2,7 @@
 import argparse
 import json
 import os
-from datetime import datetime
 from pathlib import Path
-import re
 import secrets
 import subprocess
 import sys
@@ -13,29 +11,9 @@ from uuid import uuid4
 from unittest.mock import patch
 
 from eval_graph import evaluate, isolated_graph
-from scripts.acceptance import CASE, HEADERS, SOURCE, run_local_workflow
+from scripts.acceptance import CASE, run_local_workflow
 from server import ConsoleServer, Handler, ROOT
 from staging import checks, load, manifest_input
-
-
-def public_receipt(path):
-    """Only the documented acceptance observations can be shared by the demo."""
-    with Path(path).open("rb") as stream:
-        raw = stream.read(4097)
-    if len(raw) > 4096:
-        raise ValueError("receipt too large")
-    data = json.loads(raw)
-    expected = {"source": SOURCE, "case_id": CASE, "scope": "local Ichnix acceptance deployment",
-                "source_method": "hmac-sha256", "handoff_state": "complete",
-                "observations": dict.fromkeys(HEADERS, "passed")}
-    if (any(data.get(k) != v for k, v in expected.items()) or data.get("review_recorded") is not True
-            or not re.fullmatch(r"[0-9a-f]{64}", data.get("manifest_sha256", ""))):
-        raise ValueError("unexpected acceptance receipt")
-    at = datetime.fromisoformat(data["observed_at"])
-    if at.utcoffset() is None:
-        raise ValueError("receipt timestamp requires UTC offset")
-    return {**expected, "review_recorded": True, "observed_at": at.isoformat(),
-            "manifest_sha256": data["manifest_sha256"]}
 
 
 class PublicDemoHandler(Handler):
@@ -65,12 +43,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--public-readonly", action="store_true", help="serve synthetic cases without a token")
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--with-disclosure", action="store_true", help="run public intake and serve its case and receipt")
-    mode.add_argument("--acceptance-receipt", help="share a separately completed public acceptance receipt")
+    parser.add_argument("--with-disclosure", action="store_true", help="run public intake and serve its case and receipt")
     args = parser.parse_args()
-    if (args.with_disclosure or args.acceptance_receipt) and not args.public_readonly:
-        parser.error("sharing a receipt requires --public-readonly")
+    if args.with_disclosure and not args.public_readonly:
+        parser.error("--with-disclosure requires --public-readonly")
     if args.public_readonly:
         with isolated_graph() as benchmark:
             evaluation = evaluate(benchmark)
@@ -91,7 +67,7 @@ def main():
                 graph.add_evidence(case["id"], dict(evidence, run_id=run, **provenance))
         if args.public_readonly:
             with ConsoleServer(("127.0.0.1", args.port), PublicDemoHandler) as http:
-                http.receipt = public_receipt(args.acceptance_receipt) if args.acceptance_receipt else receipt
+                http.receipt = receipt
                 http.disclosed_case = CASE if args.with_disclosure else None
                 http.evaluation = evaluation
                 http.demo_routes = {"/api/cases"}
