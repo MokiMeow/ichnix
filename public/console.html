@@ -20,9 +20,9 @@
       </nav>
     </header>
     <main class="workspace" id="review">
-      <p class="micro">Investigation workspace</p>
+      <p class="micro" id="workspace-label">Investigation workspace</p>
       <h1>Review console</h1>
-      <form id="connect">
+      <form id="connect" hidden>
         <label for="token">Operator access token</label>
         <div class="input-row">
           <input
@@ -37,7 +37,8 @@
           Use the access token configured by your workspace administrator.
         </p>
       </form>
-      <p id="status" role="status"></p>
+      <p id="status" role="status">Opening workspace…</p>
+      <noscript>Enable JavaScript to open the review console.</noscript>
       <div id="desk" hidden>
         <aside>
           <div class="aside-title">

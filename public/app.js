@@ -7,6 +7,7 @@ let token = "";
 let traceUrl;
 let selected;
 let generation = 0;
+let publicDemo = false;
 
 function element(tag, text, className) {
   const el = document.createElement(tag);
@@ -29,9 +30,9 @@ function clearSession() {
   detail.replaceChildren();
   byId("cases").replaceChildren();
   byId("leave").hidden = desk.hidden = true;
-  login.hidden = false;
+  login.hidden = publicDemo;
   status.textContent = "";
-  byId("token").focus();
+  if (!publicDemo) byId("token").focus();
 }
 
 async function request(path, options = {}) {
@@ -39,7 +40,10 @@ async function request(path, options = {}) {
   try {
     response = await fetch(path, {
       ...options,
-      headers: { Authorization: "Bearer " + token, ...options.headers },
+      headers: {
+        ...(token && { Authorization: "Bearer " + token }),
+        ...options.headers,
+      },
       redirect: "error",
       cache: "no-store",
     });
@@ -100,7 +104,13 @@ function reviewControl(caseId, owner, accepted) {
 }
 
 async function renderCase(
-  { report, recommendations, evidence, ranked_checks = [] },
+  {
+    report,
+    recommendations,
+    evidence,
+    ranked_checks = [],
+    review_history = [],
+  },
   view,
 ) {
   clearTrace();
@@ -119,9 +129,12 @@ async function renderCase(
     row.append(
       element("strong", item.owner),
       element("span", "score " + item.score, "case-meta"),
-      reviewControl(report.id, item.owner, true),
-      reviewControl(report.id, item.owner, false),
     );
+    if (!publicDemo)
+      row.append(
+        reviewControl(report.id, item.owner, true),
+        reviewControl(report.id, item.owner, false),
+      );
     detail.append(row);
     if (item.reason) detail.append(element("p", item.reason, "review-reason"));
   }
@@ -142,6 +155,30 @@ async function renderCase(
         detail.append(element("p", item.reason, "review-reason"));
     }
   }
+  if (review_history.length) {
+    detail.append(element("h3", "Review history"));
+    const list = element("ol", undefined, "review-history");
+    for (const review of [...review_history].reverse()) {
+      const row = element("li");
+      const decision = review.accepted ? "accepted" : "rejected";
+      const time = element(
+        "time",
+        new Date(review.at).toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "UTC",
+        }) + " UTC",
+        "case-meta",
+      );
+      time.dateTime = review.at;
+      row.append(
+        element("span", review.actor + " " + decision + " " + review.owner),
+        time,
+      );
+      list.append(row);
+    }
+    detail.append(list);
+  }
   detail.append(element("h3", "Recorded evidence"));
   if (!evidence.length) {
     detail.append(element("p", "No checks recorded for this revision."));
@@ -161,9 +198,17 @@ async function renderCase(
     clearTrace();
     traceUrl = URL.createObjectURL(blob);
     const img = element("img", undefined, "trace");
-    img.alt = "Observed steps in the latest run. Interrupted runs may contain partial evidence.";
+    img.alt =
+      "Observed steps in the latest run. Interrupted runs may contain partial evidence.";
     img.src = traceUrl;
-    detail.append(img, element("p", "Latest run · recorded steps include partial runs", "case-meta"));
+    detail.append(
+      img,
+      element(
+        "p",
+        "Latest run · recorded steps include partial runs",
+        "case-meta",
+      ),
+    );
   } catch {
     if (view === generation)
       detail.append(element("p", "The evidence diagram is unavailable."));
@@ -199,7 +244,8 @@ async function refresh() {
     const result = await request("/api/cases");
     const cases = await result.json();
     if (view !== generation) return;
-    desk.hidden = byId("leave").hidden = false;
+    desk.hidden = false;
+    byId("leave").hidden = publicDemo;
     login.hidden = true;
     byId("token").value = "";
     const list = byId("cases");
@@ -234,4 +280,27 @@ login.addEventListener("submit", (event) => {
 });
 byId("leave").addEventListener("click", clearSession);
 byId("reload").addEventListener("click", refresh);
+async function initializeWorkspace() {
+  try {
+    const response = await fetch("/api/session", {
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(4000),
+    });
+    publicDemo = response.ok && (await response.json()).public_demo === true;
+  } catch {
+    publicDemo = false;
+  }
+  if (publicDemo) {
+    byId("workspace-label").textContent = "Read-only demo · synthetic cases";
+    return refresh();
+  }
+  status.textContent = "";
+  login.hidden = false;
+}
+
 window.addEventListener("pagehide", clearSession);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) initializeWorkspace();
+});
+initializeWorkspace();
