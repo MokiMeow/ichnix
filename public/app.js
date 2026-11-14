@@ -4,7 +4,7 @@ const detail = byId("detail");
 const status = byId("status");
 const login = byId("connect");
 let token = "";
-let traceUrl;
+const caseImages = new Set();
 let selected;
 let generation = 0;
 let publicDemo = false;
@@ -18,9 +18,39 @@ function element(tag, text, className) {
   return el;
 }
 
-function clearTrace() {
-  if (traceUrl) URL.revokeObjectURL(traceUrl);
-  traceUrl = undefined;
+function clearCaseImages() {
+  for (const url of caseImages) URL.revokeObjectURL(url);
+  caseImages.clear();
+}
+
+async function loadCaseImage(container, caseId, path, className, alt, failure) {
+  try {
+    const response = await request(
+      "/api/cases/" + encodeURIComponent(caseId) + "/" + path,
+    );
+    if (response.headers.get("Content-Type")?.split(";")[0] !== "image/svg+xml")
+      throw new Error("Expected an SVG image");
+    const blob = await response.blob();
+    if (!container.isConnected || selected !== caseId) return;
+    const url = URL.createObjectURL(blob);
+    caseImages.add(url);
+    const image = element("img", undefined, className);
+    image.alt = alt;
+    image.src = url;
+    image.addEventListener(
+      "error",
+      () => {
+        URL.revokeObjectURL(url);
+        caseImages.delete(url);
+        container.textContent = failure;
+      },
+      { once: true },
+    );
+    container.replaceChildren(image);
+  } catch {
+    if (container.isConnected && selected === caseId)
+      container.textContent = failure;
+  }
 }
 
 function clearSession() {
@@ -29,7 +59,7 @@ function clearSession() {
   token = "";
   canReview = false;
   selected = null;
-  clearTrace();
+  clearCaseImages();
   detail.replaceChildren();
   byId("cases").replaceChildren();
   byId("case-select").replaceChildren();
@@ -129,7 +159,7 @@ async function renderCase(
   },
   view,
 ) {
-  clearTrace();
+  clearCaseImages();
   const heading = element("header", undefined, "case-heading");
   heading.append(
     element("p", report.id, "case-id"),
@@ -147,6 +177,22 @@ async function renderCase(
   }
   heading.append(metadata);
   detail.replaceChildren(heading);
+  const diagram = element("details", undefined, "case-diagram");
+  const diagramBody = element("div", "Loading workflow diagram…");
+  diagram.append(element("summary", "Review workflow diagram"), diagramBody);
+  diagram.addEventListener("toggle", () => {
+    if (!diagram.open || diagramBody.dataset.loaded) return;
+    diagramBody.dataset.loaded = "true";
+    loadCaseImage(
+      diagramBody,
+      report.id,
+      "diagram.svg",
+      "review-diagram",
+      "Review workflow for " + report.id + " on revision " + report.revision,
+      "This workspace could not supply a review diagram. The case details remain available below.",
+    );
+  });
+  detail.append(diagram);
   if (publicDemo && report.id === disclosedCase) {
     const source = element("a", "Read the disclosed HackerOne report");
     source.href = "https://hackerone.com/reports/2236133";
@@ -266,37 +312,31 @@ async function renderCase(
       detail.append(details);
     }
   }
-  try {
-    const response = await request(
-      "/api/cases/" + encodeURIComponent(report.id) + "/trace.svg",
-    );
-    const blob = await response.blob();
-    if (view !== generation || report.id !== selected) return;
-    clearTrace();
-    traceUrl = URL.createObjectURL(blob);
-    const img = element("img", undefined, "trace");
-    img.alt =
-      "Observed steps in the latest run. Interrupted runs may contain partial evidence.";
-    img.src = traceUrl;
-    detail.append(
-      img,
-      element(
-        "p",
-        "Latest run · recorded steps include partial runs",
-        "case-meta",
-      ),
-    );
-  } catch {
-    if (view === generation)
-      detail.append(element("p", "The evidence diagram is unavailable."));
-  }
+  const trace = element("div");
+  detail.append(
+    element("h3", "Observed evidence trace"),
+    trace,
+    element(
+      "p",
+      "Latest run · recorded steps include partial runs",
+      "case-meta",
+    ),
+  );
+  await loadCaseImage(
+    trace,
+    report.id,
+    "trace.svg",
+    "trace",
+    "Observed steps in the latest run for " + report.id,
+    "The observed evidence trace is unavailable.",
+  );
 }
 
 async function openCase(caseId) {
   const view = ++generation;
   selected = caseId;
   byId("case-select").value = caseId;
-  clearTrace();
+  clearCaseImages();
   detail.textContent = "Loading case…";
   for (const button of byId("cases").querySelectorAll("button")) {
     button.setAttribute(
@@ -355,7 +395,7 @@ async function refresh() {
       await openCase(cases.find((r) => r.id === selected)?.id || cases[0].id);
     else {
       selected = null;
-      clearTrace();
+      clearCaseImages();
       status.textContent = "";
       detail.textContent =
         "No cases yet. Import a report through the CLI or sync your bounty program.";
