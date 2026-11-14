@@ -16,6 +16,10 @@ import sys
 from ichnix.storage import connect_private, verify_tables
 
 REGISTRY_TABLES = {"identities": ("name", "role", "digest", "issued", "revoked")}
+EVENT_TABLE = {"identity_events": ("id", "name", "role", "event", "at", "actor")}
+LEGACY_EVENTS = """SELECT name, role, 'issued' AS event, issued AS at, NULL AS actor FROM identities
+                   UNION ALL
+                   SELECT name, role, 'revoked', revoked, NULL FROM identities WHERE revoked IS NOT NULL"""
 
 
 def utcnow():
@@ -25,25 +29,42 @@ def utcnow():
 def _connect(path, readonly=False, create=False):
     db = connect_private(path, create=create, readonly=readonly)
     try:
-        if create:
+        if not readonly:
             db.execute("BEGIN IMMEDIATE")
+        if create:
             existing = db.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
             if not existing:
                 db.execute("""CREATE TABLE identities
                     (name TEXT PRIMARY KEY, role TEXT NOT NULL, digest TEXT NOT NULL UNIQUE,
                      issued TEXT NOT NULL, revoked TEXT)""")
         verify_tables(db, REGISTRY_TABLES)
-        if create:
-            db.commit()
+        if not readonly:
+            if not _has_events(db):
+                db.execute("""CREATE TABLE identity_events (
+                    id INTEGER PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL,
+                    event TEXT NOT NULL CHECK(event IN ('issued', 'revoked', 'reissued')),
+                    at TEXT NOT NULL, actor TEXT)""")
+                db.execute(f"""INSERT INTO identity_events(name,role,event,at,actor)
+                               SELECT * FROM ({LEGACY_EVENTS}) ORDER BY at,name,event""")
+            verify_tables(db, EVENT_TABLE)
     except BaseException:
         db.close()
         raise
     return db
 
 
+def _has_events(db):
+    return db.execute("SELECT 1 FROM sqlite_schema WHERE name='identity_events'").fetchone() is not None
+
+
 def initialize(path):
-    with closing(_connect(path, create=True)):
-        pass
+    with closing(_connect(path, create=True)) as db:
+        db.commit()
+
+
+def _record(db, name, role, event, at):
+    db.execute("INSERT INTO identity_events(name,role,event,at,actor) VALUES(?,?,?,?,?)",
+               (name, role, event, at, f"uid:{os.geteuid()}"))
 
 
 def _digest(token):
@@ -57,11 +78,14 @@ def issue(path, name, role, output):
         raise ValueError("worker names allow letters, numbers, periods, hyphens and underscores")
     token = secrets.token_urlsafe(40)
     with closing(_connect(path, create=True)) as db, db:
-        db.execute("BEGIN IMMEDIATE")
         prior = db.execute("SELECT revoked FROM identities WHERE name=?", (name,)).fetchone()
         if prior is not None and prior[0] is None:
             raise ValueError("identity already active; revoke it before issuing another token")
-        db.execute("INSERT OR REPLACE INTO identities VALUES(?,?,?,?,NULL)", (name, role, _digest(token), utcnow()))
+        at = utcnow()
+        db.execute("""INSERT INTO identities(name,role,digest,issued,revoked) VALUES(?,?,?,?,NULL)
+                      ON CONFLICT(name) DO UPDATE SET role=excluded.role, digest=excluded.digest,
+                      issued=excluded.issued, revoked=NULL""", (name, role, _digest(token), at))
+        _record(db, name, role, "reissued" if prior is not None else "issued", at)
         fd = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         try:
             with os.fdopen(fd, "w") as handle:
@@ -74,15 +98,32 @@ def issue(path, name, role, output):
 
 def revoke(path, name):
     with closing(_connect(path)) as db, db:
-        count = db.execute("UPDATE identities SET revoked=? WHERE name=? AND revoked IS NULL", (utcnow(), name)).rowcount
-        if count != 1:
+        at = utcnow()
+        row = db.execute("UPDATE identities SET revoked=? WHERE name=? AND revoked IS NULL RETURNING role",
+                         (at, name)).fetchone()
+        if row is None:
             raise ValueError("no active identity matches")
+        _record(db, name, row[0], "revoked", at)
 
 
 def identities(path):
     with closing(_connect(path, readonly=True)) as db:
         return [{"name": n, "role": r, "issued": t, "revoked": end} for n, r, t, end in
                 db.execute("SELECT name,role,issued,revoked FROM identities ORDER BY name")]
+
+
+def history(path, name=None):
+    with closing(_connect(path, readonly=True)) as db:
+        db.execute("BEGIN")
+        fields = "name,role,event,at,actor"
+        if _has_events(db):
+            verify_tables(db, EVENT_TABLE)
+            source, order = "identity_events", "id"
+        else:
+            source, order = f"({LEGACY_EVENTS})", "at,name,event"
+        where, params = (" WHERE name=?", (name,)) if name is not None else ("", ())
+        db.row_factory = sqlite3.Row
+        return [dict(row) for row in db.execute(f"SELECT {fields} FROM {source}{where} ORDER BY {order}", params)]
 
 
 def identify(header, edit=False, worker=False, intake=False):
@@ -122,6 +163,7 @@ def main():
     add.add_argument("--out", type=Path, required=True, help="new private token file outside the application directory")
     cmds.add_parser("revoke").add_argument("name")
     cmds.add_parser("list")
+    cmds.add_parser("history", help="show credential lifecycle events on this host").add_argument("name", nargs="?")
     args = parser.parse_args()
     path = os.getenv("ICHNIX_IDENTITY_DB")
     if not path:
@@ -135,6 +177,8 @@ def main():
         elif args.command == "revoke":
             revoke(path, args.name)
             print("identity revoked")
+        elif args.command == "history":
+            print(json.dumps(history(path, args.name), indent=2))
         else:
             print(json.dumps(identities(path), indent=2))
     except ValueError as exc:

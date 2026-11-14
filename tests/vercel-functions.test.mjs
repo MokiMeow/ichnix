@@ -365,3 +365,45 @@ test("raw signed provider deliveries cross only the dedicated organization route
     );
   }
 });
+
+test("private case pages forward only a bounded navigation cursor", async () => {
+  const workspace = (await import("../api/org-workspace.mjs")).default;
+  process.env.ICHNIX_WORKSPACE_ORIGIN = "https://org.example.org";
+  process.env.ICHNIX_ORIGIN_SECRET = randomBytes(40).toString("hex");
+  const headers = {
+    authorization: "Bearer " + randomBytes(32).toString("hex"),
+  };
+  const request = (query) =>
+    new Request(
+      "https://frontend.example.org/api/org-workspace?route=org-api%2Fcase-page" +
+        query,
+      { headers },
+    );
+  let upstream;
+  globalThis.fetch = async (url) => {
+    upstream = String(url);
+    return Response.json({ cases: [], previous: null, next: null });
+  };
+  for (const field of ["from", "after", "before"]) {
+    assert.equal(
+      (await workspace.fetch(request("&" + field + "=IX%3A24"))).status,
+      200,
+    );
+    assert.equal(
+      upstream,
+      "https://org.example.org/api/case-page?" + field + "=IX%3A24",
+    );
+  }
+  upstream = undefined;
+  for (const query of [
+    "&before=",
+    "&limit=100",
+    "&after=A&after=B",
+    "&before=A&from=B",
+    "&from=%2F",
+    "&from=" + "x".repeat(161),
+  ]) {
+    assert.equal((await workspace.fetch(request(query))).status, 400);
+  }
+  assert.equal(upstream, undefined);
+});

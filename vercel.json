@@ -41,7 +41,7 @@
       "destination": "/console.html"
     },
     {
-      "source": "/org-api/:route(session|cases)",
+      "source": "/org-api/:route(session|cases|case-page)",
       "destination": "/api/org-workspace?route=org-api/:route"
     },
     {

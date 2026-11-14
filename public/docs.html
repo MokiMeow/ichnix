@@ -134,6 +134,32 @@ docker compose ps</code></pre>
                 workspace, use
                 <code>python3 cli.py demo --public-readonly</code>.
               </p>
+              <p>
+                For a private program, export its connector settings from your
+                secret manager before starting Compose. Catalog and signing-key
+                paths must name files inside the console container. To mount a
+                private directory, add this to a local Compose override. Grant
+                the container user (UID 10001) read access to the required files
+                and keep this directory outside the checkout.
+              </p>
+              <pre tabindex="0"><code>services:
+  console:
+    volumes:
+      - type: bind
+        source: /srv/ichnix/private-config
+        target: /run/ichnix-config
+        read_only: true
+        bind:
+          create_host_path: false</code></pre>
+              <p>
+                For example, set <code>ICHNIX_CATALOG</code> to
+                <code>/run/ichnix-config/catalog.json</code> for HackerOne.
+                Include the override when running Compose commands. Recreate the
+                console after changing environment credentials. For a
+                relay-protected workspace, set <code>ICHNIX_ORIGIN_SECRET</code>
+                before exposing the origin and verify a direct request without
+                the header returns HTTP 403.
+              </p>
             </details>
           </section>
           <section id="vercel">
@@ -241,6 +267,31 @@ python3 cli.py check-workspace</code></pre>
               >
               before startup. Keep the console state volume across restarts.
             </p>
+            <details class="manual-subsection" id="recovery">
+              <summary>Recover a private workspace</summary>
+              <p>
+                Stop all writers, including external CLI jobs. Shut down both
+                Compose services with <code>docker compose down</code>, keeping
+                their volumes. From the same shutdown point, back up
+                <code>graph_data</code>, <code>graph_auth</code> and
+                <code>console_data</code> with numeric ownership and modes
+                intact. Keep encrypted backups under separate access control.
+                Back up the external configuration and secret-manager references
+                separately.
+              </p>
+              <p>
+                Restore into three empty volumes for a separately named Compose
+                project on an isolated host. Start the pinned image with the
+                original settings. Run
+                <code>python3 cli.py storage check</code> inside the console,
+                open a known case, and check a queued handoff. A snapshot
+                restores access as of its capture time. Reapply later
+                revocations and rotations before admitting users or reconnecting
+                providers. The repository’s
+                <code>testing/restore-workspace.sh</code>
+                exercises this procedure with disposable records in CI.
+              </p>
+            </details>
           </section>
           <section id="survey">
             <h2>Test with mock cases</h2>
@@ -491,7 +542,13 @@ python3 cli.py console --port 8765</code></pre>
                 Registry mode accepts named tokens and disables the shared
                 operator token. Each review records its actor and UTC timestamp.
                 To withdraw worker access, run
-                <code>python3 cli.py identity revoke coding-worker</code>.
+                <code>python3 cli.py identity revoke coding-worker</code>. Run
+                <code>python3 cli.py identity history coding-worker</code>
+                on the host to see when that name was issued, revoked or
+                reissued and which operating-system UID made the change. Omit
+                the name for the full registry history. For older registries,
+                only the last retained credential per name can be reconstructed,
+                and its operator is unknown.
               </p>
             </details>
             <details class="manual-subsection" id="worker-mcp">

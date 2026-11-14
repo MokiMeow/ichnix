@@ -3,12 +3,15 @@ import json
 import os
 from pathlib import Path
 import secrets
+import sqlite3
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from ichnix.credentials import identify, identities, issue, revoke
+from ichnix.credentials import history, identify, identities, initialize, issue, revoke
 from ichnix.eval_graph import isolated_graph
 from ichnix.server import ConsoleServer, Handler
 
@@ -28,6 +31,69 @@ class IdentityTests(unittest.TestCase):
                 self.assertNotIn(token, json.dumps(identities(db)))
                 revoke(db, "auditor")
                 self.assertIsNone(identify("Bearer " + token))
+
+    def test_cli_lifecycle_retry_and_private_history(self):
+        with TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            db = folder / "registry.sqlite"
+            with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(db)):
+                issue(db, "alice", "read", folder / "first")
+                first = (folder / "first").read_text().strip()
+                with self.assertRaises(ValueError):
+                    issue(db, "alice", "worker", folder / "unused")
+                revoke(db, "alice")
+                with self.assertRaises(ValueError):
+                    revoke(db, "alice")
+                with self.assertRaises(FileExistsError):
+                    issue(db, "alice", "review", folder / "first")
+                issue(db, "bob", "worker", folder / "bob")
+                issue(db, "alice", "review", folder / "second")
+                self.assertIsNone(identify("Bearer " + first))
+                self.assertEqual(identify("Bearer " + (folder / "second").read_text().strip(), edit=True), "alice")
+                cli = Path(__file__).resolve().parents[1] / "cli.py"
+                raw = subprocess.check_output([sys.executable, cli, "identity", "history", "alice"])
+                events = json.loads(raw)
+                self.assertEqual([(e["event"], e["role"]) for e in events],
+                                 [("issued", "read"), ("revoked", "read"), ("reissued", "review")])
+                self.assertTrue(all(set(e) == {"at", "name", "event", "role", "actor"} and e["name"] == "alice"
+                                    and e["actor"] == f"uid:{os.geteuid()}" for e in events))
+                self.assertEqual(len(history(db)), 4)
+                self.assertEqual(history(db, "unknown"), [])
+                self.assertNotIn(first.encode(), raw)
+                self.assertEqual([e["at"] for e in events], sorted(e["at"] for e in events))
+
+    def test_legacy_registry_read_migration_and_transaction_rollback(self):
+        with TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            db = folder / "registry.sqlite"
+            db.touch(mode=0o600)
+            with sqlite3.connect(db) as conn:
+                conn.execute("CREATE TABLE identities(name TEXT PRIMARY KEY, role TEXT NOT NULL, "
+                             "digest TEXT NOT NULL UNIQUE, issued TEXT NOT NULL, revoked TEXT)")
+                conn.executemany("INSERT INTO identities VALUES(?,?,?,?,?)",
+                                 [("alice", "read", "a" * 64, "2024-01-01", None),
+                                  ("bob", "worker", "b" * 64, "2024-02-01", "2024-03-01")])
+                conn.commit()
+                legacy = history(db)
+                self.assertEqual([(e["name"], e["event"], e["actor"]) for e in legacy],
+                                 [("alice", "issued", None), ("bob", "issued", None), ("bob", "revoked", None)])
+                self.assertEqual(conn.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall(),
+                                 [("identities",)])
+            revoke(db, "alice")
+            initialize(db)
+            self.assertEqual(history(db)[:-1], legacy)
+            issue(db, "bob", "read", folder / "token")
+            self.assertEqual(history(db, "bob")[-1]["event"], "reissued")
+            with sqlite3.connect(db) as conn:
+                conn.execute("CREATE TRIGGER blocked BEFORE INSERT ON identity_events "
+                             "BEGIN SELECT RAISE(ABORT, 'blocked'); END")
+            with self.assertRaises(sqlite3.IntegrityError):
+                revoke(db, "bob")
+            self.assertIsNone(next(x for x in identities(db) if x["name"] == "bob")["revoked"])
+            with self.assertRaises(sqlite3.IntegrityError):
+                issue(db, "carl", "review", folder / "carl")
+            self.assertFalse((folder / "carl").exists())
+            self.assertEqual(history(db, "carl"), [])
 
 
 class ReviewAuditTests(unittest.TestCase):

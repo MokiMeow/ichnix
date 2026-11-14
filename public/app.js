@@ -12,6 +12,7 @@ const caseImages = new Set();
 let selected;
 let generation = 0;
 let publicDemo = false;
+let currentPage = "";
 let canReview = false;
 let disclosedCase;
 
@@ -62,6 +63,8 @@ function clearSession() {
   byId("report-upload").reset();
   byId("token").value = "";
   generation++;
+  currentPage = "";
+  byId("case-pager").hidden = true;
   token = "";
   canReview = false;
   selected = null;
@@ -93,12 +96,19 @@ async function request(path, options = {}) {
   }
   if (!response.ok) {
     if (response.status === 401 || response.status === 403)
+      throw Object.assign(
+        new Error(
+          path === "import/report"
+            ? "A named intake credential is required."
+            : options.method === "POST"
+              ? "A reviewer token is required to save decisions."
+              : "Access denied. Check your workspace token.",
+        ),
+        { denied: true },
+      );
+    if (response.status === 404 && path.startsWith("case-page"))
       throw new Error(
-        path === "import/report"
-          ? "A named intake credential is required."
-          : options.method === "POST"
-            ? "A reviewer token is required to save decisions."
-            : "Access denied. Check your workspace token.",
+        "Case paging is unavailable. Check that the workspace origin is up to date.",
       );
     throw new Error(
       response.status === 404
@@ -378,10 +388,9 @@ async function openCase(caseId) {
   }
 }
 
-async function refresh() {
+async function refresh(query = currentPage) {
   const view = ++generation;
   const upload = byId("report-upload");
-  upload.hidden = true;
   let canImport = false;
   status.textContent = "Loading cases…";
   try {
@@ -391,9 +400,22 @@ async function refresh() {
       canReview = session.can_review === true;
       canImport = session.can_import === true;
     }
-    const result = await request("cases");
-    const cases = await result.json();
+    const result = await request(publicDemo ? "cases" : "case-page" + query);
+    const page = await result.json();
     if (view !== generation) return;
+    const cases = publicDemo ? page : page.cases;
+    if (query && !cases.length) return refresh("");
+    currentPage = query;
+    const pager = byId("case-pager");
+    pager.hidden = publicDemo || !(page.previous || page.next);
+    for (const [id, cursor] of [
+      ["previous-page", page.previous],
+      ["next-page", page.next],
+    ]) {
+      const button = byId(id);
+      button.disabled = !cursor;
+      button.value = cursor || "";
+    }
     upload.hidden = !canImport;
     desk.hidden = false;
     byId("leave").hidden = publicDemo;
@@ -404,7 +426,9 @@ async function refresh() {
     list.replaceChildren();
     picker.replaceChildren();
     picker.disabled = cases.length === 0;
-    byId("case-count").textContent = String(cases.length);
+    byId("case-count").textContent = pager.hidden
+      ? String(cases.length)
+      : cases.length + " on this page";
     if (!cases.length) picker.append(element("option", "No cases"));
 
     for (const report of cases) {
@@ -430,7 +454,7 @@ async function refresh() {
     }
   } catch (error) {
     if (view === generation) {
-      if (!publicDemo) clearSession();
+      if (!publicDemo && (desk.hidden || error.denied)) clearSession();
       status.textContent = error.message;
     }
   }
@@ -476,9 +500,8 @@ async function uploadReport(event) {
     });
     const saved = await response.json();
     if (view !== generation) return;
-    selected = saved.id;
     form.reset();
-    await refresh();
+    await refresh("?from=" + encodeURIComponent(saved.id));
     if (selected === saved.id) status.textContent = "Imported " + saved.id;
   } catch (error) {
     if (view === generation) status.textContent = error.message;
@@ -506,7 +529,17 @@ function initializeConsole() {
     refresh();
   });
   byId("leave").addEventListener("click", clearSession);
-  byId("reload").addEventListener("click", refresh);
+  byId("reload").addEventListener("click", () => refresh());
+  for (const [id, direction] of [
+    ["previous-page", "before"],
+    ["next-page", "after"],
+  ]) {
+    byId(id).addEventListener("click", (event) => {
+      refresh(
+        "?" + direction + "=" + encodeURIComponent(event.currentTarget.value),
+      );
+    });
+  }
   byId("case-select").addEventListener("change", (event) =>
     openCase(event.target.value),
   );

@@ -1,5 +1,7 @@
 """Check graph authentication, selected graph and trace rendering without writing data."""
+from http.client import HTTPConnection, HTTPException
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,7 +16,8 @@ def main():
     if sys.argv[1:] in (["-h"], ["--help"]):
         print(__doc__)
         return 0
-    if sys.argv[1:]:
+    console_ready = sys.argv[1:] == ["--console-ready"]
+    if sys.argv[1:] and not console_ready:
         return 2
     try:
         checks = storage_checks("ready")
@@ -26,6 +29,21 @@ def main():
         checks["hydradb"] = True
     except (OSError, ValueError, RuntimeError):
         checks["hydradb"] = False
+    if console_ready:
+        # Only send the origin credential to the in-container loopback listener.
+        conn = HTTPConnection("127.0.0.1", 8765, timeout=2)
+        try:
+            headers = {}
+            if "ICHNIX_ORIGIN_SECRET" in os.environ:
+                headers["X-Ichnix-Origin-Secret"] = os.environ["ICHNIX_ORIGIN_SECRET"]
+            conn.request("GET", "/console", headers=headers)
+            checks["console"] = conn.getresponse().status == 200
+        except (OSError, HTTPException, ValueError):
+            checks["console"] = False
+        finally:
+            conn.close()
+        print(json.dumps(checks))
+        return int(not all(checks.values()))
     try:
         trace = subprocess.run(["node", str(ROOT / "ichnix" / "trace.mjs")], input=b"[]",
                                capture_output=True, timeout=10, check=True)

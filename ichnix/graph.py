@@ -1,7 +1,7 @@
 """Versioned remediation evidence stored in a dedicated HydraDB graph."""
 
 import hashlib
-import getpass
+import pwd
 from threading import Lock
 from datetime import datetime, timezone
 import json
@@ -189,6 +189,38 @@ class Graph:
     def cases(self):
         return self._query(f"MATCH (r:Report) RETURN {self._report_cols()} ORDER BY r.key")
 
+    def case_page(self, direction=None, cursor=None):
+        comparisons = {"after": ">", "before": "<", "from": ">="}
+        params = {}
+        where = ""
+        if direction is not None:
+            if direction not in comparisons:
+                raise ValueError("invalid page direction")
+            params["cursor"] = _case_id(cursor)
+            where = f" WHERE r.key {comparisons[direction]} $cursor"
+        backwards = direction == "before"
+        order = "DESC" if backwards else "ASC"
+        rows = self._query(
+            f"MATCH (r:Report){where} RETURN r.key AS id, r.title AS title ORDER BY r.key {order} LIMIT 21",
+            **params)
+        more = len(rows) > 20
+        cases = rows[:20]
+        if backwards:
+            cases.reverse()
+        previous = next_cursor = None
+        if cases:
+            first, last = cases[0]["id"], cases[-1]["id"]
+            other = False
+            if direction:
+                comparison, boundary = (">", last) if backwards else ("<", first)
+                other = bool(self._query(
+                    f"MATCH (r:Report) WHERE r.key {comparison} $boundary RETURN r.key AS id LIMIT 1",
+                    boundary=boundary))
+            has_previous, has_next = (more, other) if backwards else (other, more)
+            previous = first if has_previous else None
+            next_cursor = last if has_next else None
+        return {"cases": cases, "previous": previous, "next": next_cursor}
+
     def _report(self, case_id):
         rows = self._query(f"MATCH (r:Report {{id:$id}}) RETURN {self._report_cols()}, r.snapshot AS snapshot, r.title_vector_v1 AS vector",
                            id=_key("case", _case_id(case_id)))
@@ -341,7 +373,13 @@ class Graph:
                 expected_scope.get(k) != r[k] for k in ("service", "component", "revision"))):
             raise ValueError("case mapping changed since review began")
         owner = _field({"owner": owner}, "owner")
-        actor = _field({"actor": actor if actor is not None else "local:" + getpass.getuser()}, "actor")
+        if actor is None:
+            uid = os.geteuid()
+            try:
+                actor = "local:" + pwd.getpwuid(uid).pw_name
+            except KeyError:
+                actor = f"local:uid:{uid}"
+        actor = _field({"actor": actor}, "actor")
         if not isinstance(accepted, bool):
             raise ValueError("accepted must be a boolean")
         if request_id is None:

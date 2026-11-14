@@ -11,7 +11,7 @@ from threading import BoundedSemaphore
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 from ichnix.credentials import identify
 from ichnix.graph import Graph
@@ -147,6 +147,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized(write):
             return self.send(401, {"error": "valid access token required"})
         graph = Graph()
+        if path == "/api/case-page" and not write:
+            cursor = parse_qsl(urlsplit(self.path).query, keep_blank_values=True, strict_parsing=True, max_num_fields=1)
+            return self.send(200, graph.case_page(*cursor[0]) if cursor else graph.case_page())
         if path == "/api/cases" and not write:
             return self.send(200, graph.cases())
         match = re.fullmatch(r"/api/cases/([\w.:_-]{1,160})(?:/(reviews|trace\.svg|diagram\.svg))?", path)

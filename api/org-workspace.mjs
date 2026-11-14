@@ -56,7 +56,7 @@ export default {
       ? signatures[route]
       : null;
     const resource =
-      /^org-api\/(session|cases|import\/report|cases\/([A-Za-z0-9._:-]{1,160})(?:\/(diagram\.svg|trace\.svg|reviews))?)$/.exec(
+      /^org-api\/(session|cases|case-page|import\/report|cases\/([A-Za-z0-9._:-]{1,160})(?:\/(diagram\.svg|trace\.svg|reviews))?)$/.exec(
         route,
       );
     if ((!resource && !signature) || [".", ".."].includes(resource?.[2]))
@@ -109,6 +109,21 @@ export default {
         signature ? route : "api/" + resource[1],
         request,
       );
+      if (resource?.[1] === "case-page") {
+        const params = new URLSearchParams(url.search);
+        params.delete("route");
+        const fields = [...params];
+        if (
+          fields.length > 1 ||
+          fields.some(
+            ([key, value]) =>
+              !["after", "before", "from"].includes(key) ||
+              !/^[A-Za-z0-9._:-]{1,160}$/.test(value),
+          )
+        )
+          return json({ error: "invalid case cursor" }, 400);
+        target.url.search = params.toString();
+      }
       headers["x-ichnix-origin-secret"] = target.secret;
       const response = await fetch(target.url, {
         method: request.method,

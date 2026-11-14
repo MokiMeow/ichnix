@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      COMPOSE_PROJECT_NAME: ichnix-ci-${{ github.run_id }}-${{ github.run_attempt }}
       ICHNIX_IDENTITY_DB: /var/lib/ichnix/identities.sqlite3
       ICHNIX_HANDOFF_DB: /var/lib/ichnix/handoffs.sqlite3
     steps:
@@ -19,6 +20,11 @@ jobs:
           docker build --file Containerfile --target test --tag ichnix:tests .
           docker run --rm --read-only --tmpfs /tmp ichnix:tests
           docker run --rm --read-only --network none --tmpfs /tmp ichnix:tests python3 cli.py survey
+      - name: Configure a disposable origin credential
+        run: |
+          origin_secret=$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')
+          echo "::add-mask::$origin_secret"
+          echo "ICHNIX_ORIGIN_SECRET=$origin_secret" >> "$GITHUB_ENV"
       - name: Start the private workspace
         run: |
           docker compose build
@@ -26,6 +32,45 @@ jobs:
           docker compose run --rm console python3 cli.py identity issue ci-reader --role read --out /var/lib/ichnix/ci-reader.token
           docker compose up --detach --wait
           docker compose exec -T console python3 cli.py import examples/cases.json
+      - name: Deliver a signed HackerOne webhook to the running workspace
+        env:
+          ICHNIX_PROGRAM: ci-fixture
+          ICHNIX_CATALOG: /var/lib/ichnix/ci-catalog.json
+        run: |
+          ICHNIX_WEBHOOK_SECRET=$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')
+          echo "::add-mask::$ICHNIX_WEBHOOK_SECRET"
+          export ICHNIX_WEBHOOK_SECRET
+          docker compose exec -T console sh -c 'umask 077; cat > "$1"' sh "$ICHNIX_CATALOG" <<'JSON'
+          {"program":"ci-fixture","reports":{"314":{"service":"ci-ledger","component":"ci-archive","revision":"ci-r7","owner":"ci-review"}}}
+          JSON
+          docker compose up --detach --wait --no-deps console
+          python3 - <<'PY'
+          import hmac
+          import json
+          import os
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+
+          report = {"type": "report", "id": "314", "attributes": {"state": "triaged", "title": "Synthetic CI report"},
+                    "relationships": {"program": {"data": {"attributes": {"handle": "ci-fixture"}}}}}
+          body = json.dumps({"data": {"report": report}}).encode()
+          url = "http://127.0.0.1:" + os.getenv("ICHNIX_PORT", "8765") + "/hooks/hackerone"
+          headers = {"Content-Type": "application/json", "X-Ichnix-Origin-Secret": os.environ["ICHNIX_ORIGIN_SECRET"]}
+          try:
+              urlopen(Request(url, data=body, headers=headers), timeout=10).close()
+          except HTTPError as error:
+              assert error.code == 403, error.code
+          else:
+              raise AssertionError("unsigned webhook was accepted")
+          headers["X-H1-Signature"] = "sha256=" + hmac.digest(os.environ["ICHNIX_WEBHOOK_SECRET"].encode(), body, "sha256").hex()
+          with urlopen(Request(url, data=body, headers=headers), timeout=10) as response:
+              assert response.status == 200 and json.load(response) == {"imported": 1, "skipped": 0}
+          PY
+          docker compose exec -T console python3 cli.py context h1-ci-fixture-314 | python3 -c '
+          import json, sys
+          report = json.load(sys.stdin)["report"]
+          assert (report["id"], report["revision"]) == ("h1-ci-fixture-314", "ci-r7")
+          '
       - name: Recreate both services with their original volumes
         run: |
           docker compose exec -T console python3 cli.py handoff enqueue IX-108 owner-review > "$RUNNER_TEMP/queued.json"
@@ -36,18 +81,24 @@ jobs:
           docker compose exec -T console python3 cli.py handoff status "$job" | python3 -c 'import json,sys; assert json.load(sys.stdin)["state"] == "queued"'
           docker compose exec -T console python3 cli.py context IX-108 | python3 -c 'import json,sys; assert json.load(sys.stdin)["report"]["id"] == "IX-108"'
           docker compose exec -T console python3 - <<'PY'
+          import os
           from pathlib import Path
           from urllib.request import Request, urlopen
           token = Path("/var/lib/ichnix/ci-reader.token").read_text().strip()
           request = Request("http://127.0.0.1:8765/api/cases/IX-108/trace.svg",
-                            headers={"Authorization": "Bearer " + token})
+                            headers={"Authorization": "Bearer " + token,
+                                     "X-Ichnix-Origin-Secret": os.environ["ICHNIX_ORIGIN_SECRET"]})
           with urlopen(request, timeout=5) as response:
               assert response.headers.get_content_type() == "image/svg+xml"
               assert b"<svg" in response.read()
           PY
+      - name: Restore cold backups onto new volumes and verify access
+        run: bash testing/restore-workspace.sh
       - name: Remove disposable CI volumes
         if: always()
-        run: docker compose down --volumes
+        run: |
+          docker compose -p "${COMPOSE_PROJECT_NAME}-restore" down --volumes
+          docker compose -p "$COMPOSE_PROJECT_NAME" down --volumes
 
   browser:
     runs-on: ubuntu-24.04

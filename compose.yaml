@@ -36,13 +36,7 @@ services:
   console:
     <<: *workspace
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "from urllib.request import urlopen; from ichnix.storage import checks; urlopen('http://127.0.0.1:8765/console', timeout=2).close(); raise SystemExit(not all(checks('ready').values()))",
-        ]
+      test: ["CMD", "python3", "scripts/check-workspace.py", "--console-ready"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -50,6 +44,18 @@ services:
       ICHNIX_HYDRA_TOKEN_FILE: /run/ichnix-auth/hydra-token
       ICHNIX_IDENTITY_DB:
       ICHNIX_HANDOFF_DB:
+      ICHNIX_ORIGIN_SECRET:
+      ICHNIX_CI_HMAC_KEY_FILE:
+      ICHNIX_AUTO_HANDOFFS:
+      ICHNIX_PROGRAM:
+      ICHNIX_CATALOG:
+      ICHNIX_WEBHOOK_SECRET:
+      HACKERONE_API_USER:
+      HACKERONE_API_TOKEN:
+      ICHNIX_BUGCROWD_ENGAGEMENT:
+      ICHNIX_BUGCROWD_CATALOG:
+      ICHNIX_BUGCROWD_WEBHOOK_SECRET:
+      BUGCROWD_API_TOKEN:
       ICHNIX_CF_ACCOUNT_ID:
       ICHNIX_CF_AI_TOKEN:
       ICHNIX_CF_AI_TOKEN_FILE:
