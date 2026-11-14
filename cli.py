@@ -12,6 +12,8 @@ from mcp_server import serve
 
 ROOT = Path(__file__).resolve().parent
 OPERATOR_COMMANDS = {
+    "storage": ("storage.py", "initialize or check the private SQLite stores"),
+    "survey": ("testing/survey.py", "exercise synthetic human and agent workflows in a disposable workspace"),
     "identity": ("credentials.py", "issue, list and revoke named workspace identities"),
     "handoff": ("handoff_cli.py", "queue cases, claim reviews and check lease status"),
     "staging": ("staging.py", "verify or sign the staging configuration manifest"),
@@ -50,12 +52,21 @@ def parser():
     bc = commands.add_parser("sync-bugcrowd", help="import reviewed Bugcrowd submissions")
     bc.add_argument("--engagement", required=True, help="customer engagement code")
     bc.add_argument("--catalog", required=True, help="inventory JSON keyed by submission or target UUID")
+    human = commands.add_parser("human", help="read or review through the private HTTP console with a named credential")
+    human.add_argument("--workspace-url", help="private workspace origin (ICHNIX_WORKSPACE_URL)")
+    human.add_argument("--token-file", help="reader or reviewer credential (ICHNIX_USER_TOKEN_FILE)")
+    remote = human.add_subparsers(dest="action", required=True)
+    remote.add_parser("cases", help="list the reports available to this identity")
+    remote.add_parser("context", help="read a case and its evidence").add_argument("case_id")
+    remote_review = remote.add_parser("review", help="record a named owner decision")
+    remote_review.add_argument("--request-id", help="stable idempotency key when retrying a decision")
     review = commands.add_parser("review", help="review a suggested remediation owner")
-    review.add_argument("case_id")
-    review.add_argument("owner")
-    decisions = review.add_mutually_exclusive_group(required=True)
-    decisions.add_argument("--accept", action="store_true")
-    decisions.add_argument("--reject", action="store_true")
+    for entry in (review, remote_review):
+        entry.add_argument("case_id")
+        entry.add_argument("owner")
+        decisions = entry.add_mutually_exclusive_group(required=True)
+        decisions.add_argument("--accept", action="store_true")
+        decisions.add_argument("--reject", action="store_true")
     mcp = commands.add_parser("mcp", help="serve local read-only or remote worker tools over stdio")
     mcp.add_argument("--worker", action="store_true", help="claim and complete leased reviews through a private workspace")
     mcp.add_argument("--workspace-url", help="workspace origin (ICHNIX_WORKSPACE_URL)")
@@ -122,6 +133,25 @@ def mcp_config(args):
         print("wrote stdio client configuration")
 
 
+def human_request(args):
+    from uuid import uuid4
+    from graph import _case_id
+    from worker_client import WorkspaceClient
+    client = WorkspaceClient(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
+                             args.token_file or os.getenv("ICHNIX_USER_TOKEN_FILE"))
+    route = "/api/cases"
+    if args.action == "cases":
+        return client.request("GET", route)
+    route += "/" + _case_id(args.case_id)
+    context = client.request("GET", route)
+    if args.action == "context":
+        return context
+    report = context["report"]
+    body = {"owner": args.owner, "accepted": args.accept,
+            "scope": {key: report[key] for key in ("service", "component", "revision")}}
+    return client.request("POST", route + "/reviews", body, request_id=args.request_id or str(uuid4()))
+
+
 def run(args, graph):
     if args.command == "cases":
         return graph.cases()
@@ -151,6 +181,9 @@ def main():
         os.execv(sys.executable, [sys.executable, str(ROOT / script), *sys.argv[2:]])
     args = parser().parse_args()
     try:
+        if args.command == "human":
+            print(json.dumps(human_request(args), ensure_ascii=True, indent=2))
+            return 0
         if args.command == "mcp-config":
             mcp_config(args)
             return 0

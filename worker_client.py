@@ -55,37 +55,40 @@ def workspace_origin(value):
 
 def _credential(path):
     if not path:
-        raise ValueError("worker token file required")
+        raise ValueError("workspace token file required")
     fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as stream:
         mode = os.fstat(fd).st_mode
         if not stat.S_ISREG(mode) or mode & 0o077:
-            raise ValueError("worker token requires a private regular file")
+            raise ValueError("workspace token requires a private regular file")
         raw = stream.read(514)
     if len(raw) > 513 or not re.fullmatch(rb"[A-Za-z0-9_-]{32,512}\n?", raw):
-        raise ValueError("invalid worker credential")
+        raise ValueError("invalid workspace credential")
     return raw.rstrip(b"\n").decode("ascii")
 
 
-class Worker:
+class WorkspaceClient:
     def __init__(self, url, token_file):
         origin = workspace_origin(url)
         self.connection = HTTPSConnection if origin.scheme == "https" else HTTPConnection
         self.host, self.port = origin.hostname, origin.port
         self.bearer = _credential(token_file)
-        self.lease = None
-        self.completed = None
 
-    def _post(self, path, body):
+    def request(self, method, path, body=None, *, request_id=None):
         # http.client never follows redirects or sends credentials through environment proxies.
         connection = self.connection(self.host, self.port, timeout=15)
         try:
-            connection.request("POST", path, json.dumps(body).encode(), {
-                "Authorization": "Bearer " + self.bearer, "Content-Type": "application/json"})
+            headers = {"Authorization": "Bearer " + self.bearer}
+            payload = None
+            if body is not None:
+                headers["Content-Type"] = "application/json"
+                payload = json.dumps(body).encode()
+            if request_id:
+                headers["Idempotency-Key"] = request_id
+            connection.request(method, path, payload, headers)
             response = connection.getresponse()
             if response.status in (401, 403):
-                self.lease = None
-                raise PermissionError("review access denied or lease expired")
+                raise PermissionError("workspace access denied")
             if response.status != 200 or response.headers.get_content_type() != "application/json":
                 raise RuntimeError("workspace request failed")
             payload = response.read(MAX_RESPONSE + 1)
@@ -98,6 +101,19 @@ class Worker:
             raise RuntimeError("workspace unavailable") from None
         finally:
             connection.close()
+
+class Worker(WorkspaceClient):
+    def __init__(self, url, token_file):
+        super().__init__(url, token_file)
+        self.lease = None
+        self.completed = None
+
+    def _post(self, path, body):
+        try:
+            return self.request("POST", path, body)
+        except PermissionError:
+            self.lease = None
+            raise
 
     def call(self, name, args):
         if name == "claim_review":
