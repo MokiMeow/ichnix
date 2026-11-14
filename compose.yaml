@@ -1,0 +1,61 @@
+x-workspace: &workspace
+  image: ichnix:local
+  platform: linux/amd64
+  build:
+    context: .
+    dockerfile: Containerfile
+    target: app
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
+  environment:
+    ICHNIX_HYDRA_TOKEN_FILE: /run/ichnix-auth/hydra-token
+
+services:
+  graph:
+    <<: *workspace
+    command: ["scripts/start-hydra.sh"]
+    ports: ["127.0.0.1:${ICHNIX_PORT:-8765}:8765"]
+    volumes:
+      - graph_data:/var/lib/ichnix
+      - graph_auth:/run/ichnix-auth
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:9090/readyz', timeout=2).close()",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 1m
+  console:
+    <<: *workspace
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8765/console', timeout=2).close()",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    network_mode: service:graph
+    depends_on:
+      graph:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - console_data:/var/lib/ichnix
+      - graph_auth:/run/ichnix-auth:ro
+
+volumes:
+  graph_data:
+  graph_auth:
+  console_data:

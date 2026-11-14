@@ -1,0 +1,39 @@
+name: verify workspace
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check application behavior against HydraDB
+        run: |
+          docker build --file Containerfile --target test --tag ichnix:tests .
+          docker run --rm --read-only --tmpfs /tmp ichnix:tests
+      - name: Start the private workspace
+        run: |
+          docker compose up --build --detach --wait
+          docker compose exec -T console python3 cli.py import examples/cases.json
+      - name: Recreate both services with their original volumes
+        run: |
+          docker compose down
+          docker compose up --detach --wait
+          docker compose exec -T console python3 cli.py context IX-108 | python3 -c 'import json,sys; assert json.load(sys.stdin)["report"]["id"] == "IX-108"'
+          docker compose exec -T console python3 - <<'PY'
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          token = Path("/var/lib/ichnix/console-token").read_text().strip()
+          request = Request("http://127.0.0.1:8765/api/cases/IX-108/trace.svg",
+                            headers={"Authorization": "Bearer " + token})
+          with urlopen(request, timeout=5) as response:
+              assert response.headers.get_content_type() == "image/svg+xml"
+              assert b"<svg" in response.read()
+          PY
+      - name: Remove disposable CI volumes
+        if: always()
+        run: docker compose down --volumes
