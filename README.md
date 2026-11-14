@@ -1,6 +1,20 @@
 # Ichnix
 
-A self-hosted review workspace for product security teams. Import reviewed bounty report metadata, compare a staging configuration export to approved settings, and share the evidence and remediation handoff through a web console, CLI or read-only MCP server.
+Ichnix is a self-hosted review workspace for product security teams. It maps reviewed bounty metadata to deployed components, compares signed CI observations to team policy, and gives coding agents a scoped remediation handoff.
+
+## Verify the workflow without a bounty account
+
+On Ubuntu 24.04 x86-64, install Python 3.12, Node 24 and pnpm 12, then run:
+
+```sh
+pnpm install --frozen-lockfile
+python3 scripts/install-hydra.py
+python3 cli.py acceptance
+```
+
+The command reads one [public HackerOne disclosure](https://hackerone.com/reports/2236133) and maps it to a disposable local workspace. It measures three HTTP headers on the running local console, signs the manifest, verifies it, and reads the stored evidence through a named MCP worker. Its receipt includes a timestamp and manifest digest. These observations concern the local console. The [curl advisory](https://curl.se/docs/CVE-2023-46219.html) describes the original report.
+
+Start the app to browse the setup and provider guides at `/docs`. [Contributing](CONTRIBUTING.md) · [agent instructions](AGENTS.md) · [security reporting](SECURITY.md).
 
 ## Run the local demo
 
@@ -24,7 +38,9 @@ cloudflared tunnel --url http://127.0.0.1:18766
 
 ## Persistent installation
 
-Run these commands in separate terminals. Both services bind to loopback by default.
+With Docker Compose on an amd64 host, run `docker compose up --build --detach --wait`, open `http://127.0.0.1:8765/console` and retrieve your operator token privately from `/var/lib/ichnix/console-token` in the console container. The stack uses named volumes for graph data, graph credentials and console state. Preserve those volumes across upgrades.
+
+For a native installation, run these commands in separate terminals. Both services bind to loopback by default.
 
 ```sh
 scripts/start-hydra.sh
@@ -63,9 +79,11 @@ Stage checks run where the customer exports their manifest. The policy is a per-
 
 Use python3 cli.py --help for operator commands. For an MCP client, configure a local stdio server with command python3 and arguments /absolute/path/to/ichnix/cli.py and mcp. Scope the process credentials to the organization's graph. The two local read tools are list_cases and get_case_context. Administrative review decisions are made through the console or CLI. The local process identity controls access to the CLI, graph credentials and staging files.
 
+Use `python3 cli.py check-workspace` to exercise a read query against the configured HydraDB graph and render a Pele trace. Generate a worker profile with `python3 cli.py mcp-config --profile worker --workspace-url https://workspace.example.org --worker-token-file /private/worker.token --out /private/mcp.json`. For Codex, add `--format codex` and select a new TOML output path. These files reference private token paths.
+
 ## Agent handoffs
 
-Queue a specific case for owner or evidence review with the local operator CLI:
+Set ICHNIX_AUTO_HANDOFFS=1 in the importing and staging processes to queue owner review after report intake and evidence review after completed CI checks. They must use the console host's state directory and graph configuration. Supply `--run-id` on staging intake to retry the same CI run. To queue a specific case manually:
 
 ```sh
 python3 handoff_cli.py enqueue IX-108 evidence-review
@@ -86,6 +104,13 @@ python3 eval_graph.py --clients 16 --requests 128
 
 The evaluation uses a disposable real graph and six synthetic holdouts across three shared component revisions. It measures retrieval of the expected first CI check and remediation owner. It does not measure discovery of new vulnerabilities. The optional load phase measures context reads on this fixture.
 
-For the hackathon, enter **Track 1, the self-improving graph**. The public console's Learning curve panel measures the rank of the expected owner and CI check as reviews and evidence enter the graph. The customer is the product security team that already runs a bounty program and needs to route evidence to engineering owners.
+Run `python3 cli.py bench-workers --workers 100 --jobs 100` to compare one worker with 100 independent, separately credentialed MCP clients on equal job counts. The benchmark records handshake time, throughput, per-job latency and persisted ownership. The jobs are synthetic and the transport, database and processes are real.
 
 Ichnix application code is MIT licensed. The bundled fonts retain their accompanying licenses. The graph runtime is separately distributed by HydraDB. TT Commons is used when available locally, with bundled DM Sans as fallback. Anonymous Pro supplies the monospaced text.
+
+## References
+
+- [HydraDB runtime and query guide](https://github.com/hydra-db/hydradb/blob/v0.4.0/USING-HYDRADB.md) and [Elastic License 2.0](https://github.com/hydra-db/hydradb/blob/v0.4.0/LICENSE)
+- [HackerOne customer API](https://api.hackerone.com/customer-resources/) and [webhook signatures and payloads](https://api.hackerone.com/webhooks/)
+- [Bugcrowd API setup](https://docs.bugcrowd.com/api/getting-started/) and [webhook authentication](https://docs.bugcrowd.com/api/webhooks/)
+- [MCP stdio transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
