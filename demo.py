@@ -1,4 +1,4 @@
-"""Run a synthetic demo with its own temporary HydraDB and console credentials."""
+"""Run a disposable preview with sample cases and optional public disclosure intake."""
 import argparse
 import json
 import os
@@ -42,7 +42,7 @@ class PublicDemoHandler(Handler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=0)
-    parser.add_argument("--public-readonly", action="store_true", help="serve synthetic cases without a token")
+    parser.add_argument("--public-readonly", action="store_true", help="serve the isolated preview without a token")
     parser.add_argument("--with-disclosure", action="store_true", help="run public intake and serve its case and receipt")
     args = parser.parse_args()
     if args.with_disclosure and not args.public_readonly:

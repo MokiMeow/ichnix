@@ -20,7 +20,7 @@ OPERATOR_COMMANDS = {
     "bench-workers": ("scripts/bench_workers.py", "measure concurrent remote review workers on an isolated graph"),
     "evaluate": ("eval_graph.py", "measure retrieval and load on an isolated graph"),
     "console": ("server.py", "serve the persistent workspace using configured credentials"),
-    "demo": ("demo.py", "start a disposable synthetic demo"),
+    "demo": ("demo.py", "start a disposable preview with sample cases or a live public disclosure"),
 }
 
 
