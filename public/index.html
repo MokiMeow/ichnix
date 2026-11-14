@@ -127,108 +127,24 @@
           <a
             class="specimen-foot"
             href="/docs#survey"
-            aria-label="Read the guide to running python3 cli.py survey locally"
+            aria-label="Run this sample locally with the survey guide"
             ><span aria-hidden="true">$</span><code>python3 cli.py survey</code
             ><span class="run-link">Guide →</span></a
           >
         </section>
       </section>
-      <section class="home-block" id="workflow" aria-labelledby="flow-title">
-        <div class="block-head">
-          <h2 id="flow-title">Review workflow</h2>
-          <a class="plain-link" href="/docs#graph">Graph model →</a>
-        </div>
-        <ol class="flow">
-          <li>
-            <h3>Map the report</h3>
-            <p>
-              Match HackerOne or Bugcrowd metadata to the service and revision
-              in your private inventory.
-            </p>
-          </li>
-          <li>
-            <h3>Check staging</h3>
-            <p>
-              Compare a signed CI manifest with policy. Keep missing
-              observations visible alongside passes and failures.
-            </p>
-          </li>
-          <li>
-            <h3>Assign the review</h3>
-            <p>
-              Give a person or MCP worker the relevant evidence. Store the
-              outcome so the next reviewer can retrieve it.
-            </p>
-          </li>
-        </ol>
-      </section>
       <section
-        class="home-block questions"
-        id="talk"
-        aria-labelledby="talk-title"
+        class="manual-entry"
+        id="workflow"
+        aria-labelledby="manual-title"
       >
-        <div>
-          <h2 id="talk-title">Talk through a finding</h2>
-          <p class="block-desc">Three questions from the review desk.</p>
+        <div id="talk">
+          <h2 id="manual-title">Operator manual</h2>
+          <p>Follow a sample review or set up a workspace for your team.</p>
         </div>
-        <div class="question-list">
-          <details open>
-            <summary>What actually failed in this case?</summary>
-            <p>
-              The fixture reports 60 days of retention against a 30-day policy.
-              Auditing is enabled. The manifest omits the masking setting, so
-              that check stays inconclusive.
-            </p>
-            <a class="plain-link" href="/docs#ci">Staging evidence →</a>
-          </details>
-          <details>
-            <summary>Why suggest a particular owner?</summary>
-            <p>
-              Ichnix starts with the catalog owner. Prior decisions on the same
-              component revision influence the ranking, and a reviewer records
-              the final decision.
-            </p>
-            <a class="plain-link" href="/docs#graph">Owner ranking →</a>
-          </details>
-          <details>
-            <summary>What does a coding agent receive?</summary>
-            <p>
-              A named worker claims one assignment over MCP. Its lease grants
-              access to the case context and lets it record a disposition. The
-              console keeps the graph credentials.
-            </p>
-            <a class="plain-link" href="/docs#agents">Agent setup →</a>
-          </details>
-        </div>
-      </section>
-      <section class="home-block manuals" aria-labelledby="manual-title">
-        <h2 id="manual-title">From the manual</h2>
-        <div class="manual-links">
-          <a href="/docs#install"
-            ><img
-              src="/evidence-atlas.webp"
-              loading="lazy"
-              width="1368"
-              height="912"
-              alt=""
-            /><span
-              ><strong>Self-host a workspace</strong
-              ><small>HydraDB, SQLite and named identities</small></span
-            ><b aria-hidden="true">→</b></a
-          >
-          <a href="/docs#agents"
-            ><img
-              src="/review-detail.webp"
-              loading="lazy"
-              width="900"
-              height="600"
-              alt=""
-            /><span
-              ><strong>Configure an MCP worker</strong
-              ><small>Credentials, leases and review outcomes</small></span
-            ><b aria-hidden="true">→</b></a
-          >
-        </div>
+        <a class="plain-link" href="/docs#walkthrough"
+          >Read the walkthrough <span aria-hidden="true">→</span></a
+        >
       </section>
     </main>
     <footer class="site-footer">

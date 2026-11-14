@@ -34,6 +34,7 @@
             <summary>Contents</summary>
             <nav class="manual-index" aria-label="Manual contents">
               <p>Getting started</p>
+              <a href="#walkthrough">Follow a finding</a>
               <a href="#install">Self-host a workspace</a>
               <a href="#storage">Configure SQLite</a>
               <a href="#survey">Test with mock cases</a>
@@ -58,6 +59,36 @@
               scoped review to an engineer or coding agent.
             </p>
           </header>
+          <section id="walkthrough" aria-labelledby="walkthrough-title">
+            <h2 id="walkthrough-title">Follow a finding</h2>
+            <p>
+              Trace the synthetic ledger retention case from its scope in the
+              catalog to the worker’s decision.
+            </p>
+            <ol class="walkthrough-steps">
+              <li>
+                <strong>Locate the deployment.</strong> SURVEY-101 maps to the
+                ledger service’s archive component at revision r7. The report
+                and its CI observations share that snapshot.
+              </li>
+              <li>
+                <strong>Inspect the evidence.</strong> Retention is 60 days
+                against a 30-day policy. Auditing passes. The manifest omits
+                identifier masking, so the check stays inconclusive. A signature
+                authenticates the manifest’s source. A reviewer still assesses
+                the original finding.
+              </li>
+              <li>
+                <strong>Record the outcome.</strong> The evidence worker claims
+                a scoped lease and records <code>needs-evidence</code>. Later
+                reviewers can retrieve that outcome from the same snapshot.
+              </li>
+            </ol>
+            <p>
+              <a href="#survey">Run the sample locally</a> ·
+              <a href="/console">Open the review console</a>
+            </p>
+          </section>
           <section id="install">
             <h2>Self-host a workspace</h2>
             <p>
@@ -89,16 +120,19 @@ scripts/start-hydra.sh</code></pre>
               <code>ICHNIX_HYDRA_CELL</code>. Use authenticated HTTPS for remote
               connections.
             </p>
-            <h3>Container deployment</h3>
-            <pre tabindex="0"><code>docker compose up --build --detach --wait
+            <details class="manual-subsection" id="containers">
+              <summary>Container deployment</summary>
+              <pre tabindex="0"><code>docker compose up --build --detach --wait
 docker compose ps</code></pre>
-            <p>
-              Compose targets Linux amd64. It binds the console to loopback and
-              keeps graph data, authentication material and console state in
-              named volumes. Put an HTTPS reverse proxy in front of the console
-              for remote staff. For a disposable, read-only sample workspace,
-              use <code>python3 cli.py demo --public-readonly</code>.
-            </p>
+              <p>
+                Compose targets Linux amd64. It binds the console to loopback
+                and keeps graph data, authentication material and console state
+                in named volumes. Put an HTTPS reverse proxy in front of the
+                console for remote staff. For a disposable, read-only sample
+                workspace, use
+                <code>python3 cli.py demo --public-readonly</code>.
+              </p>
+            </details>
           </section>
           <section id="storage">
             <h2>Configure SQLite</h2>
@@ -134,11 +168,12 @@ python3 cli.py check-workspace</code></pre>
 python3 cli.py survey
 python3 cli.py survey --out /tmp/new-survey.json</code></pre>
             <p>
-              The offline survey runs three synthetic reports through HydraDB,
-              SQLite, the HTTP service, the human CLI and both MCP profiles. One
-              case deliberately has a failed retention check and missing
-              redaction evidence. A second shares its component revision. A
-              third provides an unrelated control case.
+              The offline survey runs four synthetic reports through HydraDB,
+              SQLite, HTTP, the CLI and both MCP profiles. Two ledger reports
+              share revision r7, and a third report covers an unrelated
+              component. In SURVEY-104, all three controls pass on ledger
+              revision r8. Replaying the signed r7 manifest against r8 is
+              rejected without adding evidence.
             </p>
             <p>
               For a live agent check in a source checkout, run
@@ -194,13 +229,14 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
               its provider identity. Attachments, payments and researcher
               correspondence stay on the bounty platform.
             </p>
-            <h3>Map a disclosed report</h3>
-            <p>
-              Save this example as <code>private/catalog.json</code>. Its
-              service, component, revision and owner describe a local review
-              workspace.
-            </p>
-            <pre tabindex="0"><code>{
+            <details class="manual-subsection" id="public-report">
+              <summary>Map a disclosed report</summary>
+              <p>
+                Save this example as <code>private/catalog.json</code>. Its
+                service, component, revision and owner describe a local review
+                workspace.
+              </p>
+              <pre tabindex="0"><code>{
   "program": "curl",
   "reports": {
     "2236133": {
@@ -211,69 +247,76 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
     }
   }
 }</code></pre>
-            <pre
-              tabindex="0"
-            ><code>python3 cli.py import-disclosed --program curl \
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py import-disclosed --program curl \
   --report-id 2236133 --catalog private/catalog.json
 python3 cli.py context h1-curl-2236133</code></pre>
-            <h3>HackerOne customer program</h3>
-            <p>
-              Set <code>HACKERONE_API_USER</code> and
-              <code>HACKERONE_API_TOKEN</code> through your secret manager. Use
-              a catalog with your program handle and report IDs or asset
-              identifiers. The importer accepts triaged, retesting and resolved
-              reports.
-            </p>
-            <pre tabindex="0"><code>python3 cli.py sync --program YOUR_HANDLE \
+            </details>
+            <details class="manual-subsection" id="hackerone">
+              <summary>HackerOne customer program</summary>
+              <p>
+                Set <code>HACKERONE_API_USER</code> and
+                <code>HACKERONE_API_TOKEN</code> through your secret manager.
+                Use a catalog with your program handle and report IDs or asset
+                identifiers. The importer accepts triaged, retesting and
+                resolved reports.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py sync --program YOUR_HANDLE \
   --catalog private/catalog.json</code></pre>
-            <p>
-              For signed deliveries, set <code>ICHNIX_PROGRAM</code>,
-              <code>ICHNIX_CATALOG</code> and
-              <code>ICHNIX_WEBHOOK_SECRET</code> on the console. Register
-              <code>/hooks/hackerone</code> on its HTTPS origin.
-              <a href="https://api.hackerone.com/customer-reference/"
-                >HackerOne customer API</a
-              >
-              ·
-              <a href="https://api.hackerone.com/webhooks/"
-                >HackerOne webhook verification</a
-              >
-            </p>
-            <h3>Bugcrowd engagement</h3>
-            <p>
-              Set <code>BUGCROWD_API_TOKEN</code> to your read-only customer
-              credential in <code>token-id:token-secret</code> format. Set the
-              catalog’s <code>program</code> to the engagement code. Use
-              submission UUIDs in <code>reports</code> or target UUIDs in
-              <code>assets</code>. The importer accepts triaged, unresolved and
-              resolved submissions and skips duplicates.
-            </p>
-            <pre
-              tabindex="0"
-            ><code>python3 cli.py sync-bugcrowd --engagement YOUR_CODE \
+              <p>
+                For signed deliveries, set <code>ICHNIX_PROGRAM</code>,
+                <code>ICHNIX_CATALOG</code> and
+                <code>ICHNIX_WEBHOOK_SECRET</code> on the console. Register
+                <code>/hooks/hackerone</code> on its HTTPS origin.
+                <a href="https://api.hackerone.com/customer-reference/"
+                  >HackerOne customer API</a
+                >
+                ·
+                <a href="https://api.hackerone.com/webhooks/"
+                  >HackerOne webhook verification</a
+                >
+              </p>
+            </details>
+            <details class="manual-subsection" id="bugcrowd">
+              <summary>Bugcrowd engagement</summary>
+              <p>
+                Set <code>BUGCROWD_API_TOKEN</code> to your read-only customer
+                credential in <code>token-id:token-secret</code> format. Set the
+                catalog’s <code>program</code> to the engagement code. Use
+                submission UUIDs in <code>reports</code> or target UUIDs in
+                <code>assets</code>. The importer accepts triaged, unresolved
+                and resolved submissions and skips duplicates.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py sync-bugcrowd --engagement YOUR_CODE \
   --catalog private/bugcrowd.json</code></pre>
-            <p>
-              Set <code>ICHNIX_BUGCROWD_ENGAGEMENT</code>,
-              <code>ICHNIX_BUGCROWD_CATALOG</code> and
-              <code>ICHNIX_BUGCROWD_WEBHOOK_SECRET</code> on the console
-              alongside the API token. Register
-              <code>submission.created</code> and
-              <code>submission.updated</code> at <code>/hooks/bugcrowd</code>.
-              The receiver verifies the signature, then fetches current
-              submission metadata and checks its engagement.
-              <a href="https://docs.bugcrowd.com/api/getting-started/"
-                >Bugcrowd API guide</a
-              >
-              ·
-              <a href="https://docs.bugcrowd.com/api/webhooks/"
-                >Bugcrowd webhook verification</a
-              >
-            </p>
-            <p class="manual-note">
-              Private program sync and signed webhook behavior have been checked
-              with provider-shaped fixtures. Live customer onboarding requires
-              credentials for the organization’s own program.
-            </p>
+              <p>
+                Set <code>ICHNIX_BUGCROWD_ENGAGEMENT</code>,
+                <code>ICHNIX_BUGCROWD_CATALOG</code> and
+                <code>ICHNIX_BUGCROWD_WEBHOOK_SECRET</code> on the console
+                alongside the API token. Register
+                <code>submission.created</code> and
+                <code>submission.updated</code> at <code>/hooks/bugcrowd</code>.
+                The receiver verifies the signature, then fetches current
+                submission metadata and checks its engagement.
+                <a href="https://docs.bugcrowd.com/api/getting-started/"
+                  >Bugcrowd API guide</a
+                >
+                ·
+                <a href="https://docs.bugcrowd.com/api/webhooks/"
+                  >Bugcrowd webhook verification</a
+                >
+              </p>
+              <p class="manual-note">
+                Private program sync and signed webhook behavior have been
+                checked with provider-shaped fixtures. Live customer onboarding
+                requires credentials for the organization’s own program.
+              </p>
+            </details>
           </section>
           <section id="ci">
             <h2>Capture CI evidence</h2>
@@ -328,17 +371,20 @@ export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
 python3 cli.py human cases
 python3 cli.py human context CASE_ID
 python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code></pre>
-            <h3>Agent profiles</h3>
-            <p>
-              Named identities support three roles. A
-              <code>read</code> credential opens case context. A
-              <code>review</code> credential can also accept or reject an owner.
-              A <code>worker</code> credential can claim, read and finish a
-              leased review. Worker context omits related report titles and
-              reviewer history.
-            </p>
-            <h3>Issue credentials on the console host</h3>
-            <pre tabindex="0"><code>state="$HOME/.local/state/ichnix"
+            <details class="manual-subsection" id="agent-profiles">
+              <summary>Agent profiles</summary>
+              <p>
+                Named identities support three roles. A
+                <code>read</code> credential opens case context. A
+                <code>review</code> credential can also accept or reject an
+                owner. A <code>worker</code> credential can claim, read and
+                finish a leased review. Worker context omits related report
+                titles and reviewer history.
+              </p>
+            </details>
+            <details class="manual-subsection" id="worker-credentials">
+              <summary>Issue credentials on the console host</summary>
+              <pre tabindex="0"><code>state="$HOME/.local/state/ichnix"
 export ICHNIX_IDENTITY_DB="$state/identities.sqlite3"
 python3 cli.py identity issue analyst --role review \
   --out "$state/analyst.token"
@@ -346,70 +392,78 @@ python3 cli.py identity issue coding-worker --role worker \
   --out "$state/coding-worker.token"
 python3 cli.py identity list
 python3 cli.py console --port 8765</code></pre>
-            <p>
-              Start the console in this environment with the port free. Registry
-              mode accepts named tokens and disables the shared operator token.
-              Each review records its actor and UTC timestamp. To withdraw
-              worker access, run
-              <code>python3 cli.py identity revoke coding-worker</code>.
-            </p>
-            <h3>Configure stdio on the worker machine</h3>
-            <p>
-              Transfer only that worker’s credential through your secret
-              manager. Place it in a private file readable by the worker. From
-              the worker’s checkout, generate a client configuration with
-              absolute paths valid on that machine.
-            </p>
-            <pre tabindex="0"><code>python3 cli.py mcp-config --profile worker \
+              <p>
+                Start the console in this environment with the port free.
+                Registry mode accepts named tokens and disables the shared
+                operator token. Each review records its actor and UTC timestamp.
+                To withdraw worker access, run
+                <code>python3 cli.py identity revoke coding-worker</code>.
+              </p>
+            </details>
+            <details class="manual-subsection" id="worker-mcp">
+              <summary>Configure stdio on the worker machine</summary>
+              <p>
+                Transfer only that worker’s credential through your secret
+                manager. Place it in a private file readable by the worker. From
+                the worker’s checkout, generate a client configuration with
+                absolute paths valid on that machine.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py mcp-config --profile worker \
   --workspace-url https://ichnix.example.org \
   --worker-token-file "$HOME/.config/ichnix/worker.token" \
   --out ichnix-mcp.json</code></pre>
-            <p>
-              Use the generated <code>mcpServers</code> entry in a compatible
-              JSON stdio client. For Codex, use
-              <code>--format codex --out ichnix-mcp.toml</code> and add that
-              table to the client configuration. The profile references a
-              credential file. Its contents and each lease secret stay outside
-              the model context. Remote origins require HTTPS. Loopback HTTP
-              works for a local session.
-            </p>
-            <h3>Queue one review</h3>
-            <p>
-              Manual handoffs are the default. To queue reviews automatically
-              after intake and CI, set <code>ICHNIX_AUTO_HANDOFFS=1</code> on
-              the console, CLI and intake processes and point all three at the
-              same private state directory.
-            </p>
-            <pre
-              tabindex="0"
-            ><code>python3 cli.py handoff enqueue h1-curl-2236133 owner-review
+              <p>
+                Use the generated <code>mcpServers</code> entry in a compatible
+                JSON stdio client. For Codex, use
+                <code>--format codex --out ichnix-mcp.toml</code> and add that
+                table to the client configuration. The profile references a
+                credential file. Its contents and each lease secret stay outside
+                the model context. Remote origins require HTTPS. Loopback HTTP
+                works for a local session.
+              </p>
+            </details>
+            <details class="manual-subsection" id="worker-lease">
+              <summary>Queue one review</summary>
+              <p>
+                Manual handoffs are the default. To queue reviews automatically
+                after intake and CI, set <code>ICHNIX_AUTO_HANDOFFS=1</code> on
+                the console, CLI and intake processes and point all three at the
+                same private state directory.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py handoff enqueue h1-curl-2236133 owner-review
 python3 cli.py handoff status JOB_ID</code></pre>
-            <p>
-              Use <code>evidence-review</code> when the case already has staging
-              observations. Ask the agent to call <code>claim_review</code>,
-              pass the returned job ID to <code>get_review_context</code>,
-              inspect the material, then call <code>finish_review</code>. For an
-              evidence review, pass the optional <code>disposition</code> value
-              <code>evidence-reviewed</code> or <code>needs-evidence</code>. An
-              owner review accepts <code>needs-owner-review</code>. The graph
-              records these outcomes against the reviewed snapshot. Only
-              reviewer decisions change owner rankings. Unfinished leases expire
-              and become available again. A completed handoff leaves the owner
-              decision to the reviewer.
-            </p>
-            <p>
-              For a trusted local operator,
-              <code
-                >python3 cli.py mcp-config --profile local --hydra-token-file
-                /private/hydra-token</code
-              >
-              generates a direct graph-reader profile. It offers
-              <code>list_cases</code> and <code>get_case_context</code>.
-              <a
-                href="https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle"
-                >MCP lifecycle and version negotiation</a
-              >
-            </p>
+              <p>
+                Use <code>evidence-review</code> when the case already has
+                staging observations. Ask the agent to call
+                <code>claim_review</code>, pass the returned job ID to
+                <code>get_review_context</code>, inspect the material, then call
+                <code>finish_review</code>. For an evidence review, pass the
+                optional <code>disposition</code> value
+                <code>evidence-reviewed</code> or <code>needs-evidence</code>.
+                An owner review accepts <code>needs-owner-review</code>. The
+                graph records these outcomes against the reviewed snapshot. Only
+                reviewer decisions change owner rankings. Unfinished leases
+                expire and become available again. A completed handoff leaves
+                the owner decision to the reviewer.
+              </p>
+              <p>
+                For a trusted local operator,
+                <code
+                  >python3 cli.py mcp-config --profile local --hydra-token-file
+                  /private/hydra-token</code
+                >
+                generates a direct graph-reader profile. It offers
+                <code>list_cases</code> and <code>get_case_context</code>.
+                <a
+                  href="https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle"
+                  >MCP lifecycle and version negotiation</a
+                >
+              </p>
+            </details>
           </section>
           <section id="graph">
             <h2>Understand the graph</h2>
@@ -454,68 +508,74 @@ python3 cli.py handoff status JOB_ID</code></pre>
           </section>
           <section id="results">
             <h2>Read the measurements</h2>
-            <h3>Retrieval on synthetic cases</h3>
-            <p>
-              Six held-out cases share three component revisions. Feeding
-              separate labeled cases to the same graph increases top-ranked
-              owner and CI-check accuracy from 0/6 to 2/6, 4/6 and 6/6. The
-              expected answers are held out of ingestion. This small fixture
-              measures retrieval on recurring workflows. Production accuracy and
-              bounty triage savings remain unmeasured.
-            </p>
-            <pre
-              tabindex="0"
-            ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
-            <h3>Coding-agent compatibility</h3>
-            <p>
-              Two Codex CLI sessions used separate worker credentials. The
-              evidence inspector identified a failed retention control and
-              missing masking evidence. The owner router retrieved the records
-              team and the prior retention check. Each session claimed one job
-              and recorded its disposition in one attempt. Both SQLite receipts
-              matched their HydraDB outcomes.
-            </p>
-            <h3>Worker throughput on one host</h3>
-            <p>
-              Each run processed the same 100 synthetic evidence reviews over
-              loopback using real stdio worker processes, the HTTP console and
-              HydraDB. Per-job time covers the claim, context read, fixture
-              check and completion. Worker startup is measured separately.
-            </p>
-            <table>
-              <caption>
-                100 synthetic jobs per run on one two-vCPU host
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Workers</th>
-                  <th scope="col">Jobs / second</th>
-                  <th scope="col">95th percentile</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">1</th>
-                  <td>13.34</td>
-                  <td>0.087 s</td>
-                </tr>
-                <tr>
-                  <th scope="row">100</th>
-                  <td>11.70</td>
-                  <td>8.315 s</td>
-                </tr>
-              </tbody>
-            </table>
-            <p>
-              On this host, the single worker finished the batch faster.
-              Starting 100 clients took 11.17 seconds. Starting one took 0.16
-              seconds. All 100 jobs in each run completed in one attempt. The
-              run excludes model inference, internet latency and live customer
-              reports.
-            </p>
-            <pre
-              tabindex="0"
-            ><code>python3 cli.py bench-workers --workers 100 --jobs 100</code></pre>
+            <details class="manual-subsection" id="retrieval-metrics">
+              <summary>Retrieval on synthetic cases</summary>
+              <p>
+                Six held-out cases share three component revisions. Feeding
+                separate labeled cases to the same graph increases top-ranked
+                owner and CI-check accuracy from 0/6 to 2/6, 4/6 and 6/6. The
+                expected answers are held out of ingestion. This small fixture
+                measures retrieval on recurring workflows. Production accuracy
+                and bounty triage savings remain unmeasured.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
+            </details>
+            <details class="manual-subsection" id="agent-metrics">
+              <summary>Coding-agent compatibility</summary>
+              <p>
+                Two Codex CLI sessions used separate worker credentials. The
+                evidence inspector identified a failed retention control and
+                missing masking evidence. The owner router retrieved the records
+                team and the prior retention check. Each session claimed one job
+                and recorded its disposition in one attempt. Both SQLite
+                receipts matched their HydraDB outcomes.
+              </p>
+            </details>
+            <details class="manual-subsection" id="worker-throughput">
+              <summary>Worker throughput on one host</summary>
+              <p>
+                Each run processed the same 100 synthetic evidence reviews over
+                loopback using real stdio worker processes, the HTTP console and
+                HydraDB. Per-job time covers the claim, context read, fixture
+                check and completion. Worker startup is measured separately.
+              </p>
+              <table>
+                <caption>
+                  100 synthetic jobs per run on one two-vCPU host
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Workers</th>
+                    <th scope="col">Jobs / second</th>
+                    <th scope="col">95th percentile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">1</th>
+                    <td>13.34</td>
+                    <td>0.087 s</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">100</th>
+                    <td>11.70</td>
+                    <td>8.315 s</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p>
+                On this host, the single worker finished the batch faster.
+                Starting 100 clients took 11.17 seconds. Starting one took 0.16
+                seconds. All 100 jobs in each run completed in one attempt. The
+                run excludes model inference, internet latency and live customer
+                reports.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py bench-workers --workers 100 --jobs 100</code></pre>
+            </details>
           </section>
           <section id="distribution">
             <h2>License and distribution</h2>

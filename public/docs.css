@@ -533,3 +533,33 @@
     align-items: center;
   }
 }
+.walkthrough-steps {
+  padding-inline-start: 1.55rem;
+  margin-block: 1rem;
+}
+.walkthrough-steps li {
+  padding-inline-start: 0.3rem;
+  margin-block: 0.65rem;
+}
+.walkthrough-steps li::marker {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+.manual-subsection {
+  border-top: 1px solid var(--line);
+}
+.manual-subsection:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.manual-subsection > summary {
+  min-height: 44px;
+  padding: 0.8rem 0.15rem;
+  font-family: var(--mono);
+  cursor: pointer;
+}
+.manual-subsection[open] > summary {
+  color: var(--accent);
+}
+.manual-subsection[open] {
+  padding-bottom: 0.7rem;
+}

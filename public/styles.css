@@ -396,130 +396,35 @@ summary:hover {
 .run-link {
   margin-left: auto;
 }
-.home-block {
+.manual-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
   border-top: 1px solid var(--line);
-  padding-block: clamp(32px, 4vw, 60px);
+  padding: clamp(1.4rem, 3vw, 2.6rem) 0;
 }
-.home-block h2 {
-  font-size: clamp(23px, 2.3vw, 32px);
-  letter-spacing: -0.065em;
-  line-height: 1.25;
+.manual-entry h2 {
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  letter-spacing: -0.055em;
 }
-.block-head {
-  display: flex;
+.manual-entry p {
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+.manual-entry > a {
+  display: inline-flex;
+  gap: 0.45em;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  min-height: 44px;
+  flex-shrink: 0;
 }
-.flow {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
-  margin: 30px 0 0;
-}
-.flow li {
-  counter-increment: step;
-  min-width: 0;
-  padding-inline: clamp(16px, 2.6vw, 36px);
-  border-left: 1px solid var(--line);
-}
-.flow li:first-child {
-  padding-left: 0;
-  border: 0;
-}
-.flow li:last-child {
-  padding-right: 0;
-}
-.flow li::before {
-  content: "0" counter(step);
-  color: var(--muted);
-  font: 400 13px/1 var(--mono);
-}
-.flow h3 {
-  font-size: 19px;
-  line-height: 1.3;
-  letter-spacing: -0.04em;
-  margin: 12px 0 7px;
-}
-.flow p,
-.block-desc,
-.question-list p {
-  color: var(--muted);
-  max-width: 66ch;
-}
-.questions {
-  display: grid;
-  grid-template-columns: 1fr 1.55fr;
-  gap: 28px;
-}
-.block-desc {
-  margin-top: 9px;
-}
-.question-list details {
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0;
-}
-.question-list details[open] {
-  padding-bottom: 18px;
-}
-.question-list summary {
-  padding: 14px 0;
-  min-height: 48px;
-  font: 400 16px/1.5 var(--mono);
-  list-style: none;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 15px;
-}
-.question-list summary::-webkit-details-marker {
-  display: none;
-}
-.question-list summary:after {
-  content: "+";
-  color: var(--muted);
-}
-.question-list [open] > summary:after {
-  content: "−";
-}
-.question-list .plain-link {
-  display: inline-block;
-  margin-top: 9px;
-}
-.manual-links {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(20px, 4vw, 64px);
-  margin-top: 24px;
-}
-.manual-links a {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  text-decoration: none;
-}
-.manual-links img {
-  width: 88px;
-  height: 66px;
-  object-fit: cover;
-  filter: saturate(0.6);
-}
-.manual-links span {
-  display: grid;
-  gap: 3px;
-}
-.manual-links strong {
-  font: 400 16px/1.4 var(--mono);
-}
-.manual-links small {
-  font-size: 14px;
-  color: var(--muted);
-}
-.manual-links b {
-  margin-left: auto;
-  font-weight: 400;
+@media (max-width: 40rem) {
+  .manual-entry {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 }
 @media (max-width: 959px) {
   :root {
@@ -530,9 +435,6 @@ summary:hover {
   }
   .intro-copy h1 {
     font-size: clamp(36px, 5vw, 48px);
-  }
-  .flow li {
-    padding-inline: 18px;
   }
 }
 @media (max-width: 730px) {
@@ -553,40 +455,8 @@ summary:hover {
   .launch-actions {
     margin-top: 20px;
   }
-  .questions,
-  .manual-links {
-    grid-template-columns: 1fr;
-  }
-  .flow {
-    grid-template-columns: 1fr;
-    margin-top: 18px;
-  }
-  .flow li,
-  .flow li:first-child {
-    padding: 16px 0 16px 37px;
-    border: 0;
-    border-top: 1px solid var(--line);
-    position: relative;
-  }
-  .flow li:before {
-    position: absolute;
-    top: 21px;
-    left: 0;
-  }
-  .flow h3 {
-    margin: 0 0 4px;
-  }
   .mast-inner {
     min-height: 60px;
-  }
-  .home-block {
-    padding-block: 30px;
-  }
-  .question-list summary {
-    padding-block: 12px;
-  }
-  .questions {
-    gap: 12px;
   }
 }
 @media (max-width: 520px) {
@@ -619,22 +489,11 @@ summary:hover {
   .case-label,
   .specimen-title,
   .specimen-foot,
-  .flow li:before {
-    font-size: 14px;
-  }
   .site-footer,
   .site-footer > div {
     gap: 12px;
   }
-  .manual-links img {
-    width: 64px;
-    height: 62px;
-  }
   .site-footer {
-    flex-wrap: wrap;
-  }
-  .block-head {
-    align-items: baseline;
     flex-wrap: wrap;
   }
 }

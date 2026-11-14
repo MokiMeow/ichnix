@@ -472,7 +472,15 @@ if (desk) {
     const adapt = () => {
       index.open = !compact.matches;
     };
+    const openLinkedSection = () => {
+      const id = location.hash.slice(1);
+      const target = id && document.getElementById(id);
+      const subsection = target && target.closest(".manual-subsection");
+      if (subsection) subsection.open = true;
+    };
     adapt();
+    openLinkedSection();
+    window.addEventListener("hashchange", openLinkedSection);
     compact.addEventListener("change", adapt);
     index.addEventListener("click", (event) => {
       if (!compact.matches || !event.target.closest("a")) return;
