@@ -531,9 +531,6 @@ summary:hover {
   .intro-copy h1 {
     font-size: clamp(36px, 5vw, 48px);
   }
-  .run-link {
-    display: none;
-  }
   .flow li {
     padding-inline: 18px;
   }
@@ -579,9 +576,6 @@ summary:hover {
   .flow h3 {
     margin: 0 0 4px;
   }
-  .run-link {
-    display: inline;
-  }
   .mast-inner {
     min-height: 60px;
   }
@@ -621,9 +615,6 @@ summary:hover {
   .sample-output,
   .specimen-foot {
     padding-inline: 12px;
-  }
-  .run-link {
-    display: none;
   }
   .case-label,
   .specimen-title,
