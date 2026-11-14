@@ -21,8 +21,8 @@ PUBLIC = ROOT / "public"
 PUBLIC_ASSETS = {
     "index.html", "console.html", "docs.html", "app.js", "styles.css", "docs.css",
     "evidence-graph.png", "evidence-atlas.webp", "review-detail.webp",
-    "fonts/AnonymousPro-Regular.ttf", "fonts/InstrumentSans.ttf", "fonts/InstrumentSerif-Regular.ttf",
-    "fonts/AnonymousPro-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt", "fonts/InstrumentSerif-LICENSE.txt",
+    "fonts/IBMPlexMono-Regular.ttf", "fonts/InstrumentSans.ttf",
+    "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
 }
 MAX_BODY = 1024 * 1024
 

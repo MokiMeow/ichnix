@@ -3,154 +3,236 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Ichnix · Security evidence graph</title>
+    <title>Ichnix · Security evidence workspace</title>
     <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <header class="mast">
-      <a class="brand" href="/" aria-label="Ichnix home"
-        ><img
-          src="/evidence-graph.png"
-          width="40"
-          height="40"
-          alt=""
-        />Ichnix</a
-      >
-      <nav aria-label="Primary">
-        <a class="workflow-nav" href="#guide">Workflow</a
-        ><a href="/docs">Docs</a
-        ><a class="nav-console" href="/console"
-          >Review console <span aria-hidden="true">↗</span></a
+      <div class="mast-inner">
+        <a class="brand" href="/" aria-label="Ichnix home"
+          ><img
+            src="/evidence-graph.png"
+            width="34"
+            height="34"
+            alt=""
+          />Ichnix</a
         >
-      </nav>
+        <nav class="topnav" aria-label="Primary">
+          <a href="/docs">Docs</a><a href="/console">Review console</a>
+        </nav>
+      </div>
     </header>
-    <main id="main">
-      <section class="hero" aria-labelledby="hero-heading">
-        <div class="herocopy">
-          <p class="micro kicker">Security evidence graph</p>
-          <h1 id="hero-heading">Put each finding <em>in context.</em></h1>
-          <p class="intro">
-            Connect bounty reports to the exact revision, staging evidence and
-            engineering team responsible for a fix.
+    <main id="main" class="home">
+      <section class="intro-block" aria-labelledby="intro-title">
+        <div class="intro-copy">
+          <p class="eyebrow">
+            <span class="prompt-glyph" aria-hidden="true">&gt;_</span> Product
+            security / Ichnix
           </p>
-          <div class="actions">
-            <a class="pill" href="/console"
-              >Open review console <span aria-hidden="true">↗</span></a
-            ><a class="text-link" href="#guide"
-              >How it works <span aria-hidden="true">↓</span></a
+          <h1 id="intro-title">
+            Keep the evidence<br />with the finding<span class="terminal-dot"
+              >.</span
             >
+          </h1>
+          <p class="lede">
+            A self-hosted workspace for bug bounty triage. Connect each report
+            to a deployed revision, its staging checks and the team that can fix
+            it.
+          </p>
+          <div class="launch-actions">
+            <a class="primary-link" href="/console"
+              >Open review console <span aria-hidden="true">→</span></a
+            ><a class="plain-link" href="/docs#install">Self-host Ichnix</a>
           </div>
         </div>
-        <figure class="atlas">
-          <img
-            src="/evidence-atlas.webp"
-            alt=""
-            fetchpriority="high"
-            width="1200"
-            height="850"
-          />
-          <figcaption>
-            <span>Evidence atlas</span><span>HydraDB</span>
-          </figcaption>
-        </figure>
+        <section class="specimen" aria-labelledby="sample-title">
+          <div class="specimen-title">
+            <span class="window-title" id="sample-title"
+              ><span aria-hidden="true">▤</span> Case inspector</span
+            ><span>Fixture / r7</span>
+          </div>
+          <div class="specimen-context">
+            <span class="case-label">SURVEY-101</span>
+            <p>Ledger archive retention review</p>
+          </div>
+          <fieldset class="sample-tabs">
+            <legend class="sr-only">Inspect the sample case</legend>
+            <label
+              ><input
+                type="radio"
+                name="view"
+                value="evidence"
+                checked
+              />Evidence</label
+            >
+            <label
+              ><input
+                type="radio"
+                name="view"
+                value="revision"
+              />Revision</label
+            >
+            <label
+              ><input type="radio" name="view" value="handoff" />Handoff</label
+            >
+          </fieldset>
+          <div class="sample-output" aria-live="polite">
+            <dl class="readout evidence-output">
+              <div>
+                <dt>retention_days</dt>
+                <dd class="fail"><b aria-hidden="true">×</b> failed</dd>
+              </div>
+              <div>
+                <dt>audit_enabled</dt>
+                <dd class="pass"><b aria-hidden="true">✓</b> passed</dd>
+              </div>
+              <div>
+                <dt>mask_identifiers</dt>
+                <dd class="pending">
+                  <b aria-hidden="true">?</b> inconclusive
+                </dd>
+              </div>
+            </dl>
+            <dl class="readout revision-output">
+              <div>
+                <dt>Service</dt>
+                <dd>ledger</dd>
+              </div>
+              <div>
+                <dt>Component</dt>
+                <dd>archive</dd>
+              </div>
+              <div>
+                <dt>Revision</dt>
+                <dd>r7</dd>
+              </div>
+            </dl>
+            <dl class="readout handoff-output">
+              <div>
+                <dt>Assignment</dt>
+                <dd>evidence-review</dd>
+              </div>
+              <div>
+                <dt>Worker</dt>
+                <dd>survey-evidence</dd>
+              </div>
+              <div>
+                <dt>Disposition</dt>
+                <dd>needs-evidence</dd>
+              </div>
+            </dl>
+          </div>
+          <a class="specimen-foot" href="/docs#survey"
+            ><span aria-hidden="true">$</span><code>python3 cli.py survey</code
+            ><span class="run-link">Run locally →</span></a
+          >
+        </section>
       </section>
-      <section class="guide" id="guide" aria-labelledby="guide-heading">
-        <div class="guide-title">
-          <p class="micro kicker">The workflow</p>
-          <h2 id="guide-heading">Follow a finding.</h2>
-          <figure class="study">
-            <img
-              src="/review-detail.webp"
-              alt=""
-              loading="lazy"
-              width="760"
-              height="520"
-            />
-          </figure>
+      <section class="home-block" id="workflow" aria-labelledby="flow-title">
+        <div class="block-head">
+          <h2 id="flow-title">Review workflow</h2>
+          <a class="plain-link" href="/docs#graph">Graph model →</a>
         </div>
-        <ol class="guide-list">
+        <ol class="flow">
           <li>
-            <div>
-              <h3>Bring the report</h3>
-              <p>
-                Pull report metadata from HackerOne or Bugcrowd. A private
-                inventory maps it to a service, component and deployed revision.
-              </p>
-            </div>
+            <h3>Map the report</h3>
+            <p>
+              Match HackerOne or Bugcrowd metadata to the service and revision
+              in your private inventory.
+            </p>
           </li>
           <li>
-            <div>
-              <h3>Read the evidence</h3>
-              <p>
-                Compare a staging manifest with approved settings. Each
-                observation retains its check result, run ID and revision in
-                HydraDB.
-              </p>
-            </div>
+            <h3>Check staging</h3>
+            <p>
+              Compare a signed CI manifest with policy. Keep missing
+              observations visible alongside passes and failures.
+            </p>
           </li>
           <li>
-            <div>
-              <h3>Hand off the review</h3>
-              <p>
-                A reviewer confirms the owner. A coding agent can claim a scoped
-                assignment through MCP and record its decision for the next
-                review.
-              </p>
-            </div>
+            <h3>Assign the review</h3>
+            <p>
+              Give a person or MCP worker the relevant evidence. Store the
+              outcome so the next reviewer can retrieve it.
+            </p>
           </li>
         </ol>
       </section>
-      <section class="field-notes" id="talk" aria-labelledby="manual-heading">
+      <section
+        class="home-block questions"
+        id="talk"
+        aria-labelledby="talk-title"
+      >
         <div>
-          <p class="micro kicker">Review questions</p>
-          <h2 id="manual-heading">Talk through a finding.</h2>
-          <a class="text-link manual-link" href="/docs"
-            >Read the operator manual <span aria-hidden="true">↗</span></a
-          >
+          <h2 id="talk-title">Talk through a finding</h2>
+          <p class="block-desc">Three questions from the review desk.</p>
         </div>
-        <div class="note-links">
+        <div class="question-list">
           <details open>
-            <summary>What did staging actually confirm?</summary>
+            <summary>What actually failed in this case?</summary>
             <p>
-              For a retention report, a signed CI manifest records the observed
-              setting for one revision. The check compares it with the team’s
-              policy and records a pass, failure or missing observation.
+              The fixture reports 60 days of retention against a 30-day policy.
+              Auditing is enabled. The manifest omits the masking setting, so
+              that check stays inconclusive.
             </p>
-            <a href="/docs#ci"
-              >Inspect the evidence workflow
-              <span aria-hidden="true">↗</span></a
-            >
+            <a class="plain-link" href="/docs#ci">Staging evidence →</a>
           </details>
           <details>
-            <summary>Why suggest this engineering owner?</summary>
+            <summary>Why suggest a particular owner?</summary>
             <p>
-              The graph starts with the catalog owner and ranks prior reviewer
-              decisions for the same component revision. The console shows the
-              source of each recommendation.
+              Ichnix starts with the catalog owner. Prior decisions on the same
+              component revision influence the ranking, and a reviewer records
+              the final decision.
             </p>
-            <a href="/docs#graph"
-              >Read how ranking works <span aria-hidden="true">↗</span></a
-            >
+            <a class="plain-link" href="/docs#graph">Owner ranking →</a>
           </details>
           <details>
-            <summary>What can a coding agent see?</summary>
+            <summary>What does a coding agent receive?</summary>
             <p>
-              A named worker claims one review through MCP. Its active lease
-              grants access to that case’s evidence and suggested owners. The
-              worker submits a disposition when the review is complete.
+              A named worker claims one assignment over MCP. Its lease grants
+              access to the case context and lets it record a disposition. The
+              console keeps the graph credentials.
             </p>
-            <a href="/docs#agents"
-              >Connect a worker <span aria-hidden="true">↗</span></a
-            >
+            <a class="plain-link" href="/docs#agents">Agent setup →</a>
           </details>
         </div>
       </section>
+      <section class="home-block manuals" aria-labelledby="manual-title">
+        <h2 id="manual-title">From the manual</h2>
+        <div class="manual-links">
+          <a href="/docs#install"
+            ><img
+              src="/evidence-atlas.webp"
+              loading="lazy"
+              width="1368"
+              height="912"
+              alt=""
+            /><span
+              ><strong>Self-host a workspace</strong
+              ><small>HydraDB, SQLite and named identities</small></span
+            ><b aria-hidden="true">→</b></a
+          >
+          <a href="/docs#agents"
+            ><img
+              src="/review-detail.webp"
+              loading="lazy"
+              width="900"
+              height="600"
+              alt=""
+            /><span
+              ><strong>Configure an MCP worker</strong
+              ><small>Credentials, leases and review outcomes</small></span
+            ><b aria-hidden="true">→</b></a
+          >
+        </div>
+      </section>
     </main>
-    <footer>
-      <a class="brand" href="/">Ichnix</a>
-      <div><a href="/docs">Documentation</a><small>2026</small></div>
+    <footer class="site-footer">
+      <span>Ichnix</span>
+      <div>
+        <a href="/docs">Documentation</a><a href="#main">Back to top ↑</a>
+      </div>
     </footer>
   </body>
 </html>

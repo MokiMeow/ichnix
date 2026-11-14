@@ -25,12 +25,10 @@
 !public/evidence-atlas.webp
 !public/review-detail.webp
 !public/fonts/
-!public/fonts/AnonymousPro-Regular.ttf
-!public/fonts/AnonymousPro-LICENSE.txt
+!public/fonts/IBMPlexMono-Regular.ttf
+!public/fonts/IBMPlexMono-LICENSE.txt
 !public/fonts/InstrumentSans.ttf
 !public/fonts/InstrumentSans-LICENSE.txt
-!public/fonts/InstrumentSerif-Regular.ttf
-!public/fonts/InstrumentSerif-LICENSE.txt
 !examples/
 !examples/cases.json
 !examples/policy.json
