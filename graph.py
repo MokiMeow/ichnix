@@ -254,8 +254,11 @@ class Graph:
         return {**record, "run_id": run, "source_digest": provenance.get("digest"),
                 "source_method": provenance.get("method")}
 
-    def record_review(self, case_id, owner, accepted, *, actor=None, request_id=None):
+    def record_review(self, case_id, owner, accepted, *, actor=None, request_id=None, expected_scope=None):
         r = self._report(case_id)
+        if expected_scope is not None and (not isinstance(expected_scope, dict) or any(
+                expected_scope.get(k) != r[k] for k in ("service", "component", "revision"))):
+            raise ValueError("case mapping changed since review began")
         owner = _field({"owner": owner}, "owner")
         actor = _field({"actor": actor if actor is not None else "local:" + getpass.getuser()}, "actor")
         if not isinstance(accepted, bool):

@@ -128,7 +128,7 @@ class Handler(BaseHTTPRequestHandler):
             if data["owner"] not in [x["owner"] for x in context["recommendations"]]:
                 raise ValueError("unknown recommendation")
             graph.record_review(case_id, data["owner"], data["accepted"], actor=self.review_actor,
-                                request_id=self.headers.get("Idempotency-Key"))
+                                request_id=self.headers.get("Idempotency-Key"), expected_scope=data.get("scope"))
             return self.send(200, graph.context(case_id))
         if not write and action != "reviews":
             data = graph.context(case_id)

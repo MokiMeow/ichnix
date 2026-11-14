@@ -66,7 +66,9 @@ async function request(path, options = {}) {
   return response;
 }
 
-function reviewControl(caseId, owner, accepted) {
+function reviewControl(report, owner, accepted) {
+  const { id: caseId, service, component, revision } = report;
+  const decisionId = crypto.randomUUID();
   const button = element(
     "button",
     accepted ? "Accept" : "Reject",
@@ -82,8 +84,15 @@ function reviewControl(caseId, owner, accepted) {
         "/api/cases/" + encodeURIComponent(caseId) + "/reviews",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ owner, accepted }),
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": decisionId,
+          },
+          body: JSON.stringify({
+            owner,
+            accepted,
+            scope: { service, component, revision },
+          }),
         },
       );
       const context = await result.json();
@@ -133,8 +142,8 @@ async function renderCase(
     );
     if (!publicDemo)
       row.append(
-        reviewControl(report.id, item.owner, true),
-        reviewControl(report.id, item.owner, false),
+        reviewControl(report, item.owner, true),
+        reviewControl(report, item.owner, false),
       );
     detail.append(row);
     if (item.reason) detail.append(element("p", item.reason, "review-reason"));
