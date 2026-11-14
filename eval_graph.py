@@ -80,14 +80,16 @@ def evaluate(graph):
             heldout.append((case["id"], owner, check))
 
     def accuracy(batch):
-        owners = checks = 0
+        owners = checks = catalog = 0
         for key, expected_owner, expected_check in heldout:
             context = graph.context(key)
+            catalog += context["report"]["owner"] == expected_owner
             owners += context["recommendations"][0]["owner"] == expected_owner
             ranked = context["ranked_checks"]
             checks += bool(ranked) and ranked[0]["step"] == expected_check
         return {"training_cases": batch, "heldout_cases": len(heldout),
-                "owner_top1": owners / len(heldout), "ci_check_top1": checks / len(heldout)}
+                "owner_top1": owners / len(heldout), "ci_check_top1": checks / len(heldout),
+                "catalog_owner_top1": catalog / len(heldout)}
 
     curve = [accuracy(0)]
     for index, (group, owner, check) in enumerate(FIXTURES, start=1):
@@ -98,7 +100,7 @@ def evaluate(graph):
             graph.add_evidence(case["id"], {"step": check, "revision": case["revision"], "result": "passed"})
         curve.append(accuracy(2 * index))
     return {"dataset": "synthetic, three component revisions; two held-out services each",
-            "fixed_catalog_owner_top1": 0, "curve": curve}
+            "fixed_catalog_owner_top1": curve[0]["catalog_owner_top1"], "curve": curve}
 
 
 def measure_reads(workers, requests):
