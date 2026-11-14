@@ -1,0 +1,32 @@
+Ichnix image runtime notices
+
+The Ichnix application license is /app/LICENSE. Each bundled runtime
+component retains its own terms. The container includes the following
+notices under /usr/share/doc/ichnix/. Native installer notices are in the
+licenses directory beside graph-node.
+
+HydraDB graph-node v0.4.0
+  HydraDB-ELv2.txt
+  https://github.com/hydra-db/hydradb/tree/916637477f3f34766b4905b270bd4292109d77e6
+
+SuiteSparse:GraphBLAS 7.4.0+dfsg-1build1
+  libgraphblas7.copyright
+  https://launchpad.net/ubuntu/+source/suitesparse-graphblas/7.4.0+dfsg-1build1
+
+libcypher-parser 0.6.2-0.1build1
+  libcypher-parser8.copyright
+  https://launchpad.net/ubuntu/+source/libcypher-parser/0.6.2-0.1build1
+
+GNU OpenMP runtime 14.2.0-4ubuntu2~24.04.1
+  libgomp1.copyright (includes the GCC Runtime Library Exception)
+  https://launchpad.net/ubuntu/+source/gcc-14/14.2.0-4ubuntu2~24.04.1
+
+Node.js 24.22.3 (container only)
+  Node-LICENSE
+  https://nodejs.org/dist/v24.22.3/node-v24.22.3.tar.xz
+
+Pele retains its package LICENSE in /app/node_modules/pele.
+Font licenses are in /app/public/fonts. The Python base image retains its
+Debian package notices under /usr/share/doc and Python's LICENSE.txt under
+/usr/local/lib/python3.12. Standard license texts referenced by Debian and
+Ubuntu packaging are in /usr/share/common-licenses in the image.

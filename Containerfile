@@ -11,6 +11,11 @@ COPY --from=hydra /usr/local/bin/graph-node /usr/local/bin/
 COPY --from=hydra /usr/lib/x86_64-linux-gnu/libgraphblas.so.7.4.0 /opt/hydra/libgraphblas.so.7
 COPY --from=hydra /usr/lib/x86_64-linux-gnu/libcypher-parser.so.8.2.2 /opt/hydra/libcypher-parser.so.8
 COPY --from=hydra /usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0 /opt/hydra/libgomp.so.1
+COPY licenses/ /usr/share/doc/ichnix/
+COPY --from=hydra /usr/share/doc/libgraphblas7/copyright /usr/share/doc/ichnix/libgraphblas7.copyright
+COPY --from=hydra /usr/share/doc/libcypher-parser8/copyright /usr/share/doc/ichnix/libcypher-parser8.copyright
+COPY --from=hydra /usr/share/doc/gcc-14-base/copyright /usr/share/doc/ichnix/libgomp1.copyright
+COPY --from=renderer /usr/local/LICENSE /usr/share/doc/ichnix/Node-LICENSE
 COPY --from=renderer /usr/local/bin/node /usr/local/bin/
 COPY --from=renderer /build/node_modules ./node_modules
 COPY *.py trace.mjs package.json LICENSE ./

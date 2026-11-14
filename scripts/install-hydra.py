@@ -18,6 +18,10 @@ FILES = {"usr/local/bin/graph-node"}
 LIBS = {"libgraphblas.so.7", "libgraphblas.so.7.4.0", "libcypher-parser.so.8",
         "libcypher-parser.so.8.2.2", "libgomp.so.1", "libgomp.so.1.0.0"}
 FILES.update("usr/lib/x86_64-linux-gnu/" + lib for lib in LIBS)
+NOTICES = {"usr/share/doc/libgraphblas7/copyright": "libgraphblas7.copyright",
+           "usr/share/doc/libcypher-parser8/copyright": "libcypher-parser8.copyright",
+           "usr/share/doc/gcc-14-base/copyright": "libgomp1.copyright"}
+
 
 
 class RegistryRedirect(HTTPRedirectHandler):
@@ -59,12 +63,20 @@ def main():
     DEST.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=DEST) as temp:
         root = Path(temp)
+        notices = root / "licenses"
+        notices.mkdir()
+        for path in (Path(__file__).resolve().parents[1] / "licenses").glob("*.txt"):
+            shutil.copyfile(path, notices / path.name)
         for layer in manifest(arch["digest"])["layers"]:
             with tempfile.TemporaryFile() as stream:
                 get_verified("blobs", layer["digest"], stream)
                 with tarfile.open(fileobj=stream) as archive:
                     for entry in archive:
-                        if entry.name.removeprefix("./") not in FILES:
+                        name = entry.name.removeprefix("./")
+                        if name in NOTICES and entry.isfile():
+                            with archive.extractfile(entry) as source, (notices / NOTICES[name]).open("wb") as out:
+                                shutil.copyfileobj(source, out)
+                        if name not in FILES:
                             continue
                         path = root / PurePosixPath(entry.name).name
                         if entry.isfile():
@@ -76,6 +88,14 @@ def main():
         for name in {"graph-node", *LIBS}:
             if not (root / name).is_file():
                 raise RuntimeError(f"pinned image missing {name}")
+        required = {"HydraDB-ELv2.txt", "Runtime-sources.txt", *NOTICES.values()}
+        if not all((notices / name).is_file() for name in required):
+            raise RuntimeError("missing runtime notices")
+        installed_notices = DEST / "licenses"
+        installed_notices.mkdir(exist_ok=True)
+        for path in notices.iterdir():
+            path.replace(installed_notices / path.name)
+        notices.rmdir()
         for path in root.iterdir():
             path.replace(DEST / path.name)
     print(f"installed HydraDB v0.4.0 runtime in {DEST}")

@@ -46,6 +46,9 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+    environment:
+      ICHNIX_HYDRA_TOKEN_FILE: /run/ichnix-auth/hydra-token
+      ICHNIX_IDENTITY_DB:
     network_mode: service:graph
     depends_on:
       graph:

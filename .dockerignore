@@ -27,3 +27,5 @@
 !tests/
 !tests/test_*.py
 !LICENSE
+!licenses/
+!licenses/*.txt
