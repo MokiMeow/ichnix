@@ -4,6 +4,10 @@
 
 A self-hosted evidence workspace for product security teams running a bug bounty program. Start with a reviewed report, identify the deployed component, check its staging configuration against policy, and hand the evidence to a person or coding agent. The next reviewer can see which checks and owners helped with the same component revision.
 
+**HydraDB Track 1 · The self-improving graph.** A reviewer’s accepted or rejected owner changes the ranking for the next case on that component revision. Prior CI results influence which control the next reviewer sees first. The evaluator reports both rankings after each feedback batch alongside a fixed catalog baseline.
+
+**Who would buy it.** The proposed buyer is the product security lead who routes bounty reports across engineering teams. A pilot can start with one program and compare analyst time to a confirmed owner and the number of reassigned cases against the team’s current queue. Customer willingness to pay and time savings have yet to be measured.
+
 [Operator manual](public/docs.html) · [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md)
 
 ## Try the workflow

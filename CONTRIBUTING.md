@@ -27,7 +27,7 @@ Use the smallest relevant regression test while developing. For example, `python
 
 ## Exercise complete workflows
 
-- `python3 cli.py survey` replays three [synthetic cases](testing/fixtures) through six roles, including separate MCP workers and a human reviewer. It verifies stored outcomes and scopes before cleanup.
+- `python3 cli.py survey` replays four [synthetic cases](testing/fixtures) through six roles, including separate MCP workers and a human reviewer. It verifies stored outcomes and scopes before cleanup.
 - `python3 cli.py acceptance` fetches public HackerOne metadata and signs observations from a local Ichnix instance. It requires internet access and works without a bounty account.
 - `python3 testing/model_survey.py` sends bundled synthetic fixtures to two real sessions through a signed-in Codex CLI. Run it when you need to verify model behavior. The offline survey checks the protocol independently.
 - `python3 cli.py bench-workers --workers 100 --jobs 100` compares one worker with 100 deterministic MCP clients on the same job count. Report host capacity, clients, jobs, throughput and p95. Report process startup separately.
