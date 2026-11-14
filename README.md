@@ -24,4 +24,4 @@ HydraDB links reports that share a component revision. An accepted or rejected o
 
 <img src="docs/architecture.svg" width="440" alt="Report intake and staging checks feed HydraDB. Human reviewers and MCP workers retrieve evidence and record outcomes." />
 
-[Self-hosting](https://ichnix.vercel.app/docs#install) · [Agent setup](https://ichnix.vercel.app/docs#agents) · [Security](SECURITY.md) · [MIT license](LICENSE) · [Third-party notices](licenses/Runtime-sources.txt)
+[Self-hosting](https://ichnix.vercel.app/docs#install) · [Agent setup](https://ichnix.vercel.app/docs#agents) · [SelfGraph export](https://ichnix.vercel.app/docs#selfgraph) · [Security](SECURITY.md) · [MIT license](LICENSE) · [Third-party notices](licenses/Runtime-sources.txt)

@@ -77,6 +77,111 @@ test("relay only fetches fixture context from an explicitly public session", asy
   });
 });
 
+test("public SelfGraph download is limited to approved case facts", async () => {
+  process.env.ICHNIX_PUBLIC_ORIGIN = "https://demo.example.org";
+  const snapshot = {
+    id: "reportsnapshot:7",
+    type: "ReportSnapshot",
+    name: "IX-108",
+    properties: { service: "ledger" },
+  };
+  const revision = {
+    id: "componentrevision:2",
+    type: "ComponentRevision",
+    name: "r7",
+    properties: { component: "audit-store" },
+  };
+  const observation = {
+    id: "controlobservation:4",
+    type: "ControlObservation",
+    name: "audit",
+    properties: { result: "passed" },
+  };
+  const facts = {
+    entities: [snapshot, revision, observation],
+    relations: [
+      {
+        from_entity: snapshot.id,
+        type: "ON_REVISION",
+        to_entity: revision.id,
+        evidence: [{ source_id: snapshot.id }],
+      },
+      {
+        from_entity: snapshot.id,
+        type: "HAS_OBSERVATION",
+        to_entity: observation.id,
+        evidence: [{ source_id: observation.id }],
+      },
+    ],
+  };
+  const req = (id, options) =>
+    new Request(
+      "https://frontend.example.org/api/public-demo?route=cases/" +
+        id +
+        "/selfgraph.json",
+      options,
+    );
+  const calls = [];
+  let body = facts;
+  globalThis.fetch = async (url, options) => {
+    calls.push(url.pathname);
+    assert.deepEqual(Object.keys(options.headers), ["accept"]);
+    if (url.pathname === "/api/session")
+      return Response.json({ public_demo: true });
+    assert.equal(url.pathname, "/api/cases/IX-108/selfgraph.json");
+    return Response.json(body, { headers: { "set-cookie": "private-cookie" } });
+  };
+  assert.equal((await demo.fetch(req("not-public"))).status, 404);
+  assert.equal(
+    (await demo.fetch(req("IX-108", { method: "POST" }))).status,
+    405,
+  );
+  assert.equal(
+    (
+      await demo.fetch(
+        req("IX-108", { headers: { authorization: "Bearer private" } }),
+      )
+    ).status,
+    403,
+  );
+  assert.deepEqual(calls, []);
+  const response = await demo.fetch(req("IX-108"));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.equal(
+    response.headers.get("content-disposition"),
+    'attachment; filename="IX-108-selfgraph.json"',
+  );
+  assert.deepEqual(await response.json(), facts);
+  for (const unsafe of [
+    {
+      ...facts,
+      entities: [{ ...snapshot, name: "IX-113" }, revision, observation],
+    },
+    {
+      ...facts,
+      entities: [
+        snapshot,
+        revision,
+        { ...observation, properties: { private_note: "internal title" } },
+      ],
+    },
+    { ...facts, private_scope: "hidden" },
+    {
+      ...facts,
+      relations: [
+        {
+          ...facts.relations[0],
+          evidence: [{ source_id: "x", extra: "private" }],
+        },
+      ],
+    },
+  ]) {
+    body = unsafe;
+    assert.equal((await demo.fetch(req("IX-108"))).status, 503);
+  }
+});
+
 test("layout authenticates before contacting the fixed provider and checks both response formats", async () => {
   const secret = randomBytes(32).toString("hex");
   process.env.ICHNIX_LAYOUT_SECRET = secret;

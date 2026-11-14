@@ -33,6 +33,10 @@ class PublicDemoHandler(Handler):
             return self.send(200, {"public_demo": True, "disclosed_case": self.server.disclosed_case})
         if path.startswith(("/api/", "/hooks/")) and path not in self.server.demo_routes:
             return self.send(404, {"error": "unknown demo route"})
+        if path in self.server.demo_facts:
+            case_id = path.split("/")[-2]
+            return self.send(200, self.server.demo_facts[path], headers=[
+                ("Content-Disposition", f'attachment; filename="{case_id}-selfgraph.json"')])
         if path in self.server.demo_traces:
             svg, headers = self.server.demo_traces[path]
             return self.send(200, svg, "image/svg+xml", headers)
@@ -72,9 +76,18 @@ def _run():
                 http.evaluation = evaluation
                 http.demo_routes = {"/api/cases"}
                 http.demo_traces = {}
+                http.demo_facts = {}
+                public_ids = {case["id"] for case in cases}
+                if http.disclosed_case:
+                    public_ids.add(http.disclosed_case)
                 for case in graph.cases():
+                    if case["id"] not in public_ids:
+                        raise RuntimeError("unexpected case in disposable public graph")
                     route = "/api/cases/" + case["id"]
                     http.demo_routes.add(route)
+                    facts_route = route + "/selfgraph.json"
+                    http.demo_routes.add(facts_route)
+                    http.demo_facts[facts_route] = graph.selfgraph_facts(case["id"])
                     trace = route + "/trace.svg"
                     http.demo_routes.add(trace)
                     events = graph.context(case["id"])["evidence"]

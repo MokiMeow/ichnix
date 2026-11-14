@@ -33,6 +33,10 @@
       "destination": "/api/public-demo?route=cases/:id/diagram.svg"
     },
     {
+      "source": "/api/cases/:id/selfgraph.json",
+      "destination": "/api/public-demo?route=cases/:id/selfgraph.json"
+    },
+    {
       "source": "/workspace",
       "destination": "/console.html"
     },

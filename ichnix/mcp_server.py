@@ -14,8 +14,9 @@ TOOLS = [
     },
     {
         "name": "get_case_context",
-        "description": "Retrieve CI evidence and suggested remediation owners for one case",
-        "inputSchema": {"type": "object", "properties": {"case_id": {"type": "string", "minLength": 1, "maxLength": 160}},
+        "description": "Read one case context, or request its recorded evidence in SelfGraph facts format",
+        "inputSchema": {"type": "object", "properties": {"case_id": {"type": "string", "minLength": 1, "maxLength": 160},
+                                                   "format": {"type": "string", "enum": ["context", "selfgraph"]}},
                         "required": ["case_id"], "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
     },
@@ -36,11 +37,15 @@ def _call(params, graph_factory, worker=None):
             data = worker.call(name, args)
         elif name == "list_cases" and not args:
             data = graph_factory().cases()
-        elif name == "get_case_context" and set(args) == {"case_id"}:
+        elif name == "get_case_context" and "case_id" in args and args.keys() <= {"case_id", "format"}:
             case_id = args["case_id"]
             if not isinstance(case_id, str) or not 0 < len(case_id.strip()) <= 160:
                 return _error(-32602, "invalid case id")
-            data = graph_factory().context(case_id)
+            fmt = args.get("format", "context")
+            if fmt not in ("context", "selfgraph"):
+                return _error(-32602, "invalid case format")
+            graph = graph_factory()
+            data = graph.selfgraph_facts(case_id) if fmt == "selfgraph" else graph.context(case_id)
         else:
             return _error(-32602, "unknown tool or invalid arguments")
         return {"result": {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=True)}]}}

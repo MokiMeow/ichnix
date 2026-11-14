@@ -210,15 +210,41 @@ class Graph:
         self._put("WorkerOutcome", eid, job=job_id, kind=kind, worker=worker, disposition=disposition, at=at)
         self._link(snapshot, "WORKER_OUTCOME", eid)
 
+    def _snapshot_evidence(self, snapshot):
+        return self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
+                           "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id, "
+                           "e.digest AS source_digest, e.method AS source_method ORDER BY e.observed",
+                           id=snapshot)
+
+    def selfgraph_facts(self, case_id):
+        report = self._report(case_id)
+        snapshot = report["snapshot"]
+        case = f"reportsnapshot:{snapshot:x}"
+        component = report["component"]
+        rev = report["revision"]
+        component_id = f"componentrevision:{_key('component', component, rev):x}"
+        entities = [
+            {"id": case, "type": "ReportSnapshot", "name": report["id"], "properties": {"service": report["service"]}},
+            {"id": component_id, "type": "ComponentRevision", "name": rev, "properties": {"component": component}},
+        ]
+        relations = [{"from_entity": case, "type": "ON_REVISION", "to_entity": component_id,
+                      "evidence": [{"source_id": case}]}]
+        for row in self._snapshot_evidence(snapshot):
+            props = {key: row[key] for key in ("result", "run_id", "source_digest", "source_method") if row[key]}
+            ident = _key("control-observation", snapshot, row["step"], props)
+            observation = f"controlobservation:{ident:x}"
+            entities.append({"id": observation, "type": "ControlObservation", "name": row["step"], "properties": props})
+            source = "sha256:" + row["source_digest"] if row["source_digest"] else observation
+            relations.append({"from_entity": case, "type": "HAS_OBSERVATION", "to_entity": observation,
+                              "evidence": [{"source_id": source}]})
+        return {"entities": entities, "relations": relations}
+
     def snapshot_context(self, case_id):
         report = self._report(case_id)
         snapshot = report.pop("snapshot")
         stored = report.pop("vector")
         vector = json.loads(stored) if stored else _title_vector(report["title"])
-        evidence = self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
-                               "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id, "
-                               "e.digest AS source_digest, e.method AS source_method ORDER BY e.observed",
-                               id=snapshot)
+        evidence = self._snapshot_evidence(snapshot)
         legacy = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
                             "RETURN v.id AS decision, v.owner AS owner, v.accepted AS accepted", id=snapshot)
         audit = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "

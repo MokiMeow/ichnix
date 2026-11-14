@@ -44,6 +44,7 @@
               <a href="#providers">Connect a program</a>
               <a href="#ci">Capture CI evidence</a>
               <a href="#agents">Connect coding agents</a>
+              <a href="#selfgraph">Export to SelfGraph</a>
               <p>Reference</p>
               <a href="#graph">Graph and retrieval</a>
               <a href="#results">Measurements</a>
@@ -554,6 +555,56 @@ python3 cli.py handoff status JOB_ID</code></pre>
                 <a
                   href="https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle"
                   >MCP lifecycle and version negotiation</a
+                >
+              </p>
+            </details>
+          </section>
+          <section id="selfgraph">
+            <h2>Export evidence to SelfGraph</h2>
+            <p>
+              Hand an agent the observed CI checks for one case revision. In the
+              public demo, select IX-108 and download its SelfGraph facts. For a
+              private workspace, run the exporter on the operator host. The
+              destination must be a new file in a private directory.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py export-selfgraph IX-108 --out "$HOME/ix-108.facts.json"</code></pre>
+            <p>
+              The CLI receipt reports entity and relation counts. The file
+              contains the case ID, service, component revision and recorded
+              check results, with run IDs and manifest digests when available.
+              Re-export after new CI observations. Deployments retain distinct
+              snapshot IDs on remapping. A local MCP reader can call
+              <code>get_case_context</code> with
+              <code>format: "selfgraph"</code>
+              for the same facts.
+            </p>
+            <details class="manual-subsection" id="selfgraph-consumer">
+              <summary>Import and query with SelfGraph 0.2.0</summary>
+              <p>
+                Install the optional SDK in a virtual environment on the
+                receiving machine. Point it at that organization's self-hosted
+                HydraDB Bolt endpoint and set <code>SELFGRAPH_AUTH</code>
+                through your secret manager. Use a dedicated destination
+                namespace for each source workspace. Configure TLS for remote
+                connections. The example uses the native loopback listener.
+              </p>
+              <pre tabindex="0"><code>python3 -m venv .venv
+.venv/bin/pip install selfgraph==0.2.0
+export SELFGRAPH_STORE=hydradb SELFGRAPH_URI=bolt://127.0.0.1:7687
+export SELFGRAPH_NAMESPACE=ichnix-ledger
+.venv/bin/selfgraph insert facts "$HOME/ix-108.facts.json"
+.venv/bin/selfgraph readiness
+.venv/bin/selfgraph check-answerable "Is there a retention check for IX-108?" --term IX-108 --term retention_days</code></pre>
+              <p>
+                Answerability checks whether terms connect to recorded facts.
+                Inspect the observation's result to distinguish a pass, failure
+                or inconclusive check. Importing the same file again reuses the
+                same identifiers. Source references describe provenance; private
+                manifests stay with the operator.
+                <a href="https://github.com/hydra-db/selfgraph"
+                  >SelfGraph SDK</a
                 >
               </p>
             </details>

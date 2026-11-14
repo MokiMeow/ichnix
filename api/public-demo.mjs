@@ -11,8 +11,72 @@ const allowed = new Set([
     `cases/${id}`,
     `cases/${id}/trace.svg`,
     `cases/${id}/diagram.svg`,
+    `cases/${id}/selfgraph.json`,
   ]),
 ]);
+
+const allowedProperties = new Map([
+  ["ReportSnapshot", ["service"]],
+  ["ComponentRevision", ["component"]],
+  [
+    "ControlObservation",
+    ["result", "run_id", "source_digest", "source_method"],
+  ],
+]);
+
+function onlyKeys(value, keys) {
+  return (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).every((key) => keys.includes(key))
+  );
+}
+
+function publicFacts(facts, id) {
+  if (
+    !onlyKeys(facts, ["entities", "relations"]) ||
+    !Array.isArray(facts.entities) ||
+    !Array.isArray(facts.relations)
+  )
+    throw new Error("invalid public facts");
+  const snapshots = facts.entities.filter((e) => e?.type === "ReportSnapshot");
+  if (snapshots.length !== 1 || snapshots[0].name !== id)
+    throw new Error("unexpected public snapshot");
+  const ids = new Set();
+  for (const e of facts.entities) {
+    if (
+      !onlyKeys(e, ["id", "type", "name", "properties"]) ||
+      !allowedProperties.has(e.type) ||
+      typeof e.id !== "string" ||
+      typeof e.name !== "string" ||
+      ids.has(e.id) ||
+      !onlyKeys(e.properties, allowedProperties.get(e.type)) ||
+      !Object.values(e.properties).every((v) => typeof v === "string")
+    )
+      throw new Error("unexpected public entity");
+    ids.add(e.id);
+  }
+  for (const r of facts.relations) {
+    if (
+      !onlyKeys(r, ["from_entity", "type", "to_entity", "evidence"]) ||
+      r.from_entity !== snapshots[0].id ||
+      !ids.has(r.to_entity) ||
+      !["ON_REVISION", "HAS_OBSERVATION"].includes(r.type) ||
+      !Array.isArray(r.evidence) ||
+      !r.evidence.every(
+        (v) => onlyKeys(v, ["source_id"]) && typeof v.source_id === "string",
+      )
+    )
+      throw new Error("unexpected public relation");
+  }
+  const response = json(facts);
+  response.headers.set(
+    "content-disposition",
+    `attachment; filename="${id}-selfgraph.json"`,
+  );
+  return response;
+}
 
 async function GET(request) {
   const url = new URL(request.url);
@@ -73,6 +137,8 @@ async function GET(request) {
     const body = await readLimited(response, 1024 * 1024);
     if (!svg) {
       const result = JSON.parse(body);
+      if (path.endsWith("/selfgraph.json"))
+        return publicFacts(result, path.split("/")[1]);
       if (
         path === "cases" &&
         (!Array.isArray(result) ||

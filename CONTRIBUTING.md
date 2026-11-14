@@ -32,6 +32,16 @@ Use the smallest relevant regression test while developing. For example, `python
 - `python3 testing/model_survey.py` sends bundled synthetic fixtures to two real sessions through a signed-in Codex CLI. Run it when you need to verify model behavior. The offline survey checks the protocol independently.
 - `python3 cli.py bench-workers --workers 100 --jobs 100` compares one worker with 100 deterministic MCP clients on the same job count. Report host capacity, clients, jobs, throughput and p95. Report process startup separately.
 
+## Verify a SelfGraph handoff
+
+On the native Linux x86-64 setup above, run the optional consumer check with Python 3.12. It exports a synthetic case, imports it twice into SelfGraph on a disposable HydraDB node, and checks whether an agent can find the recorded control and recognize a missing one. CI uses the same pinned wheels. The receipt contains counts and verdicts.
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/pip install --only-binary=:all: --require-hashes -r testing/selfgraph-requirements.txt
+.venv/bin/python testing/selfgraph_interop.py
+```
+
 ## Update the architecture diagram
 
 Edit the Mermaid flowchart in [the renderer](scripts/render-architecture.mjs). Regenerate the checked-in [architecture SVG](docs/architecture.svg) using the pinned Pele dependency:

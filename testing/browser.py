@@ -75,7 +75,8 @@ def named_workspace(hosted=False):
 
 def public_checks(browser, origin, width):
     page = browser.new_page(viewport={"width": width, "height": 850}, reduced_motion="reduce")
-    errors, external = [], []
+    errors, external, exports = [], [], []
+    page.on("request", lambda req: exports.append(req.url) if req.url.endswith("/selfgraph.json") else None)
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.on("request", lambda req: external.append(urlsplit(req.url).netloc)
             if req.url.startswith(("http:", "https:")) and urlsplit(req.url).netloc != urlsplit(origin).netloc else None)
@@ -115,6 +116,20 @@ def public_checks(browser, origin, width):
                         page.locator(f'#cases button[data-case-id="{case}"]').click()
                     expect(page.locator(".case-id")).to_have_text(case)
                 select("IX-108")
+                download = page.get_by_role("link", name="Download SelfGraph facts (JSON)")
+                expect(download).to_have_attribute("href", "/api/cases/IX-108/selfgraph.json")
+                assert not exports
+                with page.expect_download() as receipt:
+                    download.focus()
+                    page.keyboard.press("Enter")
+                assert receipt.value.url == origin + "/api/cases/IX-108/selfgraph.json"
+                assert receipt.value.suggested_filename == "IX-108-selfgraph.json"
+                facts = json.loads(receipt.value.path().read_text())
+                by_type = {entity["type"]: entity for entity in facts["entities"]}
+                assert by_type["ReportSnapshot"]["name"] == "IX-108"
+                assert by_type["ComponentRevision"]["properties"]["component"] == "audit-store"
+                assert any(r["type"] == "HAS_OBSERVATION" for r in facts["relations"])
+                assert page.request.get(origin + "/api/cases/PRIVATE/selfgraph.json").status == 404
                 expect(page.locator(".trace")).to_be_visible()
                 page.get_by_text("Review workflow diagram", exact=True).click()
                 expect(page.locator(".review-diagram")).to_be_visible()
@@ -211,6 +226,7 @@ def role_checks(browser, origin, tokens, hosted=False):
             page.get_by_text("Review workflow diagram", exact=True).click()
             expect(page.locator(".review-diagram")).to_be_visible()
             assert requests == [True] and not leaked
+            expect(page.get_by_role("link", name="Download SelfGraph facts (JSON)")).to_have_count(0)
             buttons = page.locator("#detail .review-row button")
             if role == "intake":
                 expect(buttons).to_have_count(0)

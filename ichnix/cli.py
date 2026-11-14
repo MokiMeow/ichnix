@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from tempfile import NamedTemporaryFile
 
 from ichnix import connectors
 from ichnix.mcp_server import serve
@@ -40,6 +41,9 @@ def parser():
     commands.add_parser("cases", help="list case metadata")
     context = commands.add_parser("context", help="get graph context for one case")
     context.add_argument("case_id")
+    export = commands.add_parser("export-selfgraph", help="export the current snapshot and its observed CI facts for SelfGraph")
+    export.add_argument("case_id")
+    export.add_argument("--out", required=True, type=Path, help="create a new private JSON file")
     load = commands.add_parser("import", help="import local metadata JSON as an object or array")
     load.add_argument("file")
     sync = commands.add_parser("sync", help="import reviewed HackerOne report metadata")
@@ -156,6 +160,16 @@ def run(args, graph):
         return graph.cases()
     if args.command == "context":
         return graph.context(args.case_id)
+    if args.command == "export-selfgraph":
+        facts = graph.selfgraph_facts(args.case_id)
+        # Publish a complete 0600 file without overwriting an existing export or following its symlink.
+        with NamedTemporaryFile(mode="w", dir=args.out.parent, encoding="utf-8") as tmp:
+            json.dump(facts, tmp, ensure_ascii=True)
+            tmp.write("\n")
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            os.link(tmp.name, args.out)
+        return {"format": "selfgraph-facts", "entities": len(facts["entities"]), "relations": len(facts["relations"])}
     if args.command == "review":
         return graph.record_review(args.case_id, args.owner, args.accept)
     if args.command == "sync":

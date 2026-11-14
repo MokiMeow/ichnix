@@ -184,6 +184,17 @@ async function renderCase(
     metadata.append(field);
   }
   heading.append(metadata);
+  if (publicDemo && !orgWorkspace && report.id === selected) {
+    const exportLink = element(
+      "a",
+      "Download SelfGraph facts (JSON)",
+      "case-export",
+    );
+    exportLink.href =
+      apiBase + "cases/" + encodeURIComponent(report.id) + "/selfgraph.json";
+    exportLink.download = report.id + "-selfgraph.json";
+    heading.append(exportLink);
+  }
   detail.replaceChildren(heading);
   const diagram = element("details", undefined, "case-diagram");
   const diagramBody = element("div", "Loading workflow diagram…");

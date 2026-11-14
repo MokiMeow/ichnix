@@ -157,6 +157,10 @@ def run(folder, port):
         listed = advisor.tool("list_cases")
         require({r["id"] for r in listed} == CASE_IDS, "unexpected local MCP inventory")
         context = advisor.tool("get_case_context", case_id=PRIMARY)
+        facts = advisor.tool("get_case_context", case_id=PRIMARY, format="selfgraph")
+        observations = {e["name"]: e["properties"]["result"] for e in facts["entities"]
+                        if e["type"] == "ControlObservation"}
+        require(observations == expected, "SelfGraph MCP facts differ from the recorded CI outcomes")
         linked = advisor.tool("get_case_context", case_id=FOLLOWUP)
         unrelated = advisor.tool("get_case_context", case_id=CONTROL)
         clean = advisor.tool("get_case_context", case_id=CLEAN)
@@ -182,6 +186,7 @@ def run(folder, port):
             "clean_revision": {"case_id": CLEAN, "revision": clean["report"]["revision"], "controls_passed": len(clean_events),
                                "manifest_sha256": clean_digest, "stale_export_rejected": True},
             "roles_exercised": ["operator", "reader", "reviewer", "local MCP reader", "evidence worker", "owner worker"],
+            "selfgraph_facts": {"entities": len(facts["entities"]), "relations": len(facts["relations"])},
             "manifest_sha256": digest, "ci_observations": expected, "completed_reviews": dispositions,
             "retrieved_prior_control": routing["ranked_checks"][0]["step"], "human_review_events": 1,
             "denials_verified": ["missing credential", "reader write", "reviewer claim", "worker workspace read",

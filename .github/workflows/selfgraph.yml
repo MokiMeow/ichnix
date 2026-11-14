@@ -1,0 +1,34 @@
+name: SelfGraph interoperability
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/selfgraph.yml"
+      - "cli.py"
+      - "ichnix/**"
+      - "scripts/install-hydra.py"
+      - "scripts/start-hydra.sh"
+      - "testing/fixtures/cases.json"
+      - "testing/selfgraph*"
+      - "tests/test_selfgraph_export.py"
+
+permissions:
+  contents: read
+
+jobs:
+  round-trip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install pinned HydraDB and the isolated Python consumer
+        run: |
+          python3.12 scripts/install-hydra.py
+          python3.12 -m venv "$RUNNER_TEMP/ichnix-selfgraph"
+          "$RUNNER_TEMP/ichnix-selfgraph/bin/pip" install --only-binary=:all: --require-hashes -r testing/selfgraph-requirements.txt
+      - name: Verify export, retry and answerability over Bolt
+        run: '"$RUNNER_TEMP/ichnix-selfgraph/bin/python" testing/selfgraph_interop.py'
