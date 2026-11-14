@@ -1,9 +1,33 @@
+import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
+
 from eval_graph import isolated_graph
+from graph import Graph
 from staging import checks
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_configured_graph_credentials_work_without_a_home_directory(self):
+        with TemporaryDirectory() as temp, patch.dict(os.environ, {}, clear=True):
+            token_file = Path(temp) / "hydra-token"
+            token_file.write_text("disposable-test-credential")
+            for variable, value in (("ICHNIX_HYDRA_TOKEN_FILE", str(token_file)), ("ICHNIX_STATE_DIR", temp)):
+                with self.subTest(setting=variable), patch.dict(os.environ, {variable: value}), \
+                        patch.object(Path, "home", side_effect=RuntimeError("no home directory")):
+                    self.assertEqual(Graph().headers["Authorization"], "Bearer disposable-test-credential")
+
+    def test_survey_isolates_and_restores_operator_configuration(self):
+        external = {"ICHNIX_HANDOFF_DB": "/unavailable/private/queue", "ICHNIX_IDENTITY_DB": "/unavailable/private/identities",
+                    "HACKERONE_API_TOKEN": "fixture", "BUGCROWD_API_TOKEN": "fixture"}
+        with patch.dict(os.environ, external):
+            with isolated_graph() as db:
+                self.assertTrue(external.keys().isdisjoint(os.environ))
+                self.assertEqual(db.cases(), [])
+            self.assertEqual({key: os.environ[key] for key in external}, external)
+
     def test_evidence_stays_with_revision_and_retry_is_idempotent(self):
         with isolated_graph() as db:
             row = dict(id="case-a", service="ledger", component="store", revision="v1",
