@@ -38,6 +38,7 @@
 !scripts/console.sh
 !scripts/start-hydra.sh
 !scripts/check-workspace.py
+!scripts/diagram-theme.mjs
 !scripts/acceptance.py
 !scripts/bench_workers.py
 !tests/
