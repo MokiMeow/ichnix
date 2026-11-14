@@ -28,10 +28,10 @@ python3 demo.py
 
 Open the loopback URL printed by the demo. Read the operator token from the indicated private file and enter it in the console. Choose IX-108 to see retention, redaction and audit evidence from a synthetic staging manifest. The demo starts its own HydraDB process and discards its database on exit. The installer verifies a pinned official HydraDB image and its layers. On other platforms, supply a compatible graph-node executable via HYDRA_BINARY with its runtime libraries installed.
 
-To share a sample workspace, start the read-only demo and tunnel its port. It runs the evaluation separately from the sample cases. Visitors can read case context, audit history, diagrams and the measured learning curve. The demo rejects writes, including webhooks.
+To share the public disclosure alongside three synthetic cases, run the live acceptance workflow at startup and tunnel the read-only console. Omit `--with-disclosure` for an offline synthetic demo. It runs the evaluation separately from the sample cases. Visitors can read case context, audit history, diagrams and the measured learning curve. The demo rejects writes, including webhooks.
 
 ```sh
-python3 demo.py --public-readonly --port 18766
+python3 demo.py --public-readonly --with-disclosure --port 18766
 # In another terminal
 cloudflared tunnel --url http://127.0.0.1:18766
 ```

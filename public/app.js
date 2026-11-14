@@ -8,6 +8,7 @@ let traceUrl;
 let selected;
 let generation = 0;
 let publicDemo = false;
+let disclosedCase;
 
 function element(tag, text, className) {
   const el = document.createElement(tag);
@@ -133,8 +134,20 @@ async function renderCase(
       [report.service, report.component, report.revision].join(" / "),
       "case-meta",
     ),
-    element("h3", "Suggested owners"),
   );
+  if (publicDemo && report.id === disclosedCase) {
+    const source = element("a", "Read the disclosed HackerOne report");
+    source.href = "https://hackerone.com/reports/2236133";
+    detail.append(
+      source,
+      element(
+        "p",
+        "These signed HTTP observations came from the local Ichnix console during acceptance. The source report describes curl.",
+        "case-meta",
+      ),
+    );
+  }
+  detail.append(element("h3", "Suggested owners"));
   for (const item of recommendations) {
     const row = element("div", undefined, "review-row");
     row.append(
@@ -391,13 +404,18 @@ async function initializeWorkspace() {
       redirect: "error",
       signal: AbortSignal.timeout(4000),
     });
-    publicDemo = response.ok && (await response.json()).public_demo === true;
+    const session = response.ok ? await response.json() : {};
+    publicDemo = session.public_demo === true;
+    disclosedCase = publicDemo ? session.disclosed_case : null;
   } catch {
     publicDemo = false;
   }
   evaluation.hidden = !publicDemo;
   if (publicDemo) {
-    byId("workspace-label").textContent = "Read-only demo · synthetic cases";
+    byId("workspace-label").textContent = disclosedCase
+      ? "Read-only workspace · public disclosure and sample cases"
+      : "Read-only demo · synthetic cases";
+    selected ??= disclosedCase;
     return refresh();
   }
   status.textContent = "";

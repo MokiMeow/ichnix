@@ -309,9 +309,14 @@ python3 cli.py handoff status JOB_ID</code></pre>
               Use <code>evidence-review</code> when the case already has staging
               observations. Ask the agent to call <code>claim_review</code>,
               pass the returned job ID to <code>get_review_context</code>,
-              inspect the material, then call <code>finish_review</code>.
-              Unfinished leases expire and become available again. A completed
-              handoff leaves the owner decision to the reviewer.
+              inspect the material, then call <code>finish_review</code>. For an
+              evidence review, pass the optional <code>disposition</code> value
+              <code>evidence-reviewed</code> or <code>needs-evidence</code>. An
+              owner review accepts <code>needs-owner-review</code>. The graph
+              records these outcomes against the reviewed snapshot. Only
+              reviewer decisions change owner rankings. Unfinished leases expire
+              and become available again. A completed handoff leaves the owner
+              decision to the reviewer.
             </p>
             <p>
               For a trusted local operator,

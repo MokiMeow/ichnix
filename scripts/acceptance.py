@@ -15,7 +15,10 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 from unittest.mock import patch
 
-from bench_workers import Client, ROOT
+if __package__:
+    from .bench_workers import Client, ROOT
+else:
+    from bench_workers import Client, ROOT
 from eval_graph import isolated_graph
 from server import ConsoleServer, Handler
 
@@ -64,7 +67,7 @@ def worker_review(port, token_file, job_id, events):
             raise RuntimeError("worker read different case evidence")
         if not any(row["owner"] == REVIEWER for row in context["recommendations"]):
             raise RuntimeError("expected remediation owner missing from worker context")
-        completed = client.tool("finish_review", job_id=job_id)
+        completed = client.tool("finish_review", job_id=job_id, disposition="evidence-reviewed")
         if completed["state"] != "complete" or client.tool("claim_review") is not None:
             raise RuntimeError("evidence handoff did not complete")
 
@@ -106,6 +109,9 @@ def acceptance(folder, port):
         raise RuntimeError("completed worker receipt could not be verified")
     api(port, "POST", f"/api/cases/{CASE}/reviews", reviewer, {"owner": REVIEWER, "accepted": True})
     saved = cli("context", CASE)
+    if not any(item["job_id"] == job_id and item["disposition"] == "evidence-reviewed"
+               for item in saved["worker_outcomes"]):
+        raise RuntimeError("worker disposition missing from graph")
     if not any(row["actor"] == REVIEWER and row["owner"] == REVIEWER and row["accepted"] is True
                for row in saved["review_history"]):
         raise RuntimeError("review decision missing from graph history")
@@ -114,9 +120,9 @@ def acceptance(folder, port):
             "observations": observed, "handoff_state": persisted["state"], "review_recorded": True}
 
 
-def main():
-    argparse.ArgumentParser(description=__doc__).parse_args()
-    with TemporaryDirectory() as temp, isolated_graph():
+def run_local_workflow():
+    """Run against the empty disposable graph supplied by the caller."""
+    with TemporaryDirectory() as temp:
         folder = Path(temp)
         key = folder / "ci.key"
         with os.fdopen(os.open(key, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), "wb") as stream:
@@ -128,7 +134,13 @@ def main():
             with ExitStack() as cleanup:
                 cleanup.callback(thread.join)
                 cleanup.callback(server.shutdown)
-                receipt = acceptance(folder, server.server_port)
+                return acceptance(folder, server.server_port)
+
+
+def main():
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    with isolated_graph():
+        receipt = run_local_workflow()
     print(json.dumps(receipt, indent=2))
     return 0
 
