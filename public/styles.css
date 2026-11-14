@@ -581,3 +581,12 @@ input {
   text-align: left;
   padding-left: 0;
 }
+
+.manifest-source {
+  margin-block: 0.3rem 1rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.manifest-source summary {
+  cursor: pointer;
+}

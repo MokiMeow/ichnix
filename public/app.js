@@ -206,6 +206,19 @@ async function renderCase(
     const row = element("div", undefined, "evidence-row");
     row.append(element("strong", item.step), element("span", item.result));
     detail.append(row);
+    if (item.source_digest) {
+      const origin =
+        item.source_method === "hmac-sha256"
+          ? "Signed CI manifest"
+          : "Local manifest";
+      const details = element("details");
+      details.append(
+        element("summary", origin),
+        element("code", item.source_digest),
+      );
+      details.className = "manifest-source";
+      detail.append(details);
+    }
   }
   try {
     const response = await request(

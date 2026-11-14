@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from eval_graph import evaluate, isolated_graph
 from server import ConsoleServer, Handler, ROOT
-from staging import checks, load
+from staging import checks, load, manifest_input
 
 
 class PublicDemoHandler(Handler):
@@ -51,11 +51,13 @@ def main():
         graph.record_review("IX-104", "data-platform", True, actor="sample-reviewer")
         graph.record_review("IX-104", "product-security", False, actor="sample-reviewer")
         policy = load(ROOT / "examples/policy.json")
-        manifest = load(ROOT / "examples/staging.json")
+        with patch.dict(os.environ):
+            os.environ.pop("ICHNIX_CI_HMAC_KEY_FILE", None)
+            manifest, provenance = manifest_input(ROOT / "examples/staging.json")
         for case in cases[:2]:
             run = uuid4().hex
             for evidence in checks(case, policy, manifest):
-                graph.add_evidence(case["id"], dict(evidence, run_id=run))
+                graph.add_evidence(case["id"], dict(evidence, run_id=run, **provenance))
         if args.public_readonly:
             with ConsoleServer(("127.0.0.1", args.port), PublicDemoHandler) as http:
                 http.evaluation = evaluation

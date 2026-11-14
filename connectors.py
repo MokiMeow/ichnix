@@ -171,7 +171,6 @@ def _bugcrowd_headers():
     return {
         "Authorization": f"Token {token}",
         "Accept": "application/vnd.bugcrowd+json",
-        "Bugcrowd-Version": "2024-03-27",
     }
 
 

@@ -4,6 +4,7 @@
 !connectors.py
 !cli.py
 !mcp_server.py
+!worker_client.py
 !credentials.py
 !handoffs.py
 !handoff_cli.py
