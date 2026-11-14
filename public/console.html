@@ -6,28 +6,39 @@
     <title>Review console · Ichnix</title>
     <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/docs.css" />
     <script type="module" src="/app.js"></script>
   </head>
   <body>
     <a class="skip" href="#review">Skip to content</a>
     <header class="mast">
-      <a class="brand" href="/" aria-label="Ichnix home"
-        ><img
-          src="/evidence-graph.png"
-          width="40"
-          height="40"
-          alt=""
-        />Ichnix</a
-      >
-      <nav aria-label="Primary">
-        <a href="/docs">Docs</a><button id="leave" hidden>Disconnect</button>
-      </nav>
+      <div class="mast-inner">
+        <a class="brand" href="/" aria-label="Ichnix home"
+          ><img
+            src="/evidence-graph.png"
+            width="34"
+            height="34"
+            alt=""
+          />Ichnix</a
+        >
+        <nav class="topnav" aria-label="Primary">
+          <a href="/docs">Docs</a
+          ><a href="/console" aria-current="page">Review console</a>
+        </nav>
+      </div>
     </header>
     <main class="workspace" id="review">
-      <p class="micro kicker" id="workspace-label">Investigation workspace</p>
-      <h1>Review console</h1>
+      <header class="workspace-intro">
+        <div>
+          <p class="loc">Workspace <span aria-hidden="true">/</span> Review</p>
+          <h1>Review console</h1>
+          <p id="workspace-label">Private workspace</p>
+        </div>
+        <button id="leave" class="cmd" hidden>Disconnect</button>
+      </header>
       <form id="connect" hidden>
-        <label for="token">Workspace access token</label>
+        <h2>Connect to workspace</h2>
+        <label for="token">Access token</label>
         <div class="input-row">
           <input
             id="token"
@@ -35,7 +46,7 @@
             required
             autocomplete="off"
             spellcheck="false"
-          /><button class="pill">Connect ↗</button>
+          /><button class="cmd primary">Connect</button>
         </div>
         <p class="hint">
           Use the access token configured by your workspace administrator.
@@ -50,9 +61,11 @@
       <div id="desk" hidden>
         <aside>
           <div class="aside-title">
-            <h2>Cases</h2>
-            <button id="reload">Refresh</button>
+            <h2>Cases <span id="case-count"></span></h2>
+            <button id="reload" class="cmd">Refresh</button>
           </div>
+          <label class="case-picker" for="case-select">Selected case</label
+          ><select id="case-select" class="case-picker"></select>
           <ul id="cases"></ul>
         </aside>
         <article

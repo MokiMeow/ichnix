@@ -7,49 +7,57 @@
     <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/docs.css" />
+    <script type="module" src="/app.js"></script>
   </head>
   <body>
     <a class="skip" href="#manual">Skip to content</a>
     <header class="mast">
-      <a class="brand" href="/" aria-label="Ichnix home"
-        ><img
-          src="/evidence-graph.png"
-          width="40"
-          height="40"
-          alt=""
-        />Ichnix</a
-      >
-      <nav aria-label="Primary">
-        <a href="/docs" aria-current="page">Docs</a
-        ><a class="nav-console" href="/console"
-          >Review console <span aria-hidden="true">↗</span></a
+      <div class="mast-inner">
+        <a class="brand" href="/" aria-label="Ichnix home"
+          ><img
+            src="/evidence-graph.png"
+            width="34"
+            height="34"
+            alt=""
+          />Ichnix</a
         >
-      </nav>
+        <nav class="topnav" aria-label="Primary">
+          <a href="/docs" aria-current="page">Docs</a
+          ><a href="/console">Review console</a>
+        </nav>
+      </div>
     </header>
     <main id="manual" class="manual">
-      <header class="manual-intro">
-        <p class="micro kicker">Documentation</p>
-        <h1>Operator manual</h1>
-        <p>
-          Connect a bounty program, capture evidence from staging, and hand a
-          specific review to an engineer or coding agent.
-        </p>
-      </header>
       <div class="manual-layout">
-        <nav class="manual-index" aria-label="On this page">
-          <p class="micro">On this page</p>
-          <a href="#install">Self-host a workspace</a
-          ><a href="#acceptance">Run acceptance</a>
-          <a href="#storage">Configure SQLite</a
-          ><a href="#survey">Test with mock cases</a>
-          <a href="#providers">Connect a program</a
-          ><a href="#ci">Capture CI evidence</a>
-          <a href="#agents">Connect people and agents</a
-          ><a href="#graph">Understand the graph</a>
-          <a href="#results">Read the measurements</a
-          ><a href="#distribution">License and distribution</a>
-        </nav>
+        <aside class="manual-rail">
+          <details class="index-panel" open>
+            <summary>Contents</summary>
+            <nav class="manual-index" aria-label="Manual contents">
+              <p>Getting started</p>
+              <a href="#install">Self-host a workspace</a>
+              <a href="#storage">Configure SQLite</a>
+              <a href="#survey">Test with mock cases</a>
+              <a href="#acceptance">Run acceptance</a>
+              <p>Operations</p>
+              <a href="#providers">Connect a program</a>
+              <a href="#ci">Capture CI evidence</a>
+              <a href="#agents">Connect coding agents</a>
+              <p>Reference</p>
+              <a href="#graph">Graph and retrieval</a>
+              <a href="#results">Measurements</a>
+              <a href="#distribution">Licenses</a>
+            </nav>
+          </details>
+        </aside>
         <article class="manual-article">
+          <header class="manual-intro">
+            <p class="loc">Docs <span aria-hidden="true">/</span> Operations</p>
+            <h1>Operator manual</h1>
+            <p>
+              Connect a bounty program, capture staging evidence and hand a
+              scoped review to an engineer or coding agent.
+            </p>
+          </header>
           <section id="install">
             <h2>Self-host a workspace</h2>
             <p>
@@ -514,9 +522,9 @@ python3 cli.py handoff status JOB_ID</code></pre>
             <p>
               Ichnix application code is MIT licensed. The checkout includes its
               <code>LICENSE</code> and the notices in
-              <code>public/fonts</code> for bundled Instrument Sans, Instrument
-              Serif and Anonymous Pro. HydraDB is distributed under Elastic
-              License 2.0. The container includes the runtime and its notices.
+              <code>public/fonts</code> for the bundled typefaces. HydraDB is
+              distributed under Elastic License 2.0. The container includes the
+              runtime and its notices.
               <a href="https://github.com/hydra-db/hydradb/blob/v0.4.0/LICENSE"
                 >HydraDB license</a
               >
@@ -525,9 +533,8 @@ python3 cli.py handoff status JOB_ID</code></pre>
         </article>
       </div>
     </main>
-    <footer>
-      <a class="brand" href="/">Ichnix</a><small class="micro">2026</small
-      ><a href="#manual">Back to top ↑</a>
+    <footer class="manual-footer">
+      <span>Ichnix documentation</span><a href="#manual">Back to top ↑</a>
     </footer>
   </body>
 </html>

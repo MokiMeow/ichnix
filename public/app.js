@@ -32,6 +32,8 @@ function clearSession() {
   clearTrace();
   detail.replaceChildren();
   byId("cases").replaceChildren();
+  byId("case-select").replaceChildren();
+  byId("case-count").textContent = "";
   byId("leave").hidden = desk.hidden = true;
   login.hidden = publicDemo;
   status.textContent = "";
@@ -75,7 +77,7 @@ function reviewControl(report, owner, accepted) {
   const button = element(
     "button",
     accepted ? "Accept" : "Reject",
-    accepted ? "pill" : "pill secondary",
+    accepted ? "cmd primary" : "cmd",
   );
   button.setAttribute("aria-label", (accepted ? "Accept " : "Reject ") + owner);
   button.addEventListener("click", async () => {
@@ -128,15 +130,23 @@ async function renderCase(
   view,
 ) {
   clearTrace();
-  detail.replaceChildren(
-    element("p", report.id, "micro"),
+  const heading = element("header", undefined, "case-heading");
+  heading.append(
+    element("p", report.id, "case-id"),
     element("h2", report.title),
-    element(
-      "p",
-      [report.service, report.component, report.revision].join(" / "),
-      "case-meta",
-    ),
   );
+  const metadata = element("dl", undefined, "case-scope");
+  for (const [label, value] of [
+    ["Service", report.service],
+    ["Component", report.component],
+    ["Revision", report.revision],
+  ]) {
+    const field = element("div");
+    field.append(element("dt", label), element("dd", value));
+    metadata.append(field);
+  }
+  heading.append(metadata);
+  detail.replaceChildren(heading);
   if (publicDemo && report.id === disclosedCase) {
     const source = element("a", "Read the disclosed HackerOne report");
     source.href = "https://hackerone.com/reports/2236133";
@@ -285,6 +295,7 @@ async function renderCase(
 async function openCase(caseId) {
   const view = ++generation;
   selected = caseId;
+  byId("case-select").value = caseId;
   clearTrace();
   detail.textContent = "Loading case…";
   for (const button of byId("cases").querySelectorAll("button")) {
@@ -321,8 +332,17 @@ async function refresh() {
     login.hidden = true;
     byId("token").value = "";
     const list = byId("cases");
+    const picker = byId("case-select");
     list.replaceChildren();
+    picker.replaceChildren();
+    picker.disabled = cases.length === 0;
+    byId("case-count").textContent = String(cases.length);
+    if (!cases.length) picker.append(element("option", "No cases"));
+
     for (const report of cases) {
+      const option = element("option", report.id + " · " + report.title);
+      option.value = report.id;
+      picker.append(option);
       const button = element("button", undefined, "case-btn");
       button.dataset.caseId = report.id;
       button.append(element("small", report.id), element("span", report.title));
@@ -348,92 +368,115 @@ async function refresh() {
   }
 }
 
-login.addEventListener("submit", (event) => {
-  event.preventDefault();
-  token = byId("token").value.trim();
-  refresh();
-});
-byId("leave").addEventListener("click", clearSession);
-byId("reload").addEventListener("click", refresh);
-const evaluation = byId("evaluation");
-evaluation.addEventListener("toggle", async () => {
-  if (!publicDemo || !evaluation.open) return;
-  const result = byId("evaluation-result");
-  if (
-    result.querySelector("table") ||
-    result.getAttribute("aria-busy") === "true"
-  )
-    return;
-  result.setAttribute("aria-busy", "true");
-  result.textContent = "Loading measured results…";
-  try {
-    const response = await request("/api/evaluation");
-    const { curve } = await response.json();
-    const table = element("table");
-    table.append(
-      element(
-        "caption",
-        "First recommendation correct across " +
-          curve[0].heldout_cases +
-          " held-out synthetic cases",
-      ),
-    );
-    const head = table.createTHead().insertRow();
-    for (const label of ["Training cases", "Owner", "CI check"]) {
-      const cell = element("th", label);
-      cell.scope = "col";
-      head.append(cell);
-    }
-    const body = table.createTBody();
-    const percent = new Intl.NumberFormat(undefined, {
-      style: "percent",
-      maximumFractionDigits: 1,
-    });
-    for (const point of curve) {
-      const row = body.insertRow();
-      const trainingCases = element("th", point.training_cases);
-      trainingCases.scope = "row";
-      row.append(
-        trainingCases,
-        element("td", percent.format(point.owner_top1)),
-        element("td", percent.format(point.ci_check_top1)),
+function initializeConsole() {
+  login.addEventListener("submit", (event) => {
+    event.preventDefault();
+    token = byId("token").value.trim();
+    refresh();
+  });
+  byId("leave").addEventListener("click", clearSession);
+  byId("reload").addEventListener("click", refresh);
+  byId("case-select").addEventListener("change", (event) =>
+    openCase(event.target.value),
+  );
+  const evaluation = byId("evaluation");
+  evaluation.addEventListener("toggle", async () => {
+    if (!publicDemo || !evaluation.open) return;
+    const result = byId("evaluation-result");
+    if (
+      result.querySelector("table") ||
+      result.getAttribute("aria-busy") === "true"
+    )
+      return;
+    result.setAttribute("aria-busy", "true");
+    result.textContent = "Loading measured results…";
+    try {
+      const response = await request("/api/evaluation");
+      const { curve } = await response.json();
+      const table = element("table");
+      table.append(
+        element(
+          "caption",
+          "First recommendation correct across " +
+            curve[0].heldout_cases +
+            " held-out synthetic cases",
+        ),
       );
+      const head = table.createTHead().insertRow();
+      for (const label of ["Training cases", "Owner", "CI check"]) {
+        const cell = element("th", label);
+        cell.scope = "col";
+        head.append(cell);
+      }
+      const body = table.createTBody();
+      const percent = new Intl.NumberFormat(undefined, {
+        style: "percent",
+        maximumFractionDigits: 1,
+      });
+      for (const point of curve) {
+        const row = body.insertRow();
+        const trainingCases = element("th", point.training_cases);
+        trainingCases.scope = "row";
+        row.append(
+          trainingCases,
+          element("td", percent.format(point.owner_top1)),
+          element("td", percent.format(point.ci_check_top1)),
+        );
+      }
+      result.replaceChildren(table);
+    } catch {
+      result.textContent = "Results unavailable. Close and reopen to retry.";
+    } finally {
+      result.removeAttribute("aria-busy");
     }
-    result.replaceChildren(table);
-  } catch {
-    result.textContent = "Results unavailable. Close and reopen to retry.";
-  } finally {
-    result.removeAttribute("aria-busy");
-  }
-});
+  });
 
-async function initializeWorkspace() {
-  try {
-    const response = await fetch("/api/session", {
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(4000),
-    });
-    const session = response.ok ? await response.json() : {};
-    publicDemo = session.public_demo === true;
-    disclosedCase = publicDemo ? session.disclosed_case : null;
-  } catch {
-    publicDemo = false;
+  async function initializeWorkspace() {
+    try {
+      const response = await fetch("/api/session", {
+        cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(4000),
+      });
+      const session = response.ok ? await response.json() : {};
+      publicDemo = session.public_demo === true;
+      disclosedCase = publicDemo ? session.disclosed_case : null;
+    } catch {
+      publicDemo = false;
+    }
+    evaluation.hidden = !publicDemo;
+    if (publicDemo) {
+      byId("workspace-label").textContent = disclosedCase
+        ? "Read-only workspace · public disclosure and sample cases"
+        : "Read-only demo · synthetic cases";
+      selected ??= disclosedCase;
+      return refresh();
+    }
+    status.textContent = "";
+    login.hidden = false;
   }
-  evaluation.hidden = !publicDemo;
-  if (publicDemo) {
-    byId("workspace-label").textContent = disclosedCase
-      ? "Read-only workspace · public disclosure and sample cases"
-      : "Read-only demo · synthetic cases";
-    selected ??= disclosedCase;
-    return refresh();
-  }
-  status.textContent = "";
-  login.hidden = false;
+
+  window.addEventListener("pagehide", clearSession);
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) initializeWorkspace();
+  });
+  initializeWorkspace();
 }
 
-window.addEventListener("pagehide", clearSession);
-window.addEventListener("pageshow", (event) => {
-  if (event.persisted) initializeWorkspace();
-});
-initializeWorkspace();
+if (desk) {
+  initializeConsole();
+} else {
+  const index = document.querySelector(".index-panel");
+  if (index) {
+    const compact = matchMedia("(max-width:45rem)");
+    const adapt = () => {
+      index.open = !compact.matches;
+    };
+    adapt();
+    compact.addEventListener("change", adapt);
+    index.addEventListener("click", (event) => {
+      if (!compact.matches || !event.target.closest("a")) return;
+      index.open = false;
+    });
+  }
+}
