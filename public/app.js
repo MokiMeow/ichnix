@@ -110,6 +110,7 @@ async function renderCase(
     evidence,
     ranked_checks = [],
     review_history = [],
+    related_reports = [],
   },
   view,
 ) {
@@ -153,6 +154,23 @@ async function renderCase(
       detail.append(row);
       if (item.reason)
         detail.append(element("p", item.reason, "review-reason"));
+    }
+  }
+  if (related_reports.length) {
+    detail.append(element("h3", "Related reports"));
+    for (const match of related_reports) {
+      const row = element("div", undefined, "evidence-row");
+      const button = element(
+        "button",
+        match.id + " · " + match.title,
+        "case-btn",
+      );
+      button.addEventListener("click", () => openCase(match.id));
+      row.append(
+        button,
+        element("span", "lexical similarity " + match.score, "case-meta"),
+      );
+      detail.append(row, element("p", match.reason, "review-reason"));
     }
   }
   if (review_history.length) {

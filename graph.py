@@ -5,6 +5,8 @@ import getpass
 from threading import Lock
 from datetime import datetime, timezone
 import json
+import math
+from collections import Counter
 import os
 import re
 from pathlib import Path
@@ -41,6 +43,19 @@ def _case_id(value):
     if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9._:-]{1,160}", value):
         raise ValueError("invalid case id")
     return value
+
+
+def _title_vector(title):
+    """L2-normalized sparse character trigrams; coordinate space is fixed across processes."""
+    counts = Counter()
+    for word in re.findall(r"[^\W_]+", title.casefold()):
+        padded = "^" + word + "$"
+        for i in range(len(padded) - 2):
+            gram = padded[i:i + 3].encode()
+            index = hashlib.blake2s(gram, digest_size=2).hexdigest()
+            counts[index] += 1
+    norm = math.sqrt(sum(n * n for n in counts.values()))
+    return {index: round(n / norm, 8) for index, n in sorted(counts.items())}
 
 
 class Graph:
@@ -121,14 +136,15 @@ class Graph:
         self._link(sid, "USES_COMPONENT", cid)
         self._link(rid, "HAS_SNAPSHOT", sid)
         key = record.pop("id")
-        self._put("Report", rid, key=key, snapshot=sid, **record)
+        vector = json.dumps(_title_vector(record["title"]), separators=(",", ":"))
+        self._put("Report", rid, key=key, snapshot=sid, title_vector_v1=vector, **record)
         return key
 
     def cases(self):
         return self._query(f"MATCH (r:Report) RETURN {self._report_cols()} ORDER BY r.key")
 
     def _report(self, case_id):
-        rows = self._query(f"MATCH (r:Report {{id:$id}}) RETURN {self._report_cols()}, r.snapshot AS snapshot",
+        rows = self._query(f"MATCH (r:Report {{id:$id}}) RETURN {self._report_cols()}, r.snapshot AS snapshot, r.title_vector_v1 AS vector",
                            id=_key("case", _case_id(case_id)))
         if not rows:
             raise KeyError(case_id)
@@ -137,6 +153,8 @@ class Graph:
     def context(self, case_id):
         report = self._report(case_id)
         snapshot = report.pop("snapshot")
+        stored = report.pop("vector")
+        vector = json.loads(stored) if stored else _title_vector(report["title"])
         evidence = self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
                                "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id ORDER BY e.observed",
                                id=snapshot)
@@ -158,7 +176,28 @@ class Graph:
                  for owner, (yes, no) in counts.items()]
         items.sort(key=lambda item: (-item["score"], item["owner"] != report["owner"], item["owner"]))
         return {"report": report, "recommendations": items, "evidence": evidence,
-                "ranked_checks": self._ranked_checks(snapshot), "review_history": audit}
+                "ranked_checks": self._ranked_checks(snapshot), "review_history": audit,
+                "related_reports": self._related_reports(snapshot, vector)}
+
+    def _related_reports(self, snapshot, vector):
+        if not vector:
+            return []
+        # Match only published, current snapshots in this installation's own graph.
+        # Bound the candidate count before calculating lexical similarity.
+        rows = self._query(
+            "MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)"
+            "<-[:USES_COMPONENT]-(o)<-[:HAS_SNAPSHOT]-(r:Report) "
+            "WHERE o.id <> $id AND r.snapshot = o.id "
+            "RETURN r.key AS id, r.title AS title, r.title_vector_v1 AS vector "
+            "ORDER BY r.key LIMIT 128", id=snapshot)
+        matches = []
+        for row in rows:
+            candidate = json.loads(row["vector"]) if row["vector"] else _title_vector(row["title"])
+            score = sum(value * candidate.get(index, 0) for index, value in vector.items())
+            if score >= 0.2:
+                matches.append({"id": row["id"], "title": row["title"], "score": round(min(score, 1), 3),
+                                "reason": "similar title on the same component revision"})
+        return sorted(matches, key=lambda m: (-m["score"], m["id"]))[:5]
 
     def ranked_checks(self, case_id):
         return self._ranked_checks(self._report(case_id)["snapshot"])
