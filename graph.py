@@ -74,12 +74,17 @@ class Graph:
         graph = os.getenv("ICHNIX_HYDRA_GRAPH", "default")
         self.url = f"{base.rstrip('/')}/v1/graphs/{quote(graph, safe='')}/query"
         self.cell = os.getenv("ICHNIX_HYDRA_CELL", "cell-0")
-        state = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local/state")) / "ichnix"
-        state = Path(os.getenv("ICHNIX_STATE_DIR", state))
         token = os.getenv("ICHNIX_HYDRA_TOKEN")
         if not token:
+            token_file = os.getenv("ICHNIX_HYDRA_TOKEN_FILE")
+            if not token_file:
+                state = os.getenv("ICHNIX_STATE_DIR")
+                if not state:
+                    xdg = os.getenv("XDG_STATE_HOME")
+                    state = (Path(xdg) if xdg else Path.home() / ".local/state") / "ichnix"
+                token_file = Path(state) / "hydra-token"
             try:
-                token = Path(os.getenv("ICHNIX_HYDRA_TOKEN_FILE", state / "hydra-token")).read_text().strip()
+                token = Path(token_file).read_text().strip()
             except OSError:
                 raise RuntimeError("HydraDB credentials unavailable") from None
         self.headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json",
