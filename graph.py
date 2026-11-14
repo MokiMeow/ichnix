@@ -156,6 +156,20 @@ class Graph:
         return rows[0]
 
     def context(self, case_id):
+        snapshot, context = self.snapshot_context(case_id)
+        context["worker_outcomes"] = self._query(
+            "MATCH (s:Snapshot {id:$id})-[:WORKER_OUTCOME]->(o) "
+            "RETURN o.job AS job_id, o.kind AS kind, o.worker AS worker, o.disposition AS disposition, "
+            "o.at AS at ORDER BY o.at", id=snapshot)
+        return context
+
+    def publish_outcome(self, snapshot, job_id, kind, worker, disposition, at):
+        # The queue reserves these immutable fields before this replayable projection.
+        eid = _key("worker-outcome", job_id)
+        self._put("WorkerOutcome", eid, job=job_id, kind=kind, worker=worker, disposition=disposition, at=at)
+        self._link(snapshot, "WORKER_OUTCOME", eid)
+
+    def snapshot_context(self, case_id):
         report = self._report(case_id)
         snapshot = report.pop("snapshot")
         stored = report.pop("vector")
@@ -181,7 +195,7 @@ class Graph:
                   "reason": f"catalog assignment and reviewed ownership for {report['component']} at {report['revision']}"}
                  for owner, (yes, no) in counts.items()]
         items.sort(key=lambda item: (-item["score"], item["owner"] != report["owner"], item["owner"]))
-        return {"report": report, "recommendations": items, "evidence": evidence,
+        return snapshot, {"report": report, "recommendations": items, "evidence": evidence,
                 "ranked_checks": self._ranked_checks(snapshot), "review_history": audit,
                 "related_reports": self._related_reports(snapshot, vector)}
 

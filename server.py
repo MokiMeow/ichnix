@@ -151,13 +151,16 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(data, dict):
             raise ValueError("expected JSON object")
         if path == "/api/handoffs/claim" and set(data) <= {"lease_seconds"}:
-            return self.send(200, Handoffs().claim(worker, data.get("lease_seconds", 120)))
+            return self.send(200, Handoffs().claim(worker, data.get("lease_seconds", 120), graph_factory=Graph))
         job = re.fullmatch(r"/api/handoffs/([a-f0-9]{64})/(finish|context)", path)
-        if job and set(data) == {"token"}:
-            queue = Handoffs()
-            if job.group(2) == "context":
-                return self.send(200, queue.case_context(Graph(), job.group(1), worker, data["token"]))
-            return self.send(200, queue.finish(job.group(1), worker, data["token"]))
+        if job and job.group(2) == "context" and set(data) == {"token"}:
+            return self.send(200, Handoffs().case_context(Graph(), job.group(1), worker, data["token"]))
+        if job and job.group(2) == "finish" and set(data) in ({"token"}, {"token", "disposition"}):
+            if "disposition" in data and not isinstance(data["disposition"], str):
+                raise ValueError("expected a review disposition")
+            return self.send(200, Handoffs().finish(job.group(1), worker, data["token"],
+                                                    disposition=data.get("disposition"),
+                                                    graph=Graph() if "disposition" in data else None))
         raise ValueError("invalid handoff request")
 
     def handle_request(self, write):

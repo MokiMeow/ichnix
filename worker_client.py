@@ -9,6 +9,8 @@ import stat
 import time
 from urllib.parse import urlsplit
 
+from handoffs import DISPOSITIONS
+
 
 JOB_FIELDS = ("id", "kind", "case_id", "service", "component", "revision", "state", "expires")
 JOB_ID = {"type": "string", "pattern": "^[0-9a-f]{64}$"}
@@ -27,8 +29,10 @@ TOOLS = [
           {"lease_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}}),
     _tool("get_review_context", "Read the case and evidence covered by this session's active review.",
           {"job_id": JOB_ID}, ["job_id"], read_only=True),
-    _tool("finish_review", "Mark this session's leased review complete after inspecting its context.",
-          {"job_id": JOB_ID}, ["job_id"]),
+    _tool("finish_review", "Complete this lease. After reading its context, optionally record a disposition.",
+          {"job_id": JOB_ID, "disposition": {"type": "string",
+                                           "enum": [d for values in DISPOSITIONS.values() for d in values]}},
+          ["job_id"]),
 ]
 
 
@@ -70,6 +74,7 @@ class Worker:
         self.host, self.port = origin.hostname, origin.port
         self.bearer = _credential(token_file)
         self.lease = None
+        self.completed = None
 
     def _post(self, path, body):
         # http.client never follows redirects or sends credentials through environment proxies.
@@ -118,13 +123,21 @@ class Worker:
             self.lease = job
             return public
 
-        if name not in ("get_review_context", "finish_review") or set(args) != {"job_id"}:
+        allowed = ({"job_id"}, {"job_id", "disposition"}) if name == "finish_review" else ({"job_id"},)
+        if name not in ("get_review_context", "finish_review") or set(args) not in allowed:
             raise ValueError("unknown tool or invalid arguments")
-        if not self.lease or self.lease["id"] != args["job_id"]:
-            raise PermissionError("this session does not hold that lease")
         lease = self.lease
+        if name == "finish_review" and not lease:
+            lease = self.completed
+        if not lease or lease["id"] != args["job_id"]:
+            raise PermissionError("this session does not hold that lease")
+        payload = {"token": lease["token"]}
+        if "disposition" in args:
+            if args["disposition"] not in DISPOSITIONS[lease["kind"]]:
+                raise ValueError("invalid disposition for this review")
+            payload["disposition"] = args["disposition"]
         action = "context" if name == "get_review_context" else "finish"
-        data = self._post(f"/api/handoffs/{lease['id']}/{action}", {"token": lease["token"]})
+        data = self._post(f"/api/handoffs/{lease['id']}/{action}", payload)
         if not isinstance(data, dict):
             raise RuntimeError("invalid workspace response")
         if action == "context":
@@ -136,7 +149,13 @@ class Worker:
         else:
             if data.get("id") != lease["id"] or data.get("state") != "complete":
                 raise RuntimeError("unexpected completion response")
-            data = {key: data[key] for key in JOB_FIELDS}
+            receipt = {key: data[key] for key in JOB_FIELDS}
+            if "disposition" in args:
+                if data.get("disposition") != args["disposition"]:
+                    raise RuntimeError("unexpected review disposition")
+                receipt["disposition"] = data["disposition"]
+            data = receipt
+            self.completed = lease
             self.lease = None
         self._check_private(data, lease["token"])
         return data
