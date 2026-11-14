@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { render } from "pele";
+import { withWorkspaceColors } from "./diagram-theme.mjs";
 
 const diagram = `flowchart TB
   B["Bounty program"] -->|Mapped report| G["HydraDB evidence graph"]
@@ -19,12 +20,7 @@ const { svg } = render(diagram, {
   outputLimit: 40000,
   maxEdges: 12,
 });
-// Keep the dark connector strokes legible when the README uses a dark theme.
-const illustration = svg.replace(
-  "<g ",
-  '<rect width="100%" height="100%" fill="#fff"/><g ',
-);
 writeFileSync(
   new URL("../docs/architecture.svg", import.meta.url),
-  illustration + "\n",
+  withWorkspaceColors(svg) + "\n",
 );

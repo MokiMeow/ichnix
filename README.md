@@ -33,7 +33,7 @@ Run `python3 cli.py demo --public-readonly --with-disclosure` to include the dis
 
 ## How evidence moves
 
-![A bounty report and CI observations feed HydraDB. Reviewers read case context and record decisions. A coding agent can read and finish the review assigned by the private handoff API. SQLite stores identity and lease state.](docs/architecture.svg)
+<img src="docs/architecture.svg" width="510" alt="Bounty metadata and CI observations enter HydraDB. Reviewers record decisions; coding agents read and complete scoped reviews via the handoff API and its SQLite lease store." />
 
 1. **Map a report.** Read-only HackerOne or Bugcrowd intake matches a reviewed report to the organization's private inventory. A mapped case stores its provider ID, title, service, component, deployment revision and default owner. Unmapped reports are skipped. Attachments, researcher correspondence and payouts stay on the bounty platform. [Catalog example](examples/catalog.json)
 2. **Record staging evidence.** Customer CI exports settings and can sign the exact manifest bytes with HMAC-SHA256. Ichnix compares the export to the service policy and records each check as passed, failed or inconclusive. The original finding still needs the team's independent verification. [Policy](examples/policy.json) · [Manifest](examples/staging.json)
