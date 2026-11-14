@@ -365,17 +365,21 @@ async function openCase(caseId) {
 
 async function refresh() {
   const view = ++generation;
+  const upload = byId("report-upload");
+  upload.hidden = true;
+  let canImport = false;
   status.textContent = "Loading cases…";
   try {
     if (!publicDemo) {
       const session = await (await request("session")).json();
       if (view !== generation) return;
       canReview = session.can_review === true;
-      byId("report-upload").hidden = session.can_import !== true;
+      canImport = session.can_import === true;
     }
     const result = await request("cases");
     const cases = await result.json();
     if (view !== generation) return;
+    upload.hidden = !canImport;
     desk.hidden = false;
     byId("leave").hidden = publicDemo;
     login.hidden = true;

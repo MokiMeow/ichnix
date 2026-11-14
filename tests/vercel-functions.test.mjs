@@ -196,7 +196,10 @@ test("organization workspace forwards scoped bearer requests and restricts repli
   assert.equal(
     (
       await workspace.fetch(
-        orgReq("org-api/import/report", { ...write, body: "x".repeat(16385) }),
+        orgReq("org-api/import/report", {
+          ...write,
+          body: "x".repeat(1024 * 1024 + 1),
+        }),
       )
     ).status,
     413,

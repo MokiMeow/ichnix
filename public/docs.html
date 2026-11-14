@@ -210,8 +210,8 @@ docker compose ps</code></pre>
               on the private origin as described under
               <a href="#providers">Connect a program</a>. The relay preserves
               the signed delivery bytes and signature for verification by that
-              origin. Requests are limited to 1 MiB for webhooks and 16 KiB for
-              user writes.
+              origin. Webhooks and mapped uploads accept up to 1 MiB. Review
+              decisions accept up to 16 KiB.
             </p>
           </section>
           <section id="storage">

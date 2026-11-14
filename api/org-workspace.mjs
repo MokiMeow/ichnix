@@ -95,7 +95,8 @@ export default {
         request.headers.has("content-encoding")
       )
         return json({ error: "expected uncompressed JSON" }, 415);
-      const limit = signature ? 1024 * 1024 : 16384;
+      const limit =
+        signature || resource[1] === "import/report" ? 1024 * 1024 : 16384;
       try {
         body = await readLimited(request, limit);
       } catch {

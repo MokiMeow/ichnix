@@ -193,8 +193,21 @@ def role_checks(browser, origin, tokens, hosted=False):
         page.on("request", observe)
         try:
             page.goto(origin + ("/workspace/" if hosted else "/console"))
+            pending_cases = []
+            if role == "intake":
+                case_list = "**/" + ("org-api" if hosted else "api") + "/cases"
+                page.route(case_list, lambda route: pending_cases.append(route))
             page.get_by_label("Access token").fill(token)
             page.get_by_role("button", name="Connect", exact=True).click()
+            if role == "intake":
+                for _ in range(100):
+                    if pending_cases:
+                        break
+                    page.wait_for_timeout(50)
+                assert pending_cases, "initial case list was not requested"
+                expect(page.locator("#report-upload")).to_be_hidden()
+                pending_cases[0].continue_()
+                page.unroute(case_list)
             if role == "worker":
                 expect(page.locator("#status")).to_contain_text("denied")
                 expect(page.locator("#report-upload")).to_be_hidden()
