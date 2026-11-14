@@ -1,0 +1,7 @@
+{
+  "name": "ichnix",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {"pele": "1.13.0"}
+}
