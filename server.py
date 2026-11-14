@@ -58,7 +58,7 @@ class Handler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(15)
 
-    def send(self, status, body, kind="application/json"):
+    def send(self, status, body, kind="application/json", headers=()):
         if kind == "application/json":
             body = json.dumps(body, ensure_ascii=False).encode()
         self.send_response(status)
@@ -68,8 +68,29 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'")
+        for name, value in headers:
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def send_video(self, data):
+        size = len(data)
+        headers = [("Accept-Ranges", "bytes")]
+        # Browsers use a single range to seek; unsupported range formats get the full file.
+        match = re.fullmatch(r"bytes=([0-9]{0,20})-([0-9]{0,20})", self.headers.get("Range", ""))
+        if not match or not any(match.groups()):
+            return self.send(200, data, "video/mp4", headers)
+        first, last = match.groups()
+        if first:
+            start = int(first)
+            end = min(int(last), size - 1) if last else size - 1
+        else:
+            start, end = max(0, size - int(last)), size - 1
+        if start > end:
+            headers.append(("Content-Range", f"bytes */{size}"))
+            return self.send(416, b"", "video/mp4", headers)
+        headers.append(("Content-Range", f"bytes {start}-{end}/{size}"))
+        return self.send(206, data[start:end + 1], "video/mp4", headers)
 
     def body(self):
         size = int(self.headers.get("Content-Length", "-1"))
@@ -118,6 +139,8 @@ class Handler(BaseHTTPRequestHandler):
             asset = PUBLIC / name
             if asset.resolve() != asset or not asset.is_file():
                 return self.send(404, {"error": "missing asset"})
+            if name == "ichnix-demo.mp4":
+                return self.send_video(asset.read_bytes())
             return self.send(200, asset.read_bytes(), mimetypes.guess_type(asset)[0] or "application/octet-stream")
 
         if path == "/api/session" and not write:
