@@ -4,6 +4,9 @@
 !connectors.py
 !cli.py
 !mcp_server.py
+!credentials.py
+!handoffs.py
+!handoff_cli.py
 !staging.py
 !trace.mjs
 !package.json

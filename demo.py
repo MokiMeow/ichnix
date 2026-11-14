@@ -48,8 +48,8 @@ def main():
         cases = json.loads((ROOT / "examples/cases.json").read_text())
         for case in cases:
             graph.import_report(case)
-        graph.record_review("IX-104", "data-platform", True)
-        graph.record_review("IX-104", "product-security", False)
+        graph.record_review("IX-104", "data-platform", True, actor="sample-reviewer")
+        graph.record_review("IX-104", "product-security", False, actor="sample-reviewer")
         policy = load(ROOT / "examples/policy.json")
         manifest = load(ROOT / "examples/staging.json")
         for case in cases[:2]:
