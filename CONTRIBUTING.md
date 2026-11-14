@@ -48,3 +48,13 @@ Open the SVG in a browser and check labels, arrows and direction. Commit the ren
 Open a focused pull request describing the previous behavior, the user-visible change and how you checked it. Include a regression test when it captures a failure that could recur. Use synthetic data in screenshots, examples and logs. Keep credentials, private report identifiers, customer manifests, generated receipts and machine-specific paths out of submissions.
 
 For suspected security issues, follow the [private reporting policy](SECURITY.md). Contributions to the Ichnix application use its [MIT license](LICENSE). See the [runtime notices](licenses/Runtime-sources.txt) for separately distributed components.
+
+## Browser checks
+
+From a checkout with the renderer and HydraDB installed, run the browser suite with a local Chrome executable. It uses disposable graph, registry and lease state. Playwright is only needed for this check.
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r testing/browser-requirements.txt
+.venv/bin/python testing/browser.py --chrome "$(command -v google-chrome)"
+```
