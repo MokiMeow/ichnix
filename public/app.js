@@ -280,6 +280,58 @@ login.addEventListener("submit", (event) => {
 });
 byId("leave").addEventListener("click", clearSession);
 byId("reload").addEventListener("click", refresh);
+const evaluation = byId("evaluation");
+evaluation.addEventListener("toggle", async () => {
+  if (!publicDemo || !evaluation.open) return;
+  const result = byId("evaluation-result");
+  if (
+    result.querySelector("table") ||
+    result.getAttribute("aria-busy") === "true"
+  )
+    return;
+  result.setAttribute("aria-busy", "true");
+  result.textContent = "Loading measured results…";
+  try {
+    const response = await request("/api/evaluation");
+    const { curve } = await response.json();
+    const table = element("table");
+    table.append(
+      element(
+        "caption",
+        "First recommendation correct across " +
+          curve[0].heldout_cases +
+          " held-out synthetic cases",
+      ),
+    );
+    const head = table.createTHead().insertRow();
+    for (const label of ["Training cases", "Owner", "CI check"]) {
+      const cell = element("th", label);
+      cell.scope = "col";
+      head.append(cell);
+    }
+    const body = table.createTBody();
+    const percent = new Intl.NumberFormat(undefined, {
+      style: "percent",
+      maximumFractionDigits: 1,
+    });
+    for (const point of curve) {
+      const row = body.insertRow();
+      const trainingCases = element("th", point.training_cases);
+      trainingCases.scope = "row";
+      row.append(
+        trainingCases,
+        element("td", percent.format(point.owner_top1)),
+        element("td", percent.format(point.ci_check_top1)),
+      );
+    }
+    result.replaceChildren(table);
+  } catch {
+    result.textContent = "Results unavailable. Close and reopen to retry.";
+  } finally {
+    result.removeAttribute("aria-busy");
+  }
+});
+
 async function initializeWorkspace() {
   try {
     const response = await fetch("/api/session", {
@@ -291,6 +343,7 @@ async function initializeWorkspace() {
   } catch {
     publicDemo = false;
   }
+  evaluation.hidden = !publicDemo;
   if (publicDemo) {
     byId("workspace-label").textContent = "Read-only demo · synthetic cases";
     return refresh();

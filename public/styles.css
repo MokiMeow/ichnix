@@ -548,3 +548,36 @@ input {
   gap: 0.45rem 1rem;
   flex-wrap: wrap;
 }
+
+#evaluation {
+  max-width: 40rem;
+  border-top: 1px dotted var(--gray);
+  border-bottom: 1px dotted var(--gray);
+}
+#evaluation summary {
+  cursor: pointer;
+  padding: 0.7rem 0;
+  font-family: var(--mono);
+}
+#evaluation table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+#evaluation caption {
+  text-align: left;
+  color: var(--light);
+  font-size: 0.9rem;
+  margin-bottom: 0.7rem;
+}
+#evaluation td,
+#evaluation th {
+  text-align: right;
+  border-top: 1px dotted var(--gray);
+  padding: 0.35rem 0.5rem;
+}
+#evaluation th:first-child {
+  text-align: left;
+  padding-left: 0;
+}
