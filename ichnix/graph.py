@@ -16,10 +16,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from handoffs import Handoffs, auto_handoffs_enabled
-from storage import state_directory
-import review_layout
-
+from ichnix.handoffs import Handoffs, auto_handoffs_enabled
+from ichnix.storage import state_directory
+from ichnix import review_layout
 
 _review_lock = Lock()
 

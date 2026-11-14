@@ -13,7 +13,7 @@ import secrets
 import sqlite3
 import sys
 
-from storage import connect_private, verify_tables
+from ichnix.storage import connect_private, verify_tables
 
 REGISTRY_TABLES = {"identities": ("name", "role", "digest", "issued", "revoked")}
 
@@ -128,7 +128,7 @@ def main():
         parser.error("set ICHNIX_IDENTITY_DB to a private database path")
     try:
         if args.command == "issue":
-            if args.out.resolve().is_relative_to(Path(__file__).resolve().parent):
+            if args.out.resolve().is_relative_to(Path(__file__).resolve().parents[1]):
                 parser.error("place the private token file outside the application directory")
             issue(path, args.name, args.role, args.out)
             print("token written to the requested private file")

@@ -4,9 +4,9 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from eval_graph import isolated_graph
-from graph import Graph
-from staging import checks
+from ichnix.eval_graph import isolated_graph
+from ichnix.graph import Graph
+from ichnix.staging import checks
 
 
 class WorkflowTests(unittest.TestCase):

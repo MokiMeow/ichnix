@@ -9,8 +9,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
-import connectors
-
+from ichnix import connectors
 
 class ConnectorTests(unittest.TestCase):
     def setUp(self):

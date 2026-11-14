@@ -6,8 +6,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from eval_graph import isolated_graph
-from handoffs import Handoffs
+from ichnix.eval_graph import isolated_graph
+from ichnix.handoffs import Handoffs
 
 
 CASE = {"id": "auto-case", "title": "Log retention review", "service": "archive",

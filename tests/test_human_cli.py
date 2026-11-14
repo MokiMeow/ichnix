@@ -7,9 +7,9 @@ from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from credentials import issue, revoke
-from eval_graph import isolated_graph
-from server import ConsoleServer, Handler
+from ichnix.credentials import issue, revoke
+from ichnix.eval_graph import isolated_graph
+from ichnix.server import ConsoleServer, Handler
 from test_cli_config import cli
 
 

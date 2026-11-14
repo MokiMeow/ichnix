@@ -1,7 +1,7 @@
 import unittest
 
-from eval_graph import isolated_graph
-from graph import _key
+from ichnix.eval_graph import isolated_graph
+from ichnix.graph import _key
 
 
 class RelatedReportsTests(unittest.TestCase):

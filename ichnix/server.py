@@ -1,0 +1,239 @@
+"""Loopback web console. The reverse proxy owns TLS in a deployed installation."""
+import argparse
+import json
+import hmac
+import logging
+import mimetypes
+import os
+import re
+import subprocess
+from threading import BoundedSemaphore
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+from ichnix.credentials import identify
+from ichnix.graph import Graph
+from ichnix.handoffs import Handoffs
+
+ROOT = Path(__file__).resolve().parents[1]
+PUBLIC = ROOT / "public"
+PUBLIC_ASSETS = {
+    "index.html", "console.html", "docs.html", "app.js", "styles.css", "docs.css",
+    "evidence-graph.png", "evidence-atlas.webp", "review-detail.webp",
+    "fonts/IBMPlexMono-Regular.ttf", "fonts/InstrumentSans.ttf",
+    "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
+}
+MAX_BODY = 1024 * 1024
+
+
+def diagram_svg(data):
+    return subprocess.run(["node", str(ROOT / "ichnix" / "trace.mjs")], input=json.dumps(data).encode(),
+                          capture_output=True, check=True, timeout=5).stdout
+
+
+class ConsoleServer(ThreadingHTTPServer):
+    # Apply backpressure before starting a worker, including idle connections.
+    request_queue_size = 64
+
+    def __init__(self, *args):
+        self.slots = BoundedSemaphore(24)
+        super().__init__(*args)
+
+    def process_request(self, request, client_address):
+        self.slots.acquire()
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass  # Request targets can contain private report identifiers
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(15)
+
+    def send(self, status, body, kind="application/json", headers=()):
+        if kind == "application/json":
+            body = json.dumps(body, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'")
+        for name, value in headers:
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def body(self):
+        size = int(self.headers.get("Content-Length", "-1"))
+        if size < 0 or size > MAX_BODY:
+            raise ValueError("body length")
+        body = self.rfile.read(size)
+        if len(body) != size:
+            raise ValueError("incomplete request")
+        return body
+
+    def authorized(self, edit=False):
+        self.review_actor = identify(self.headers.get("Authorization", ""), edit)
+        return self.review_actor is not None
+
+    def dispatch(self, write):
+        path = unquote(urlsplit(self.path).path)
+        if path.startswith("/api/handoffs/"):
+            return self.handoff(path, write)
+        if path == "/hooks/hackerone" and write:
+            from ichnix.connectors import process_webhook
+            secret = os.environ.get("ICHNIX_WEBHOOK_SECRET")
+            if not secret:
+                return self.send(404, {"error": "webhook disabled"})
+            catalog = json.loads(Path(os.environ["ICHNIX_CATALOG"]).read_text())
+            result = process_webhook(self.body(), self.headers, secret, os.environ["ICHNIX_PROGRAM"], catalog, Graph())
+            return self.send(200, result)
+
+        if path == "/hooks/bugcrowd" and write:
+            from ichnix.connectors import process_bugcrowd_webhook
+            secret = os.getenv("ICHNIX_BUGCROWD_WEBHOOK_SECRET")
+            if not secret:
+                return self.send(404, {"error": "webhook disabled"})
+            catalog = json.loads(Path(os.environ["ICHNIX_BUGCROWD_CATALOG"]).read_text())
+            result = process_bugcrowd_webhook(self.body(), self.headers, secret,
+                                              os.environ["ICHNIX_BUGCROWD_ENGAGEMENT"], catalog, Graph())
+            return self.send(200, result)
+
+        if not path.startswith("/api/"):
+            if write:
+                return self.send(405, {"error": "method"})
+            route = {"/": "index.html", "/console": "console.html", "/console/": "console.html",
+                     "/docs": "docs.html", "/docs/": "docs.html"}
+            name = route.get(path, path.removeprefix("/"))
+            if name not in PUBLIC_ASSETS:
+                return self.send(404, {"error": "missing asset"})
+            asset = PUBLIC / name
+            if asset.resolve() != asset or not asset.is_file():
+                return self.send(404, {"error": "missing asset"})
+            return self.send(200, asset.read_bytes(), mimetypes.guess_type(asset)[0] or "application/octet-stream")
+
+        if path == "/api/import/report" and write:
+            if not identify(self.headers.get("Authorization", ""), intake=True):
+                return self.send(403, {"error": "named intake credential required"})
+            if self.headers.get_content_type() != "application/json":
+                return self.send(415, {"error": "expected application/json"})
+            report = json.loads(self.body())
+            if not isinstance(report, dict) or report.keys() != {"id", "title", "service", "revision", "component", "owner"}:
+                return self.send(400, {"error": "expected one mapped report with six metadata fields"})
+            Graph().import_report(report)
+            return self.send(200, {"id": report["id"]})
+
+        if path == "/api/session" and not write:
+            if not self.authorized():
+                return self.send(401, {"error": "valid access token required"})
+            return self.send(200, {"public_demo": False, "can_review": self.authorized(edit=True),
+                                   "can_import": bool(identify(self.headers.get("Authorization", ""), intake=True))})
+        if not self.authorized(write):
+            return self.send(401, {"error": "valid access token required"})
+        graph = Graph()
+        if path == "/api/cases" and not write:
+            return self.send(200, graph.cases())
+        match = re.fullmatch(r"/api/cases/([\w.:_-]{1,160})(?:/(reviews|trace\.svg|diagram\.svg))?", path)
+        if not match:
+            return self.send(404, {"error": "unknown route"})
+        case_id, action = match.groups()
+        if write and action == "reviews":
+            data = json.loads(self.body())
+            if not isinstance(data, dict) or type(data.get("accepted")) is not bool or not isinstance(data.get("owner"), str):
+                raise ValueError("invalid review")
+            context = graph.context(case_id)
+            if data["owner"] not in [x["owner"] for x in context["recommendations"]]:
+                raise ValueError("unknown recommendation")
+            graph.record_review(case_id, data["owner"], data["accepted"], actor=self.review_actor,
+                                request_id=self.headers.get("Idempotency-Key"), expected_scope=data.get("scope"))
+            return self.send(200, graph.context(case_id))
+        if not write and action == "diagram.svg":
+            plan, source = graph.review_diagram(case_id)
+            return self.send(200, diagram_svg(plan), "image/svg+xml", [("X-Ichnix-Layout-Source", source)])
+        if not write and action != "reviews":
+            data = graph.context(case_id)
+            if action == "trace.svg":
+                events = data["evidence"]
+                latest = events[-1].get("run_id") if events else None
+                events = [e for e in events if e.get("run_id") == latest]
+                return self.send(200, diagram_svg(events), "image/svg+xml")
+            return self.send(200, data)
+        return self.send(405, {"error": "method"})
+
+    def handoff(self, path, write):
+        if not write:
+            return self.send(405, {"error": "POST required"})
+        worker = identify(self.headers.get("Authorization", ""), worker=True)
+        if worker is None:
+            return self.send(403, {"error": "named worker credential required"})
+        data = json.loads(self.body())
+        if not isinstance(data, dict):
+            raise ValueError("expected JSON object")
+        if path == "/api/handoffs/claim" and set(data) <= {"lease_seconds"}:
+            return self.send(200, Handoffs().claim(worker, data.get("lease_seconds", 120), graph_factory=Graph))
+        job = re.fullmatch(r"/api/handoffs/([a-f0-9]{64})/(finish|context)", path)
+        if job and job.group(2) == "context" and set(data) == {"token"}:
+            return self.send(200, Handoffs().case_context(Graph(), job.group(1), worker, data["token"]))
+        if job and job.group(2) == "finish" and set(data) in ({"token"}, {"token", "disposition"}):
+            if "disposition" in data and not isinstance(data["disposition"], str):
+                raise ValueError("expected a review disposition")
+            return self.send(200, Handoffs().finish(job.group(1), worker, data["token"],
+                                                    disposition=data.get("disposition"),
+                                                    graph=Graph() if "disposition" in data else None))
+        raise ValueError("invalid handoff request")
+
+    def handle_request(self, write):
+        try:
+            if "ICHNIX_ORIGIN_SECRET" in os.environ:
+                expected = os.environ["ICHNIX_ORIGIN_SECRET"]
+                supplied = self.headers.get("X-Ichnix-Origin-Secret", "")
+                if len(expected) < 32 or not hmac.compare_digest(supplied.encode(), expected.encode()):
+                    raise PermissionError("origin access denied")
+            self.dispatch(write)
+        except PermissionError:
+            self.send(403, {"error": "forbidden"})
+        except KeyError:
+            self.send(404, {"error": "record unavailable"})
+        except (ValueError, TypeError):
+            self.send(400, {"error": "invalid input"})
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as exc:
+            logging.error("request failed (%s)", type(exc).__name__)
+            self.send(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "service unavailable"})
+
+    def do_GET(self):
+        self.handle_request(False)
+
+    def do_POST(self):
+        self.handle_request(True)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--bind", default="127.0.0.1")
+    args = parser.parse_args()
+    if "ICHNIX_IDENTITY_DB" not in os.environ and len(os.environ.get("ICHNIX_REVIEW_TOKEN", "")) < 32:
+        parser.error("configure ICHNIX_IDENTITY_DB or provide a review token of at least 32 characters")
+    ConsoleServer((args.bind, args.port), Handler).serve_forever()
+
+
+if __name__ == "__main__":
+    main()

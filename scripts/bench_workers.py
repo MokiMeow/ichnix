@@ -60,7 +60,7 @@ class Client:
         return json.loads(result["content"][0]["text"])
 
     def initialize(self):
-        from mcp_server import PROTOCOL
+        from ichnix.mcp_server import PROTOCOL
         result = self.request("initialize", {"protocolVersion": PROTOCOL, "capabilities": {},
                                              "clientInfo": {"name": "ichnix-benchmark", "version": "1"}})
         if result["protocolVersion"] != PROTOCOL:
@@ -125,9 +125,9 @@ def close_client(proc):
 
 
 def run_batch(graph, root, reports, workers):
-    from credentials import issue
-    from handoffs import Handoffs
-    from server import ConsoleServer, Handler
+    from ichnix.credentials import issue
+    from ichnix.handoffs import Handoffs
+    from ichnix.server import ConsoleServer, Handler
 
     directory = root / str(workers)
     directory.mkdir(mode=0o700)
@@ -190,7 +190,7 @@ def run_batch(graph, root, reports, workers):
 
 
 def main():
-    from eval_graph import isolated_graph
+    from ichnix.eval_graph import isolated_graph
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workers", type=int, default=100, help="compare this concurrency to one worker")
     parser.add_argument("--jobs", type=int, default=100, help="identical job count per run")

@@ -8,8 +8,8 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from eval_graph import isolated_graph
-from staging import manifest_input, sign
+from ichnix.eval_graph import isolated_graph
+from ichnix.staging import manifest_input, sign
 
 
 class AttestationTests(unittest.TestCase):
@@ -26,7 +26,7 @@ class AttestationTests(unittest.TestCase):
             export = dict(service="storage", revision="v3", environment="staging", settings={"retention": 30})
             manifest.write_text(json.dumps(export))
             policy.write_text(json.dumps({"services": {"storage": {"retention": 30}}}))
-            command = [sys.executable, str(root / "staging.py")]
+            command = [sys.executable, str(root / "cli.py"), "staging"]
             ingest = [*command, case["id"], "--manifest", str(manifest), "--policy", str(policy)]
             with patch.dict(os.environ, {"ICHNIX_CI_HMAC_KEY_FILE": str(key)}):
                 subprocess.run([*command, "--sign", "--manifest", str(manifest), "--out", str(signature)], check=True)

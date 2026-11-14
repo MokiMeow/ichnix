@@ -10,16 +10,16 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from credentials import issue
-from eval_graph import isolated_graph
-from handoffs import Handoffs
-from server import ConsoleServer, Handler
-from worker_client import Worker
+from ichnix.credentials import issue
+from ichnix.eval_graph import isolated_graph
+from ichnix.handoffs import Handoffs
+from ichnix.server import ConsoleServer, Handler
+from ichnix.worker_client import Worker
 
 
 class WorkerTests(unittest.TestCase):
     def test_local_stdio_exposes_only_read_tools(self):
-        from mcp_server import _dispatch
+        from ichnix.mcp_server import _dispatch
         request = {"id": 1, "jsonrpc": "2.0", "method": "tools/list"}
         _, response = _dispatch(request, "ready", None)
         self.assertEqual({row["name"] for row in response["result"]["tools"]}, {"list_cases", "get_case_context"})

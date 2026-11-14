@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from handoffs import Handoffs
+from ichnix.handoffs import Handoffs
 
 
 class GraphFixture:
@@ -20,10 +20,10 @@ class HandoffTests(unittest.TestCase):
             with ThreadPoolExecutor(8) as pool:
                 ids = list(pool.map(lambda _: q.enqueue(GraphFixture(), "sample", "owner-review")["id"], range(16)))
                 self.assertEqual(len(set(ids)), 1)
-                with patch("handoffs.time.time", return_value=100):
+                with patch("ichnix.handoffs.time.time", return_value=100):
                     claims = list(pool.map(lambda w: q.claim(str(w), 2), range(16)))
             first, = (c for c in claims if c)
-            with patch("handoffs.time.time", return_value=103):
+            with patch("ichnix.handoffs.time.time", return_value=103):
                 with self.assertRaises(PermissionError):
                     q.finish(first["id"], first["worker"], first["token"])
                 next_claim = q.claim("reviewer", 60)

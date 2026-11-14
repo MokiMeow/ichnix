@@ -8,11 +8,11 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from credentials import issue, revoke
-from demo import PublicDemoHandler
-from eval_graph import isolated_graph
-from handoffs import Handoffs
-from server import ConsoleServer, Handler
+from ichnix.credentials import issue, revoke
+from ichnix.demo import PublicDemoHandler
+from ichnix.eval_graph import isolated_graph
+from ichnix.handoffs import Handoffs
+from ichnix.server import ConsoleServer, Handler
 
 
 class WorkerAPITests(unittest.TestCase):

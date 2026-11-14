@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from eval_graph import isolated_graph
+from ichnix.eval_graph import isolated_graph
 
 
 class ReviewScopeTests(TestCase):

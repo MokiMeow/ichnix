@@ -8,9 +8,9 @@ from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from credentials import identify, identities, issue, revoke
-from eval_graph import isolated_graph
-from server import ConsoleServer, Handler
+from ichnix.credentials import identify, identities, issue, revoke
+from ichnix.eval_graph import isolated_graph
+from ichnix.server import ConsoleServer, Handler
 
 
 class IdentityTests(unittest.TestCase):

@@ -8,9 +8,9 @@ from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from credentials import issue
-from eval_graph import isolated_graph
-from server import ConsoleServer, Handler
+from ichnix.credentials import issue
+from ichnix.eval_graph import isolated_graph
+from ichnix.server import ConsoleServer, Handler
 
 
 class ReportUploadTests(unittest.TestCase):

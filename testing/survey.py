@@ -17,11 +17,11 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from eval_graph import isolated_graph
-from mcp_server import PROTOCOL
+from ichnix.eval_graph import isolated_graph
+from ichnix.mcp_server import PROTOCOL
 from scripts.acceptance import cli
 from scripts.bench_workers import Client, write_frame
-from server import ConsoleServer, Handler
+from ichnix.server import ConsoleServer, Handler
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PRIMARY = "SURVEY-101"

@@ -6,8 +6,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from graph import Graph
-from storage import checks as storage_checks
+from ichnix.graph import Graph
+from ichnix.storage import checks as storage_checks
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
     except (OSError, ValueError, RuntimeError):
         checks["hydradb"] = False
     try:
-        trace = subprocess.run(["node", str(ROOT / "trace.mjs")], input=b"[]",
+        trace = subprocess.run(["node", str(ROOT / "ichnix" / "trace.mjs")], input=b"[]",
                                capture_output=True, timeout=10, check=True)
         checks["trace_renderer"] = b"<svg" in trace.stdout
     except (OSError, subprocess.SubprocessError):

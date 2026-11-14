@@ -19,8 +19,8 @@ if __package__:
     from .bench_workers import Client, ROOT
 else:
     from bench_workers import Client, ROOT
-from eval_graph import isolated_graph
-from server import ConsoleServer, Handler
+from ichnix.eval_graph import isolated_graph
+from ichnix.server import ConsoleServer, Handler
 
 SOURCE = "https://hackerone.com/reports/2236133"
 CASE = "h1-curl-2236133"

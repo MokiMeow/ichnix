@@ -16,9 +16,9 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from credentials import issue
-from eval_graph import isolated_graph
-from server import ConsoleServer, Handler
+from ichnix.credentials import issue
+from ichnix.eval_graph import isolated_graph
+from ichnix.server import ConsoleServer, Handler
 
 
 @contextmanager
@@ -98,23 +98,12 @@ def public_checks(browser, origin, width):
                 expect(page.locator("#walkthrough")).to_be_in_viewport()
                 page.goto(origin + "/docs#worker-mcp")
                 expect(page.locator("#worker-mcp")).to_have_attribute("open", "")
-                if width > 720:
-                    page.locator('a[href="/ichnix-demo.mp4"]').click()
-                    video = page.locator("video")
-                    video.wait_for()
-                    video.evaluate("v => {v.muted = true; return v.play()}", timeout=10000)
-                    expect(video).to_have_js_property("paused", False)
-                    for _ in range(40):
-                        if video.evaluate("v => v.currentTime > 0.1"):
-                            break
-                        page.wait_for_timeout(100)
-                    else:
-                        raise AssertionError("recording did not advance")
-                    duration = video.evaluate("v => {v.pause(); return v.duration}")
-                    assert duration > 2
-                    video.evaluate("v => {v.currentTime = v.duration / 2}")
-                    expect(video).to_have_js_property("seeking", False)
-                    assert abs(video.evaluate("v => v.currentTime") - duration / 2) < 1
+                summary = page.locator("#worker-mcp > summary")
+                summary.focus()
+                page.keyboard.press("Space")
+                expect(page.locator("#worker-mcp")).not_to_have_attribute("open", "")
+                page.keyboard.press("Enter")
+                expect(page.locator("#worker-mcp pre").first).to_be_visible()
             else:
                 expect(page.locator("#leave")).to_be_hidden()
                 expect(page.locator("#report-upload")).to_be_hidden()
@@ -235,7 +224,13 @@ def role_checks(browser, origin, tokens, hosted=False):
                 expect(page.locator("#report-upload")).to_be_hidden()
                 buttons.first.click()
                 expect(page.locator("#status")).to_contain_text("accepted")
+                history = page.locator(".history-panel summary")
+                history.focus()
+                page.keyboard.press("Enter")
+                expect(page.locator(".review-history")).to_be_visible()
                 expect(page.locator(".review-history")).to_contain_text("browser-review")
+                page.keyboard.press("Space")
+                expect(page.locator(".review-history")).to_be_hidden()
             page.get_by_role("button", name="Disconnect").click()
             expect(page.locator("#detail")).to_be_empty()
             expect(page.get_by_label("Access token")).to_have_value("")

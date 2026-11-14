@@ -11,7 +11,7 @@ import secrets
 import sqlite3
 import time
 
-from storage import connect_private, state_directory, verify_tables
+from ichnix.storage import connect_private, state_directory, verify_tables
 
 LEASE_TABLES = {
     "jobs": ("id", "case_id", "service", "component", "revision", "kind", "state", "created",

@@ -8,8 +8,8 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from credentials import identify, issue
-from handoffs import Handoffs
+from ichnix.credentials import identify, issue
+from ichnix.handoffs import Handoffs
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,9 +19,9 @@ class StorageTests(unittest.TestCase):
     def test_configured_container_paths_need_no_home(self):
         from contextlib import redirect_stdout
         from io import StringIO
-        from cli import mcp_config, parser
-        from handoffs import handoff_path
-        from storage import state_directory
+        from ichnix.cli import mcp_config, parser
+        from ichnix.handoffs import handoff_path
+        from ichnix.storage import state_directory
         with TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True), patch.object(
                 Path, "home", side_effect=RuntimeError("numeric service account has no home")):
             token = Path(tmp) / "hydra-token"
@@ -44,7 +44,7 @@ class StorageTests(unittest.TestCase):
             registry, leases = state / "identities.sqlite3", state / "leases.sqlite3"
             env = dict(os.environ, ICHNIX_IDENTITY_DB=str(registry), ICHNIX_HANDOFF_DB=str(leases))
             def run(command):
-                return subprocess.run([sys.executable, ROOT / "storage.py", command],
+                return subprocess.run([sys.executable, ROOT / "cli.py", "storage", command],
                                       env=env, capture_output=True, timeout=10)
             self.assertNotEqual(run("check").returncode, 0)
             self.assertFalse(state.exists())
@@ -76,7 +76,7 @@ class StorageTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             queue = Path(tmp) / "leases.sqlite"
             with patch.dict(os.environ, ICHNIX_HANDOFF_DB=str(queue)):
-                from storage import checks
+                from ichnix.storage import checks
                 Handoffs(queue)
                 db = sqlite3.connect(queue)
                 with db:
@@ -100,7 +100,7 @@ class StorageTests(unittest.TestCase):
             wrong.chmod(0o600)
             env = dict(os.environ, ICHNIX_HANDOFF_DB=str(wrong), ICHNIX_IDENTITY_DB=str(base / "registry.sqlite"))
             def init():
-                return subprocess.run([sys.executable, ROOT / "storage.py", "init"], env=env, capture_output=True)
+                return subprocess.run([sys.executable, ROOT / "cli.py", "storage", "init"], env=env, capture_output=True)
             self.assertNotEqual(init().returncode, 0)
             with sqlite3.connect(wrong) as db:
                 self.assertEqual(db.execute("SELECT name FROM sqlite_schema").fetchall(), [("existing",)])

@@ -13,7 +13,7 @@ import time
 from urllib.request import urlopen
 from unittest.mock import patch
 
-from graph import Graph
+from ichnix.graph import Graph
 
 # Same-revision recurring workflows with different services and disjoint report IDs.
 # Held-out answers live only in the evaluator; no held-out feedback is ingested.
@@ -26,7 +26,7 @@ FIXTURES = (
 
 @contextmanager
 def isolated_graph():
-    script = Path(__file__).resolve().parent / "scripts/start-hydra.sh"
+    script = Path(__file__).resolve().parents[1] / "scripts/start-hydra.sh"
     with tempfile.TemporaryDirectory() as state:
         sockets = [socket.socket() for _ in range(3)]
         try:
@@ -123,7 +123,7 @@ def measure_reads(workers, requests):
             "p95_ms": round(durations[math.ceil(requests * 0.95) - 1], 1)}
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--clients", type=int, default=0, help="also measure concurrent context retrieval")
     parser.add_argument("--requests", type=int, default=128)
@@ -135,3 +135,7 @@ if __name__ == "__main__":
         if args.clients:
             result["load"] = measure_reads(args.clients, args.requests)
         print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -5,12 +5,12 @@ from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from credentials import issue
-from eval_graph import isolated_graph
-from graph import Graph
-from handoffs import Handoffs
-from server import ConsoleServer, Handler
-from worker_client import Worker
+from ichnix.credentials import issue
+from ichnix.eval_graph import isolated_graph
+from ichnix.graph import Graph
+from ichnix.handoffs import Handoffs
+from ichnix.server import ConsoleServer, Handler
+from ichnix.worker_client import Worker
 
 
 CASE = {"id": "outcome-1", "service": "records", "component": "store", "revision": "r2",
@@ -57,7 +57,7 @@ class WorkerOutcomeTests(unittest.TestCase):
             graph.import_report(CASE)
             queue = Handoffs()
             job_id = queue.enqueue(graph, CASE["id"], "owner-review")["id"]
-            with patch("handoffs.time.time", return_value=100):
+            with patch("ichnix.handoffs.time.time", return_value=100):
                 first = queue.claim("a", 1)
                 queue.case_context(graph, job_id, "a", first["token"])
             new = queue.claim("b", 120)

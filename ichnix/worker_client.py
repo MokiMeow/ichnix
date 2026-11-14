@@ -9,7 +9,7 @@ import stat
 import time
 from urllib.parse import urlsplit
 
-from handoffs import DISPOSITIONS
+from ichnix.handoffs import DISPOSITIONS
 
 
 JOB_FIELDS = ("id", "kind", "case_id", "service", "component", "revision", "state", "expires")

@@ -11,8 +11,8 @@ import sys
 import uuid
 from pathlib import Path
 
-from graph import Graph
-from handoffs import Handoffs, auto_handoffs_enabled
+from ichnix.graph import Graph
+from ichnix.handoffs import Handoffs, auto_handoffs_enabled
 
 
 def _bytes(path, limit):
@@ -92,7 +92,7 @@ def checks(report, policy, manifest):
     return observations
 
 
-def main():
+def _run():
     if sys.argv[1:2] == ["--sign"]:
         signer = argparse.ArgumentParser(description="Sign the exact bytes of a CI manifest")
         signer.add_argument("--manifest", required=True)
@@ -134,9 +134,13 @@ def main():
     return int(any(event['result'] != 'passed' for event in events))
 
 
-if __name__ == '__main__':
+def main():
     try:
-        raise SystemExit(main())
+        return _run()
     except (KeyError, ValueError, RuntimeError, OSError, sqlite3.Error) as error:
         print(f"staging check unavailable ({type(error).__name__})", file=sys.stderr)
-        raise SystemExit(2)
+        return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -18,7 +18,8 @@ COPY --from=hydra /usr/share/doc/gcc-14-base/copyright /usr/share/doc/ichnix/lib
 COPY --from=renderer /usr/local/LICENSE /usr/share/doc/ichnix/Node-LICENSE
 COPY --from=renderer /usr/local/bin/node /usr/local/bin/
 COPY --from=renderer /build/node_modules ./node_modules
-COPY *.py trace.mjs package.json LICENSE ./
+COPY cli.py server.py demo.py mcp_server.py package.json LICENSE ./
+COPY ichnix/ ./ichnix/
 COPY scripts/ ./scripts/
 COPY examples/ ./examples/
 COPY testing/ ./testing/

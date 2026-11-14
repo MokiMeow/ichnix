@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { render } from "pele";
-import { withWorkspaceColors } from "./scripts/diagram-theme.mjs";
+import { withWorkspaceColors } from "../scripts/diagram-theme.mjs";
 
 const input = JSON.parse(readFileSync(0, "utf8"));
 const label = (value) =>

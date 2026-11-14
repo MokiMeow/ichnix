@@ -41,7 +41,7 @@ services:
           "CMD",
           "python3",
           "-c",
-          "from urllib.request import urlopen; from storage import checks; urlopen('http://127.0.0.1:8765/console', timeout=2).close(); raise SystemExit(not all(checks('ready').values()))",
+          "from urllib.request import urlopen; from ichnix.storage import checks; urlopen('http://127.0.0.1:8765/console', timeout=2).close(); raise SystemExit(not all(checks('ready').values()))",
         ]
       interval: 3s
       timeout: 3s

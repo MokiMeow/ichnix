@@ -19,11 +19,11 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from credentials import issue
-from eval_graph import isolated_graph
-from handoffs import Handoffs
-from server import ConsoleServer, Handler
-from staging import checks, load
+from ichnix.credentials import issue
+from ichnix.eval_graph import isolated_graph
+from ichnix.handoffs import Handoffs
+from ichnix.server import ConsoleServer, Handler
+from ichnix.staging import checks, load
 
 
 PERSONAS = [

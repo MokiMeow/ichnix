@@ -79,8 +79,8 @@ def verify_tables(db, tables):
 
 
 def configured_stores():
-    from credentials import REGISTRY_TABLES, initialize
-    from handoffs import Handoffs, LEASE_TABLES, handoff_path
+    from ichnix.credentials import REGISTRY_TABLES, initialize
+    from ichnix.handoffs import Handoffs, LEASE_TABLES, handoff_path
     stores = []
     if "ICHNIX_IDENTITY_DB" in os.environ:
         stores.append(("identity_db", Path(os.environ["ICHNIX_IDENTITY_DB"]), REGISTRY_TABLES, initialize))

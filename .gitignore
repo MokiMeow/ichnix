@@ -32,6 +32,7 @@ private/
 playwright-report/
 test-results/
 *.webm
+*.mp4
 .netrc
 .npmrc
 
@@ -39,4 +40,5 @@ test-results/
 .dev.vars
 .dev.vars.*
 dist/
+.dist-build-*/
 .env*

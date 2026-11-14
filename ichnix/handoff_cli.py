@@ -4,8 +4,8 @@ import json
 import sqlite3
 import sys
 
-from graph import Graph
-from handoffs import Handoffs, KINDS
+from ichnix.graph import Graph
+from ichnix.handoffs import Handoffs, KINDS
 
 
 def main():

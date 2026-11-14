@@ -10,11 +10,12 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
-from credentials import issue
-from eval_graph import isolated_graph
-from graph import Graph
-import review_layout
-from server import ConsoleServer, Handler
+from ichnix.credentials import issue
+from ichnix.eval_graph import isolated_graph
+from ichnix.graph import Graph
+from ichnix import review_layout
+
+from ichnix.server import ConsoleServer, Handler
 
 
 REPORT = {"id": "h1-example-930", "title": "Sensitive Company private retention review",
@@ -39,7 +40,7 @@ class ReportDiagramTests(unittest.TestCase):
         with isolated_graph() as graph, patch.dict(os.environ, AI_ENV):
             responses = [{"success": True, "result": {"response": {"layout": "owner-first"}}},
                          {"success": True, "result": {"choices": [{"message": {"content": '{"layout":"scope-first"}'}}]}}]
-            with patch("review_layout._post", side_effect=responses) as post:
+            with patch("ichnix.review_layout._post", side_effect=responses) as post:
                 graph.import_report(REPORT)
                 graph.import_report(REPORT)
                 plan, source = Graph().review_diagram(REPORT["id"])
@@ -58,22 +59,22 @@ class ReportDiagramTests(unittest.TestCase):
 
     def test_fallback_after_invalid_plan_and_bounded_retry(self):
         with isolated_graph() as graph, patch.dict(os.environ, AI_ENV), patch(
-                "review_layout._post", return_value={"success": True, "result": {"response":
+                "ichnix.review_layout._post", return_value={"success": True, "result": {"response":
                     {"layout": "scope-first", "extra": "untrusted output"}}}) as post:
-            with patch("graph.time", return_value=1000):
+            with patch("ichnix.graph.time", return_value=1000):
                 graph.import_report(REPORT)
                 graph.import_report(REPORT)
                 plan, source = graph.review_diagram(REPORT["id"])
                 self.assertEqual((source, plan["layout"]), ("local", "evidence-first"))
                 self.assertEqual(post.call_count, 1)
-            with patch("graph.time", return_value=1400):
+            with patch("ichnix.graph.time", return_value=1400):
                 graph.import_report(REPORT)
-            with patch("graph.time", return_value=1900):
+            with patch("ichnix.graph.time", return_value=1900):
                 graph.import_report(REPORT)
             self.assertEqual(post.call_count, 2)
             facts = review_layout.classify(REPORT)
             with patch.dict(os.environ, ICHNIX_LAYOUT_URL="https://org.example/api/report-layout",
-                            ICHNIX_LAYOUT_SECRET="fixture" * 8), patch("review_layout._post",
+                            ICHNIX_LAYOUT_SECRET="fixture" * 8), patch("ichnix.review_layout._post",
                             return_value={"layout": "owner-first"}) as relay:
                 self.assertEqual(review_layout.select_layout(facts, "relay"), ("owner-first", "relay"))
                 self.assertEqual(relay.call_args.args[-1], facts)

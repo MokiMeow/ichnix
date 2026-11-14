@@ -274,7 +274,10 @@ async function renderCase(
     }
   }
   if (review_history.length) {
-    detail.append(element("h3", "Review history"));
+    const history = element("details", undefined, "history-panel");
+    history.append(
+      element("summary", "Review history (" + review_history.length + ")"),
+    );
     const list = element("ol", undefined, "review-history");
     for (const review of [...review_history].reverse()) {
       const row = element("li");
@@ -295,7 +298,8 @@ async function renderCase(
       );
       list.append(row);
     }
-    detail.append(list);
+    history.append(list);
+    detail.append(history);
   }
   detail.append(element("h3", "Recorded evidence"));
   if (!evidence.length) {

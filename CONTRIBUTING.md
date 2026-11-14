@@ -16,12 +16,12 @@ Python application code uses the standard library. The tests start disposable Hy
 
 ## Work on the right boundary
 
-| Change                        | Code                                                                            | Check                                                                                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source intake and staging     | [Connectors](connectors.py), [CI checks](staging.py)                            | Preserve program and asset scope. Check mapped and unmapped reports or signed, altered and missing observations.                                      |
-| Graph retrieval and feedback  | [Graph](graph.py), [evaluation](eval_graph.py)                                  | Run the affected graph tests and `python3 cli.py evaluate`. Check that prior evidence and owner decisions stay associated with the intended revision. |
-| Agent access and coordination | [HTTP console](server.py), [handoffs](handoffs.py), [MCP server](mcp_server.py) | Drive a real stdio client through initialization and a tool call. Verify its role, scope, expiry or retry behavior, and persisted outcome.            |
-| User interface and docs       | [UI design guide](DESIGN.md), [operator manual](public/docs.html)               | Start the demo and exercise the changed route at a narrow viewport and desktop size. Check the actual response to a user action.                      |
+| Change                        | Code                                                                                                 | Check                                                                                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source intake and staging     | [Connectors](ichnix/connectors.py), [CI checks](ichnix/staging.py)                                   | Preserve program and asset scope. Check mapped and unmapped reports or signed, altered and missing observations.                                      |
+| Graph retrieval and feedback  | [Graph](ichnix/graph.py), [evaluation](ichnix/eval_graph.py)                                         | Run the affected graph tests and `python3 cli.py evaluate`. Check that prior evidence and owner decisions stay associated with the intended revision. |
+| Agent access and coordination | [HTTP console](ichnix/server.py), [handoffs](ichnix/handoffs.py), [MCP server](ichnix/mcp_server.py) | Drive a real stdio client through initialization and a tool call. Verify its role, scope, expiry or retry behavior, and persisted outcome.            |
+| User interface and docs       | [UI design guide](DESIGN.md), [operator manual](public/docs.html)                                    | Start the demo and exercise the changed route at a narrow viewport and desktop size. Check the actual response to a user action.                      |
 
 Use the smallest relevant regression test while developing. For example, `python3 -m unittest discover -s tests -p test_worker_api.py` exercises the private worker HTTP interface. Run the full suite for changes spanning boundaries. Use the existing pnpm lockfile and preserve separate runtime and font notices.
 
@@ -41,7 +41,7 @@ node scripts/render-architecture.mjs
 git diff -- docs/architecture.svg
 ```
 
-Open the SVG in a browser and check labels, arrows and direction. Commit the renderer and regenerated output together when changing the topology. The separate case trace renderer builds sequence diagrams from observed CI events.
+Open the SVG in a browser and check labels, arrows and direction. Commit the renderer and regenerated output together when changing the topology. The [case trace renderer](ichnix/trace.mjs) builds sequence diagrams from observed CI events.
 
 ## Submit a change
 
