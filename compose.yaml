@@ -50,6 +50,12 @@ services:
       ICHNIX_HYDRA_TOKEN_FILE: /run/ichnix-auth/hydra-token
       ICHNIX_IDENTITY_DB:
       ICHNIX_HANDOFF_DB:
+      ICHNIX_CF_ACCOUNT_ID:
+      ICHNIX_CF_AI_TOKEN:
+      ICHNIX_CF_AI_TOKEN_FILE:
+      ICHNIX_LAYOUT_URL:
+      ICHNIX_LAYOUT_SECRET:
+      ICHNIX_LAYOUT_SECRET_FILE:
     network_mode: service:graph
     depends_on:
       graph:

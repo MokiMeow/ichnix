@@ -27,6 +27,11 @@ PUBLIC_ASSETS = {
 MAX_BODY = 1024 * 1024
 
 
+def diagram_svg(data):
+    return subprocess.run(["node", str(ROOT / "trace.mjs")], input=json.dumps(data).encode(),
+                          capture_output=True, check=True, timeout=5).stdout
+
+
 class ConsoleServer(ThreadingHTTPServer):
     # Apply backpressure before starting a worker, including idle connections.
     request_queue_size = 64
@@ -152,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
         graph = Graph()
         if path == "/api/cases" and not write:
             return self.send(200, graph.cases())
-        match = re.fullmatch(r"/api/cases/([\w.:_-]{1,160})(?:/(reviews|trace\.svg))?", path)
+        match = re.fullmatch(r"/api/cases/([\w.:_-]{1,160})(?:/(reviews|trace\.svg|diagram\.svg))?", path)
         if not match:
             return self.send(404, {"error": "unknown route"})
         case_id, action = match.groups()
@@ -166,14 +171,16 @@ class Handler(BaseHTTPRequestHandler):
             graph.record_review(case_id, data["owner"], data["accepted"], actor=self.review_actor,
                                 request_id=self.headers.get("Idempotency-Key"), expected_scope=data.get("scope"))
             return self.send(200, graph.context(case_id))
+        if not write and action == "diagram.svg":
+            plan, source = graph.review_diagram(case_id)
+            return self.send(200, diagram_svg(plan), "image/svg+xml", [("X-Ichnix-Layout-Source", source)])
         if not write and action != "reviews":
             data = graph.context(case_id)
             if action == "trace.svg":
                 events = data["evidence"]
                 latest = events[-1].get("run_id") if events else None
                 events = [e for e in events if e.get("run_id") == latest]
-                svg = subprocess.run(["node", str(ROOT / "trace.mjs")], input=json.dumps(events).encode(), capture_output=True, check=True, timeout=5).stdout
-                return self.send(200, svg, "image/svg+xml")
+                return self.send(200, diagram_svg(events), "image/svg+xml")
             return self.send(200, data)
         return self.send(405, {"error": "method"})
 

@@ -11,13 +11,14 @@ import os
 import re
 from pathlib import Path
 from uuid import uuid4
-from time import time_ns
+from time import time, time_ns
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from handoffs import Handoffs, auto_handoffs_enabled
 from storage import state_directory
+import review_layout
 
 
 _review_lock = Lock()
@@ -143,9 +144,48 @@ class Graph:
         key = record.pop("id")
         vector = json.dumps(_title_vector(record["title"]), separators=(",", ":"))
         self._put("Report", rid, key=key, snapshot=sid, title_vector_v1=vector, **record)
+        self._prepare_diagram(sid, {"id": key, **record})
         if auto:
             Handoffs().enqueue(self, key, "owner-review", expected_scope=record)
         return key
+
+    def _prepare_diagram(self, snapshot, report):
+        facts = review_layout.classify(report)
+        provider = review_layout.configured_provider()
+        basis = json.dumps([1, facts, provider], sort_keys=True)
+        rows = self._query("MATCH (s:Snapshot {id:$id}) RETURN s.layout_basis AS basis, s.layout_source AS source, "
+                           "s.layout_attempts AS attempts, s.layout_retry AS retry", id=snapshot)
+        prior = rows[0] if rows else {}
+        attempts, now = 0, int(time())
+        if prior.get("basis") == basis:
+            attempts = prior.get("attempts") or 0
+            if prior["source"] == provider or attempts >= 2 or (prior.get("retry") or 0) > now:
+                return
+        layout, source = review_layout.select_layout(facts, provider)
+        self._put("Snapshot", snapshot, layout_basis=basis, review_layout=layout, layout_source=source,
+                  layout_attempts=attempts + 1, layout_retry=now + 300)
+
+    def review_diagram(self, case_id):
+        snapshot, context = self.snapshot_context(case_id)
+        rows = self._query("MATCH (s:Snapshot {id:$id}) RETURN s.review_layout AS layout, "
+                           "s.layout_source AS source, s.layout_basis AS basis", id=snapshot)
+        report = context["report"]
+        facts = review_layout.classify(report)
+        row = rows[0] if rows else {}
+        source = row.get("source")
+        valid_bases = [json.dumps([1, facts, mode], sort_keys=True) for mode in ("local", "workers-ai", "relay")]
+        if row.get("basis") not in valid_bases or row.get("layout") not in review_layout.LAYOUTS or source not in (
+                "local", "workers-ai", "relay"):
+            layout, source = review_layout.local_layout(facts), "local"
+        else:
+            layout = row["layout"]
+        evidence = context["evidence"]
+        run = evidence[-1].get("run_id") if evidence else None
+        results = Counter(e["result"] for e in evidence if e.get("run_id") == run)
+        counts = {k: results[k] for k in ("passed", "failed", "inconclusive")}
+        return {"layout": layout, "case": report["id"], "service": report["service"], "component": report["component"],
+                "revision": report["revision"], "owner": context["recommendations"][0]["owner"], "controls": counts,
+                "reviewed": bool(context["review_history"])}, source
 
     def cases(self):
         return self._query(f"MATCH (r:Report) RETURN {self._report_cols()} ORDER BY r.key")

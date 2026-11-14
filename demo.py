@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 import secrets
-import subprocess
 import sys
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
@@ -12,7 +11,7 @@ from unittest.mock import patch
 
 from eval_graph import evaluate, isolated_graph
 from scripts.acceptance import CASE, run_local_workflow
-from server import ConsoleServer, Handler, ROOT
+from server import ConsoleServer, Handler, ROOT, diagram_svg
 from staging import checks, load, manifest_input
 
 
@@ -35,7 +34,8 @@ class PublicDemoHandler(Handler):
         if path.startswith(("/api/", "/hooks/")) and path not in self.server.demo_routes:
             return self.send(404, {"error": "unknown demo route"})
         if path in self.server.demo_traces:
-            return self.send(200, self.server.demo_traces[path], "image/svg+xml")
+            svg, headers = self.server.demo_traces[path]
+            return self.send(200, svg, "image/svg+xml", headers)
         return super().dispatch(False)
 
 
@@ -80,10 +80,11 @@ def main():
                     events = graph.context(case["id"])["evidence"]
                     latest = events[-1].get("run_id") if events else None
                     payload = [e for e in events if e.get("run_id") == latest]
-                    http.demo_traces[trace] = subprocess.run(
-                        ["node", str(ROOT / "trace.mjs")], input=json.dumps(payload).encode(),
-                        capture_output=True, check=True, timeout=10,
-                    ).stdout
+                    http.demo_traces[trace] = diagram_svg(payload), []
+                    diagram = route + "/diagram.svg"
+                    http.demo_routes.add(diagram)
+                    plan, source = graph.review_diagram(case["id"])
+                    http.demo_traces[diagram] = diagram_svg(plan), [("X-Ichnix-Layout-Source", source)]
                 print(f"Read-only synthetic demo on 127.0.0.1:{http.server_port}", flush=True)
                 http.serve_forever()
             return

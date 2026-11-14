@@ -1,6 +1,7 @@
 *
 !server.py
 !graph.py
+!review_layout.py
 !connectors.py
 !cli.py
 !mcp_server.py
