@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Review console · Ichnix</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#review">Skip to content</a>
+    <header class="mast">
+      <a class="brand" href="/"
+        ><img src="/favicon.svg" width="34" height="34" alt="" />Ichnix</a
+      >
+      <nav aria-label="Primary">
+        <a href="/#guide">Field guide</a
+        ><button id="leave" hidden>Disconnect</button>
+      </nav>
+    </header>
+    <main class="workspace" id="review">
+      <p class="micro">Investigation workspace</p>
+      <h1>Review console</h1>
+      <form id="connect">
+        <label for="token">Operator access token</label>
+        <div class="input-row">
+          <input
+            id="token"
+            type="password"
+            required
+            autocomplete="off"
+            spellcheck="false"
+          /><button class="pill">Connect ↗</button>
+        </div>
+        <p class="hint">
+          Use the access token configured by your workspace administrator.
+        </p>
+      </form>
+      <p id="status" role="status"></p>
+      <div id="desk" hidden>
+        <aside>
+          <div class="aside-title">
+            <h2>Cases</h2>
+            <button id="reload">Refresh</button>
+          </div>
+          <ul id="cases"></ul>
+        </aside>
+        <article
+          id="detail"
+          aria-label="Case details"
+          aria-live="polite"
+        ></article>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ichnix</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="mast">
+      <a class="brand" href="/" aria-label="Ichnix home"
+        ><img src="/favicon.svg" width="34" height="34" alt="" />Ichnix</a
+      >
+      <nav aria-label="Primary">
+        <a href="#guide">Field guide</a
+        ><a href="/console">Review console <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero" aria-labelledby="name">
+        <div class="herocopy">
+          <p class="micro mast-label">Security evidence graph</p>
+          <h1 id="name">Ichnix</h1>
+          <p class="intro">
+            Connect bounty reports to CI evidence and the teams responsible for
+            a fix. Each review improves the next handoff.
+          </p>
+        </div>
+        <div class="doors">
+          <a class="door" href="/console"
+            ><span class="micro">Investigations</span
+            ><strong>Review the evidence</strong
+            ><span class="pill"
+              >Open console <span aria-hidden="true">↗</span></span
+            ></a
+          >
+          <a class="door" href="#guide"
+            ><span class="micro">Field guide</span
+            ><strong>Follow a finding</strong
+            ><span class="pill"
+              >Explore the workflow <span aria-hidden="true">↓</span></span
+            ></a
+          >
+        </div>
+      </section>
+      <section id="guide" class="guide">
+        <div class="guide-title">
+          <p class="micro">Field guide</p>
+          <h2>From report<br />to resolution.</h2>
+        </div>
+        <ol class="guide-list">
+          <li>
+            <div>
+              <h3>Bring a report</h3>
+              <p>
+                Import findings from your bounty program and preserve the
+                original report ID. Your team can follow each case back to its
+                source.
+              </p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Read the evidence</h3>
+              <p>
+                Follow the links between a report, its service, the affected
+                revision, and the available checks in HydraDB.
+              </p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Review the handoff</h3>
+              <p>
+                Inspect the suggested owner, then accept or reject the
+                recommendation. Each decision helps rank owners for future
+                cases.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+    </main>
+    <footer>
+      <a class="brand" href="/">Ichnix</a><small class="micro">2026</small
+      ><a href="/console">Open console ↗</a>
+    </footer>
+  </body>
+</html>
