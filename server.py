@@ -14,6 +14,7 @@ from urllib.parse import unquote, urlsplit
 
 from credentials import identify
 from graph import Graph
+from handoffs import Handoffs
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
@@ -79,6 +80,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def dispatch(self, write):
         path = unquote(urlsplit(self.path).path)
+        if path.startswith("/api/handoffs/"):
+            return self.handoff(path, write)
         if path == "/hooks/hackerone" and write:
             from connectors import process_webhook
             secret = os.environ.get("ICHNIX_WEBHOOK_SECRET")
@@ -136,6 +139,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, svg, "image/svg+xml")
             return self.send(200, data)
         return self.send(405, {"error": "method"})
+
+    def handoff(self, path, write):
+        if not write:
+            return self.send(405, {"error": "POST required"})
+        worker = identify(self.headers.get("Authorization", ""), worker=True)
+        if worker is None:
+            return self.send(403, {"error": "named worker credential required"})
+        data = json.loads(self.body())
+        if not isinstance(data, dict):
+            raise ValueError("expected JSON object")
+        if path == "/api/handoffs/claim" and set(data) <= {"lease_seconds"}:
+            return self.send(200, Handoffs().claim(worker, data.get("lease_seconds", 120)))
+        job = re.fullmatch(r"/api/handoffs/([a-f0-9]{64})/finish", path)
+        if job and set(data) == {"token"}:
+            return self.send(200, Handoffs().finish(job.group(1), worker, data["token"]))
+        raise ValueError("invalid handoff request")
 
     def handle_request(self, write):
         try:

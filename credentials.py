@@ -42,8 +42,10 @@ def _digest(token):
 
 
 def issue(path, name, role, output):
-    if not re.fullmatch(r"[a-zA-Z0-9_.@-]{1,80}", name) or role not in ("read", "review"):
+    if not re.fullmatch(r"[a-zA-Z0-9_.@-]{1,80}", name) or role not in ("read", "review", "worker"):
         raise ValueError("invalid reviewer name or role")
+    if role == "worker" and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", name):
+        raise ValueError("worker names allow letters, numbers, periods, hyphens and underscores")
     token = secrets.token_urlsafe(40)
     with closing(_connect(path)) as db, db:
         db.execute("BEGIN IMMEDIATE")
@@ -74,7 +76,7 @@ def identities(path):
                 db.execute("SELECT name,role,issued,revoked FROM identities ORDER BY name")]
 
 
-def identify(header, edit=False):
+def identify(header, edit=False, worker=False):
     prefix = "Bearer "
     if not header.startswith(prefix):
         return None
@@ -88,8 +90,11 @@ def identify(header, edit=False):
                                  (_digest(token),)).fetchone()
         except (sqlite3.Error, OSError, ValueError):
             return None
-        if row and row[1] in (("review",) if edit else ("review", "read")):
+        roles = ("worker",) if worker else (("review",) if edit else ("review", "read", "worker"))
+        if row and row[1] in roles:
             return row[0]
+        return None
+    if worker:
         return None
     roles = [("ICHNIX_REVIEW_TOKEN", "shared:review")]
     if not edit:
@@ -102,7 +107,7 @@ def main():
     cmds = parser.add_subparsers(dest="command", required=True)
     add = cmds.add_parser("issue")
     add.add_argument("name")
-    add.add_argument("--role", choices=["read", "review"], required=True)
+    add.add_argument("--role", choices=["read", "review", "worker"], required=True)
     add.add_argument("--out", type=Path, required=True, help="new private token file outside the application directory")
     cmds.add_parser("revoke").add_argument("name")
     cmds.add_parser("list")
