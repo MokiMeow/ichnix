@@ -241,3 +241,26 @@ def process_bugcrowd_webhook(body, headers, secret, engagement, catalog, graph):
                and item.get("attributes", {}).get("code") == engagement}
     imported = _bugcrowd_submission(record, allowed, catalog, graph)
     return {"imported": int(imported), "skipped": int(not imported)}
+
+
+def import_disclosed(program, report_id, catalog, graph):
+    """Import reviewed metadata from the public, unauthenticated report view."""
+    _program(program, catalog)
+    if not isinstance(report_id, str) or not re.fullmatch(r"[0-9]{1,20}", report_id):
+        raise ValueError("invalid report id")
+    source = f"https://hackerone.com/reports/{report_id}"
+    record = _fetch(build_opener(_NoRedirect()), "HackerOne disclosure", source + ".json",
+                    {"Accept": "application/json", "User-Agent": "Ichnix/0.1"})
+    if not isinstance(record, dict) or str(record.get("id")) != report_id:
+        raise ValueError("unexpected disclosure")
+    team = record.get("team") or {}
+    if (record.get("public") is not True or not record.get("disclosed_at")
+            or team.get("handle") != program):
+        raise PermissionError("expected a disclosed report in the configured program")
+    resource = {
+        "id": report_id, "type": "report",
+        "attributes": {"title": record.get("title"), "state": record.get("substate")},
+        "relationships": {"structured_scope": {"data": {"attributes": record.get("structured_scope") or {}}}},
+    }
+    imported = _import(resource, program, catalog, graph)
+    return {"imported": int(imported), "skipped": int(not imported), "source": source}

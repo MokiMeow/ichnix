@@ -30,6 +30,22 @@ class ConnectorTests(unittest.TestCase):
             connectors.process_webhook(body + b" ", headers, signed, "fixture", catalog, self.graph)
         self.graph.import_report.assert_called_once_with(dict(self.asset, title="Sample", id="h1-fixture-5"))
 
+    def test_disclosed_import_requires_public_scope_and_projects_only_metadata(self):
+        record = {"id": 17, "public": True, "disclosed_at": "2024-01-02", "substate": "resolved",
+                  "title": "Reviewed configuration", "team": {"handle": "fixture"},
+                  "structured_scope": {"asset_identifier": "ledger"}, "attachments": ["private"]}
+        catalog = {"program": "fixture", "assets": {"ledger": self.asset}}
+        with patch.object(connectors, "_fetch", return_value=record):
+            self.assertEqual(connectors.import_disclosed("fixture", "17", catalog, self.graph)["imported"], 1)
+            record["public"] = False
+            with self.assertRaises(PermissionError):
+                connectors.import_disclosed("fixture", "17", catalog, self.graph)
+            record.update(public=True, team={"handle": "different"})
+            with self.assertRaises(PermissionError):
+                connectors.import_disclosed("fixture", "17", catalog, self.graph)
+        self.graph.import_report.assert_called_once_with(dict(self.asset, title="Reviewed configuration",
+                                                             id="h1-fixture-17"))
+
     def test_scoped_bugcrowd_sync_uses_local_pagination(self):
         engagement, target = str(uuid4()), str(uuid4())
         catalog = {"program": "fixture", "assets": {target: self.asset}}
