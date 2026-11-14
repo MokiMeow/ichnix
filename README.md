@@ -89,7 +89,7 @@ docker compose exec console python3 cli.py storage check
 
 ### Git-deployed public preview
 
-Connect the repository to Vercel with the production branch set to `main`. The included configuration publishes a static frontend and two Node functions. Set `ICHNIX_PUBLIC_ORIGIN` to the HTTPS origin of a separately hosted, read-only Ichnix demo. The frontend can read only its published demo cases. Organization accounts, webhooks, HydraDB and SQLite stay in the self-hosted installation.
+Connect the repository to Vercel with the production branch set to `main`. The included configuration publishes a static frontend and three Node functions. Set `ICHNIX_PUBLIC_ORIGIN` to the HTTPS origin of a separately hosted, read-only Ichnix demo. The public console at `/console` reads only its published demo cases. To enable `/workspace` for signed-in staff, separately deploy a persistent private organization origin and set `ICHNIX_WORKSPACE_ORIGIN` and `ICHNIX_ORIGIN_SECRET` in Vercel. Configure the same shared origin secret in the private service. Browser bearer roles still govern case access, review decisions and metadata imports. Both provider webhooks can use the Vercel hostname. Provider credentials, graph data and SQLite stay at the organization origin.
 
 The optional server-to-server `/api/report-layout` accepts an authenticated pair of categories and returns a display order. The private ingestion service keeps the evidence and can use a local fallback. See the [operator manual](public/docs.html#vercel) for secret names, scopes and setup.
 

@@ -4,6 +4,7 @@
 !api/
 !api/report-layout.mjs
 !api/public-demo.mjs
+!api/org-workspace.mjs
 !hosting/
 !hosting/build-static.mjs
 !hosting/http.mjs

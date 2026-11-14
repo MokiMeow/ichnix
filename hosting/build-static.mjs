@@ -1,4 +1,4 @@
-import { copyFile, lstat, mkdir } from "node:fs/promises";
+import { copyFile, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const assets = [
@@ -23,5 +23,16 @@ for (const file of assets) {
   if (!(await lstat(src)).isFile())
     throw new Error("Expected regular public asset: " + file);
   await mkdir(dirname(dst), { recursive: true });
-  await copyFile(src, dst);
+  if (file.endsWith(".html")) {
+    const html = await readFile(src, "utf8");
+    const root = '<html lang="en">';
+    if (!html.includes(root))
+      throw new Error("Missing document root in " + file);
+    await writeFile(
+      dst,
+      html.replace(root, '<html lang="en" data-hosted="true">'),
+    );
+  } else {
+    await copyFile(src, dst);
+  }
 }

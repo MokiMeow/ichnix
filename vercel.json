@@ -31,6 +31,30 @@
     {
       "source": "/api/cases/:id/diagram.svg",
       "destination": "/api/public-demo?route=cases/:id/diagram.svg"
+    },
+    {
+      "source": "/workspace",
+      "destination": "/console.html"
+    },
+    {
+      "source": "/org-api/:route(session|cases)",
+      "destination": "/api/org-workspace?route=org-api/:route"
+    },
+    {
+      "source": "/org-api/import/report",
+      "destination": "/api/org-workspace?route=org-api/import/report"
+    },
+    {
+      "source": "/org-api/cases/:id",
+      "destination": "/api/org-workspace?route=org-api/cases/:id"
+    },
+    {
+      "source": "/org-api/cases/:id/:view(diagram\\.svg|trace\\.svg|reviews)",
+      "destination": "/api/org-workspace?route=org-api/cases/:id/:view"
+    },
+    {
+      "source": "/hooks/:provider(hackerone|bugcrowd)",
+      "destination": "/api/org-workspace?route=hooks/:provider"
     }
   ],
   "headers": [

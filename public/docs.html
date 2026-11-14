@@ -141,7 +141,7 @@ docker compose ps</code></pre>
             <p>
               Import the Git repository from the Vercel dashboard and set the
               production branch to <code>main</code>. The root
-              <code>vercel.json</code> builds the public site and two Node
+              <code>vercel.json</code> builds the public site and three Node
               functions when Vercel receives Git updates. The graph runtime,
               SQLite stores and private operator console stay on the workspace
               host.
@@ -157,7 +157,8 @@ docker compose ps</code></pre>
               Vercel. Leave credentials and paths out of the origin. The relay
               checks public demo mode and forwards only the published case,
               diagram, acceptance and evaluation routes. Signed-in company
-              workflows use the private self-hosted console.
+              workflows can use a separately configured private organization
+              origin.
             </p>
             <p>
               For optional AI layout selection, configure
@@ -180,6 +181,37 @@ docker compose ps</code></pre>
                 href="https://developers.cloudflare.com/workers-ai/features/json-mode/"
                 >Workers AI structured responses</a
               >
+            </p>
+          </section>
+          <section id="hosted-workspace">
+            <h2>Connect the hosted organization workspace</h2>
+            <p>
+              In Vercel, set <code>ICHNIX_WORKSPACE_ORIGIN</code> to the HTTPS
+              root of a dedicated persistent organization installation and
+              <code>ICHNIX_ORIGIN_SECRET</code> to a random secret of at least
+              32 characters. Configure the matching secret on that origin and
+              require the relay’s <code>X-Ichnix-Origin-Secret</code> header.
+              Keep this deployment and its data separate from the read-only
+              demo. Apply production values only to deployments trusted to
+              access this organization.
+            </p>
+            <p>
+              Sign in at <code>/workspace</code> using a named organization
+              credential. The hosted relay forwards a bearer credential to the
+              organization API for case reads, owner reviews and single-report
+              intake. A named intake credential is required to upload. The
+              public demo at <code>/console</code> stays anonymous. Workers
+              continue to use the private service’s dedicated handoff API.
+            </p>
+            <p>
+              For platform events, register <code>/hooks/hackerone</code> or
+              <code>/hooks/bugcrowd</code> on the Vercel hostname. Configure the
+              provider signing secrets, organization program scope and catalog
+              on the private origin as described under
+              <a href="#providers">Connect a program</a>. The relay preserves
+              the signed delivery bytes and signature for verification by that
+              origin. Requests are limited to 1 MiB for webhooks and 16 KiB for
+              user writes.
             </p>
           </section>
           <section id="storage">

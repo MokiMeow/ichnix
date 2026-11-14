@@ -7,6 +7,8 @@ import layout from "../api/report-layout.mjs";
 const originalFetch = globalThis.fetch;
 const managed = [
   "ICHNIX_PUBLIC_ORIGIN",
+  "ICHNIX_WORKSPACE_ORIGIN",
+  "ICHNIX_ORIGIN_SECRET",
   "ICHNIX_LAYOUT_SECRET",
   "ICHNIX_CF_ACCOUNT_ID",
   "ICHNIX_CF_AI_TOKEN",
@@ -127,4 +129,131 @@ test("layout authenticates before contacting the fixed provider and checks both 
   }
   provider = { success: true, result: { response: { layout: "other" } } };
   assert.equal((await ask(valid)).status, 502);
+});
+
+test("organization workspace forwards scoped bearer requests and restricts replies", async () => {
+  const workspace = (await import("../api/org-workspace.mjs")).default;
+  const org = "https://org.example.org";
+  process.env.ICHNIX_WORKSPACE_ORIGIN = org;
+  const secret = randomBytes(40).toString("hex");
+  process.env.ICHNIX_ORIGIN_SECRET = secret;
+  const bearer = "Bearer " + randomBytes(32).toString("hex");
+  const orgReq = (route, opts = {}) =>
+    new Request(
+      "https://frontend.example.org/api/org-workspace?route=" +
+        encodeURIComponent(route),
+      opts,
+    );
+  let calls = 0,
+    result;
+  globalThis.fetch = async (url, options) => {
+    calls++;
+    assert.equal(url.origin, org);
+    assert.equal(options.redirect, "error");
+    assert.equal(options.headers["x-ichnix-origin-secret"], secret);
+    assert.equal(options.headers.authorization, bearer);
+    assert.equal(options.headers.cookie, undefined);
+    assert.equal(options.headers["x-forwarded-host"], undefined);
+    assert.equal(url.pathname, "/api/cases/IX-108/reviews");
+    assert.equal(options.headers["idempotency-key"], "review-123");
+    return result;
+  };
+  const write = {
+    method: "POST",
+    headers: {
+      authorization: bearer,
+      "content-type": "application/json",
+      "x-ichnix-origin-secret": "forged",
+      cookie: "unwanted",
+      "x-forwarded-host": "evil.example",
+      "idempotency-key": "review-123",
+    },
+    body: '{"owner":"ops","accepted":true}',
+  };
+  result = Response.json(
+    { error: "sensitive upstream detail" },
+    { status: 403, headers: { "set-cookie": "do-not-forward" } },
+  );
+  const denial = await workspace.fetch(
+    orgReq("org-api/cases/IX-108/reviews", write),
+  );
+  assert.equal(denial.status, 403);
+  assert.equal(denial.headers.has("set-cookie"), false);
+  assert.deepEqual(await denial.json(), { error: "request denied" });
+  assert.equal(
+    (await workspace.fetch(orgReq("org-api/cases/IX-108/reviews"))).status,
+    405,
+  );
+  assert.equal(
+    (await workspace.fetch(orgReq("org-api/cases/../reviews", write))).status,
+    404,
+  );
+  assert.equal((await workspace.fetch(orgReq("org-api/cases"))).status, 401);
+  assert.equal(
+    (await workspace.fetch(orgReq("org-api/handoffs/claim", write))).status,
+    404,
+  );
+  assert.equal(
+    (
+      await workspace.fetch(
+        orgReq("org-api/import/report", { ...write, body: "x".repeat(16385) }),
+      )
+    ).status,
+    413,
+  );
+  process.env.ICHNIX_PUBLIC_ORIGIN = org;
+  assert.equal(
+    (await workspace.fetch(orgReq("org-api/cases/IX-108/reviews", write)))
+      .status,
+    503,
+  );
+  assert.equal(calls, 1);
+});
+
+test("raw signed provider deliveries cross only the dedicated organization route", async () => {
+  const workspace = (await import("../api/org-workspace.mjs")).default;
+  process.env.ICHNIX_WORKSPACE_ORIGIN = "https://private.example.org";
+  process.env.ICHNIX_ORIGIN_SECRET = randomBytes(32).toString("hex");
+  const bytes = Buffer.from(' {\n "title" : "München"\n } ');
+  for (const [provider, name, value] of [
+    ["hackerone", "x-h1-signature", "sha256=" + "2".repeat(64)],
+    [
+      "bugcrowd",
+      "x-bugcrowd-digest",
+      "timestamp=2026-11-14T09:00:00Z; sha256=" + "3".repeat(64),
+    ],
+  ]) {
+    globalThis.fetch = async (url, opts) => {
+      assert.equal(url.pathname, "/hooks/" + provider);
+      assert.deepEqual(opts.body, bytes);
+      assert.equal(opts.headers[name], value);
+      assert.equal(opts.headers.authorization, undefined);
+      assert.equal(opts.headers.cookie, undefined);
+      return Response.json({ imported: 1, skipped: 0 });
+    };
+    const url = "https://frontend.example.org/hooks/" + provider;
+    const headers = {
+      [name]: value,
+      "content-type": "application/json",
+      authorization: "Bearer should-stay-here",
+      cookie: "strip",
+    };
+    assert.deepEqual(
+      await (
+        await workspace.fetch(
+          new Request(url, { method: "POST", headers, body: bytes }),
+        )
+      ).json(),
+      { imported: 1, skipped: 0 },
+    );
+    delete headers[name];
+    assert.equal(
+      (
+        await workspace.fetch(
+          new Request(url, { method: "POST", headers, body: bytes }),
+        )
+      ).status,
+      403,
+    );
+  }
 });
