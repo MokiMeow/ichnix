@@ -118,7 +118,7 @@ class Graph:
         report = self._report(case_id)
         snapshot = report.pop("snapshot")
         evidence = self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
-                               "RETURN e.step AS step, e.result AS result, e.revision AS revision ORDER BY e.observed",
+                               "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id ORDER BY e.observed",
                                id=snapshot)
         votes = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
                             "RETURN v.owner AS owner, v.accepted AS accepted", id=snapshot)
@@ -160,12 +160,14 @@ class Graph:
             raise ValueError("invalid CI result")
         if r["revision"] != record["revision"]:
             raise ValueError("evidence revision differs from current case")
-        eid = _key("evidence", r["snapshot"], *record.values())
+        run = _field(evidence, "run_id") if "run_id" in evidence else None
+        parts = [*record.values(), run] if run else list(record.values())
+        eid = _key("evidence", r["snapshot"], *parts)
         exists = self._query("MATCH (e:Evidence {id:$id}) RETURN e.id AS id", id=eid)
         if not exists:
-            self._put("Evidence", eid, observed=time_ns(), **record)
+            self._put("Evidence", eid, observed=time_ns(), run=run or "", **record)
         self._link(r["snapshot"], "HAS_EVIDENCE", eid)
-        return record
+        return {**record, "run_id": run}
 
     def record_review(self, case_id, owner, accepted):
         r = self._report(case_id)

@@ -1,5 +1,26 @@
 [
-  {"id":"IX-104","title":"audit events retained past the configured window","service":"ledger","component":"audit-store","revision":"build-104","owner":"data-platform"},
-  {"id":"IX-108","title":"audit retention update awaiting review","service":"ledger","component":"audit-store","revision":"build-108","owner":"product-security"},
-  {"id":"IX-113","title":"archive export has incomplete deployment evidence","service":"archive","component":"audit-store","revision":"build-113","owner":"platform"}
+  {
+    "id": "IX-104",
+    "title": "audit events retained past the configured window",
+    "service": "ledger",
+    "component": "audit-store",
+    "revision": "build-108",
+    "owner": "data-platform"
+  },
+  {
+    "id": "IX-108",
+    "title": "audit retention update awaiting review",
+    "service": "ledger",
+    "component": "audit-store",
+    "revision": "build-108",
+    "owner": "product-security"
+  },
+  {
+    "id": "IX-113",
+    "title": "archive export has incomplete deployment evidence",
+    "service": "archive",
+    "component": "audit-store",
+    "revision": "build-113",
+    "owner": "platform"
+  }
 ]

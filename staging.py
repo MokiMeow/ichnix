@@ -1,6 +1,7 @@
 """Compare a staging deployment manifest to the organization's approved settings."""
 import argparse
 import json
+import sys
 import uuid
 from pathlib import Path
 
@@ -59,4 +60,8 @@ def main():
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (KeyError, ValueError, RuntimeError, OSError) as error:
+        print(f"staging check unavailable ({type(error).__name__})", file=sys.stderr)
+        raise SystemExit(2)
