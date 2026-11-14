@@ -1,8 +1,11 @@
 """Measure routing and CI evidence retrieval in a disposable, real HydraDB node."""
+import argparse
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import math
 import socket
 import subprocess
 import tempfile
@@ -98,6 +101,35 @@ def evaluate(graph):
             "fixed_catalog_owner_top1": 0, "curve": curve}
 
 
+def measure_reads(workers, requests):
+    keys = [f"holdout-{service}-{component}" for component, _, _ in FIXTURES
+            for service in ("billing", "reporting")]
+
+    def read(index):
+        start = time.perf_counter()
+        context = Graph().context(keys[index % len(keys)])
+        if not context["ranked_checks"]:
+            raise ValueError("expected trained graph")
+        return (time.perf_counter() - start) * 1000
+
+    start = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        durations = sorted(executor.map(read, range(requests)))
+    return {"clients": workers, "context_requests": requests,
+            "requests_per_second": round(requests / (time.perf_counter() - start), 1),
+            "p50_ms": round(durations[math.ceil(requests * 0.50) - 1], 1),
+            "p95_ms": round(durations[math.ceil(requests * 0.95) - 1], 1)}
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--clients", type=int, default=0, help="also measure concurrent context retrieval")
+    parser.add_argument("--requests", type=int, default=128)
+    args = parser.parse_args()
+    if not 0 <= args.clients <= 128 or not 1 <= args.requests <= 10000:
+        parser.error("clients must be 0..128 and requests must be 1..10000")
     with isolated_graph() as instance:
-        print(json.dumps(evaluate(instance), indent=2))
+        result = evaluate(instance)
+        if args.clients:
+            result["load"] = measure_reads(args.clients, args.requests)
+        print(json.dumps(result, indent=2))

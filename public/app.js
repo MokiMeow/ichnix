@@ -21,6 +21,7 @@ function clearTrace() {
 }
 
 function clearSession() {
+  byId("token").value = "";
   generation++;
   token = "";
   selected = null;
