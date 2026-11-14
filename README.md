@@ -77,8 +77,8 @@ For a fresh named-identity Compose stack, use container paths consistently. Exis
 export ICHNIX_IDENTITY_DB=/var/lib/ichnix/identities.sqlite3
 export ICHNIX_HANDOFF_DB=/var/lib/ichnix/handoffs.sqlite3
 docker compose build
-docker compose run --rm --no-deps console python3 cli.py storage init
-docker compose run --rm --no-deps console python3 cli.py identity issue operator --role review --out /var/lib/ichnix/operator.token
+docker compose run --rm console python3 cli.py storage init
+docker compose run --rm console python3 cli.py identity issue operator --role review --out /var/lib/ichnix/operator.token
 docker compose up --detach --wait
 docker compose exec console python3 cli.py storage check
 ```

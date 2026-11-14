@@ -22,8 +22,8 @@ jobs:
       - name: Start the private workspace
         run: |
           docker compose build
-          docker compose run --rm --no-deps console python3 cli.py storage init
-          docker compose run --rm --no-deps console python3 cli.py identity issue ci-reader --role read --out /var/lib/ichnix/ci-reader.token
+          docker compose run --rm console python3 cli.py storage init
+          docker compose run --rm console python3 cli.py identity issue ci-reader --role read --out /var/lib/ichnix/ci-reader.token
           docker compose up --detach --wait
           docker compose exec -T console python3 cli.py import examples/cases.json
       - name: Recreate both services with their original volumes
