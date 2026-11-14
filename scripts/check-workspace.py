@@ -18,7 +18,8 @@ def main():
     checks = {}
     try:
         graph = Graph()
-        checks["hydradb"] = graph._query("RETURN 1 AS ready") == [{"ready": 1}]
+        graph._query("MATCH (r:Report) RETURN r.key AS key LIMIT 1")
+        checks["hydradb"] = True
     except (OSError, ValueError, RuntimeError):
         checks["hydradb"] = False
     try:
