@@ -3,10 +3,25 @@
 import argparse
 import json
 import os
+from pathlib import Path
 import sys
 
 import connectors
 from mcp_server import serve
+
+
+ROOT = Path(__file__).resolve().parent
+OPERATOR_COMMANDS = {
+    "identity": ("credentials.py", "issue, list and revoke named workspace identities"),
+    "handoff": ("handoff_cli.py", "queue cases, claim reviews and check lease status"),
+    "staging": ("staging.py", "verify or sign the staging configuration manifest"),
+    "acceptance": ("scripts/acceptance.py", "exercise the end-to-end workspace acceptance checks"),
+    "check-workspace": ("scripts/check-workspace.py", "check the configured workspace and local dependencies"),
+    "bench-workers": ("scripts/bench_workers.py", "measure concurrent remote review workers on an isolated graph"),
+    "evaluate": ("eval_graph.py", "measure retrieval and load on an isolated graph"),
+    "console": ("server.py", "serve the persistent workspace using configured credentials"),
+    "demo": ("demo.py", "start a disposable synthetic demo"),
+}
 
 
 def _load(path):
@@ -28,6 +43,10 @@ def parser():
     sync = commands.add_parser("sync", help="import reviewed HackerOne report metadata")
     sync.add_argument("--program", required=True)
     sync.add_argument("--catalog", required=True, help="JSON inventory keyed by report ID or asset")
+    disclosed = commands.add_parser("import-disclosed", help="import disclosed public HackerOne report metadata")
+    disclosed.add_argument("--program", required=True)
+    disclosed.add_argument("--report-id", required=True)
+    disclosed.add_argument("--catalog", required=True, help="JSON inventory keyed by report ID or asset")
     bc = commands.add_parser("sync-bugcrowd", help="import reviewed Bugcrowd submissions")
     bc.add_argument("--engagement", required=True, help="customer engagement code")
     bc.add_argument("--catalog", required=True, help="inventory JSON keyed by submission or target UUID")
@@ -41,7 +60,66 @@ def parser():
     mcp.add_argument("--worker", action="store_true", help="claim and complete leased reviews through a private workspace")
     mcp.add_argument("--workspace-url", help="workspace origin (ICHNIX_WORKSPACE_URL)")
     mcp.add_argument("--worker-token-file", help="private credential file (ICHNIX_WORKER_TOKEN_FILE)")
+    config = commands.add_parser("mcp-config", help="generate a stdio client configuration for this installation")
+    config.add_argument("--profile", required=True, choices=["worker", "local"])
+    config.add_argument("--format", choices=["json", "codex"], default="json",
+                        help="mcpServers JSON or Codex TOML configuration")
+    config.add_argument("--workspace-url", help="private workspace origin for the worker profile")
+    config.add_argument("--worker-token-file", help="named worker credential file")
+    config.add_argument("--hydra-url", help="HydraDB origin for the local profile")
+    config.add_argument("--hydra-token-file", help="HydraDB credential file for the local profile")
+    config.add_argument("--out", type=Path, help="write a new configuration file instead of standard output")
+    for name, (_, help_text) in OPERATOR_COMMANDS.items():
+        commands.add_parser(name, help=help_text)
     return root
+
+
+def mcp_config(args):
+    from worker_client import Worker, workspace_origin
+    command = [str(ROOT / "cli.py"), "mcp"]
+    if args.profile == "worker":
+        if args.hydra_url or args.hydra_token_file:
+            raise ValueError("worker profiles take workspace options")
+        origin = args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL")
+        source = args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE")
+        if not source:
+            raise ValueError("worker credential file required")
+        token_file = Path(source).expanduser().resolve(strict=True)
+        Worker(origin, token_file)
+        env = {"ICHNIX_WORKSPACE_URL": origin, "ICHNIX_WORKER_TOKEN_FILE": str(token_file)}
+        command.append("--worker")
+    else:
+        if args.workspace_url or args.worker_token_file:
+            raise ValueError("local profiles take HydraDB options")
+        state = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local/state")) / "ichnix"
+        state = Path(os.getenv("ICHNIX_STATE_DIR", state))
+        source = args.hydra_token_file or os.getenv("ICHNIX_HYDRA_TOKEN_FILE") or state / "hydra-token"
+        token_file = Path(source).expanduser().resolve(strict=True)
+        if not token_file.is_file() or token_file.stat().st_mode & 0o077 or not 0 < token_file.stat().st_size <= 4096:
+            raise ValueError("private HydraDB credential file required")
+        origin = args.hydra_url or os.getenv("ICHNIX_HYDRA_URL", "http://127.0.0.1:8443")
+        parsed = workspace_origin(origin)
+        if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise ValueError("unsupported local HydraDB origin")
+        env = {"ICHNIX_HYDRA_URL": origin, "ICHNIX_HYDRA_TOKEN_FILE": str(token_file), "ICHNIX_HYDRA_TOKEN": ""}
+        for key, default in (("NAMESPACE", "default"), ("GRAPH", "default"), ("CELL", "cell-0")):
+            name = "ICHNIX_HYDRA_" + key
+            env[name] = os.getenv(name, default)
+    entry = {"command": sys.executable, "args": command, "env": env}
+    name = "ichnix-" + args.profile
+    if args.format == "codex":
+        lines = [f"[mcp_servers.{name}]", "command = " + json.dumps(entry["command"], ensure_ascii=False),
+                 "args = " + json.dumps(command, ensure_ascii=False), "", f"[mcp_servers.{name}.env]"]
+        lines.extend(key + " = " + json.dumps(value, ensure_ascii=False) for key, value in env.items())
+        rendered = "\n".join(lines)
+    else:
+        rendered = json.dumps({"mcpServers": {name: entry}}, indent=2)
+    if args.out is None:
+        print(rendered)
+    else:
+        with os.fdopen(os.open(args.out, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600), "w") as output:
+            print(rendered, file=output)
+        print("wrote stdio client configuration")
 
 
 def run(args, graph):
@@ -53,6 +131,8 @@ def run(args, graph):
         return graph.record_review(args.case_id, args.owner, args.accept)
     if args.command == "sync":
         return connectors.sync(args.program, _load(args.catalog), graph)
+    if args.command == "import-disclosed":
+        return connectors.import_disclosed(args.program, args.report_id, _load(args.catalog), graph)
     if args.command == "sync-bugcrowd":
         return connectors.sync_bugcrowd(args.engagement, _load(args.catalog), graph)
     records = _load(args.file)
@@ -66,8 +146,14 @@ def run(args, graph):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in OPERATOR_COMMANDS:
+        script, _ = OPERATOR_COMMANDS[sys.argv[1]]
+        os.execv(sys.executable, [sys.executable, str(ROOT / script), *sys.argv[2:]])
     args = parser().parse_args()
     try:
+        if args.command == "mcp-config":
+            mcp_config(args)
+            return 0
         if args.command == "mcp" and args.worker:
             from worker_client import Worker
             worker = Worker(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),

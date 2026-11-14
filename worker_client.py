@@ -32,7 +32,7 @@ TOOLS = [
 ]
 
 
-def _origin(value):
+def workspace_origin(value):
     if not isinstance(value, str) or not value.isascii() or re.search(r"[\s\\\x00-\x1f\x7f]", value):
         raise ValueError("workspace origin required")
     parts = urlsplit(value)
@@ -65,7 +65,7 @@ def _credential(path):
 
 class Worker:
     def __init__(self, url, token_file):
-        origin = _origin(url)
+        origin = workspace_origin(url)
         self.connection = HTTPSConnection if origin.scheme == "https" else HTTPConnection
         self.host, self.port = origin.hostname, origin.port
         self.bearer = _credential(token_file)
@@ -127,7 +127,13 @@ class Worker:
         data = self._post(f"/api/handoffs/{lease['id']}/{action}", {"token": lease["token"]})
         if not isinstance(data, dict):
             raise RuntimeError("invalid workspace response")
-        if action == "finish":
+        if action == "context":
+            report = data.get("report")
+            if not isinstance(report, dict) or report.get("id") != lease["case_id"] or any(
+                    report.get(key) != lease[key] for key in ("service", "component", "revision")):
+                raise RuntimeError("case mapping differs from the active lease")
+            data = {key: data[key] for key in ("report", "evidence", "recommendations", "ranked_checks") if key in data}
+        else:
             if data.get("id") != lease["id"] or data.get("state") != "complete":
                 raise RuntimeError("unexpected completion response")
             data = {key: data[key] for key in JOB_FIELDS}
