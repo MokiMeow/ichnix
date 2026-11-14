@@ -1,0 +1,1 @@
+{"service":"ledger","revision":"build-108","environment":"staging","settings":{"retention_days":90,"redaction_enabled":true}}

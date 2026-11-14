@@ -1,0 +1,1 @@
+{"services":{"ledger":{"retention_days":30,"redaction_enabled":true,"audit_enabled":true},"archive":{"retention_days":30}}}
