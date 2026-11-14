@@ -169,6 +169,10 @@ python3 cli.py context h1-curl-2236133</code></pre>
               <a href="https://api.hackerone.com/customer-reference/"
                 >HackerOne customer API</a
               >
+              ·
+              <a href="https://api.hackerone.com/webhooks/"
+                >HackerOne webhook verification</a
+              >
             </p>
             <h3>Bugcrowd engagement</h3>
             <p>
@@ -194,6 +198,10 @@ python3 cli.py context h1-curl-2236133</code></pre>
               submission metadata and checks its engagement.
               <a href="https://docs.bugcrowd.com/api/getting-started/"
                 >Bugcrowd API guide</a
+              >
+              ·
+              <a href="https://docs.bugcrowd.com/api/webhooks/"
+                >Bugcrowd webhook verification</a
               >
             </p>
             <p class="manual-note">
@@ -374,6 +382,14 @@ python3 cli.py handoff status JOB_ID</code></pre>
             <pre
               tabindex="0"
             ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
+            <h3>Coding-agent compatibility</h3>
+            <p>
+              In a separate end-to-end check, one Codex CLI model session used a
+              generated worker profile to claim a synthetic review, read its
+              stored control result, and complete the handoff. The queue
+              recorded one attempt. The throughput run below measures MCP
+              transport and storage costs.
+            </p>
             <h3>Worker throughput on one host</h3>
             <p>
               Each run processed the same 100 synthetic evidence reviews over
@@ -420,10 +436,10 @@ python3 cli.py handoff status JOB_ID</code></pre>
               Ichnix application code is MIT licensed. The checkout includes its
               <code>LICENSE</code> and the notices in
               <code>public/fonts</code> for bundled DM Sans and Anonymous Pro.
-              The HydraDB runtime is distributed separately, under the terms of
-              its upstream distribution.
-              <a href="https://github.com/hydra-db/hydradb"
-                >HydraDB upstream project</a
+              HydraDB is distributed under Elastic License 2.0. The container
+              includes the runtime and its notices.
+              <a href="https://github.com/hydra-db/hydradb/blob/v0.4.0/LICENSE"
+                >HydraDB license</a
               >
             </p>
           </section>
