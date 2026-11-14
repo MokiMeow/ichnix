@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import connectors
@@ -36,7 +37,10 @@ def parser():
     decisions = review.add_mutually_exclusive_group(required=True)
     decisions.add_argument("--accept", action="store_true")
     decisions.add_argument("--reject", action="store_true")
-    commands.add_parser("mcp", help="start the read-only MCP server on stdio")
+    mcp = commands.add_parser("mcp", help="serve local read-only or remote worker tools over stdio")
+    mcp.add_argument("--worker", action="store_true", help="claim and complete leased reviews through a private workspace")
+    mcp.add_argument("--workspace-url", help="workspace origin (ICHNIX_WORKSPACE_URL)")
+    mcp.add_argument("--worker-token-file", help="private credential file (ICHNIX_WORKER_TOKEN_FILE)")
     return root
 
 
@@ -63,11 +67,19 @@ def run(args, graph):
 
 def main():
     args = parser().parse_args()
-    from graph import Graph
-    if args.command == "mcp":
-        serve(Graph)
-        return 0
     try:
+        if args.command == "mcp" and args.worker:
+            from worker_client import Worker
+            worker = Worker(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
+                            args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE"))
+            serve(worker=worker)
+            return 0
+        from graph import Graph
+        if args.command == "mcp":
+            if args.workspace_url or args.worker_token_file:
+                raise ValueError("workspace options require --worker")
+            serve(Graph)
+            return 0
         data = run(args, Graph())
         print(json.dumps(data, ensure_ascii=True, indent=2))
     except (OSError, KeyError, RuntimeError, ValueError) as error:

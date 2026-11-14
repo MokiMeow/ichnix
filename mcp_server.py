@@ -1,4 +1,4 @@
-"""Local MCP stdio interface for one configured organizational graph."""
+"""MCP stdio interfaces for local graph readers and remote review workers."""
 
 import json
 import sys
@@ -26,13 +26,15 @@ def _error(code, message):
     return {"error": {"code": code, "message": message}}
 
 
-def _call(params, graph_factory):
+def _call(params, graph_factory, worker=None):
     name = params.get("name")
     args = params.get("arguments", {})
     if not isinstance(args, dict):
         return _error(-32602, "expected tool arguments")
     try:
-        if name == "list_cases" and not args:
+        if worker is not None:
+            data = worker.call(name, args)
+        elif name == "list_cases" and not args:
             data = graph_factory().cases()
         elif name == "get_case_context" and set(args) == {"case_id"}:
             case_id = args["case_id"]
@@ -43,10 +45,11 @@ def _call(params, graph_factory):
             return _error(-32602, "unknown tool or invalid arguments")
         return {"result": {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=True)}]}}
     except (KeyError, LookupError, ValueError, RuntimeError, OSError):
-        return {"result": {"isError": True, "content": [{"type": "text", "text": "case or graph unavailable"}]}}
+        detail = "review unavailable; verify the lease and workspace access" if worker is not None else "case or graph unavailable"
+        return {"result": {"isError": True, "content": [{"type": "text", "text": detail}]}}
 
 
-def _dispatch(message, stage, graph_factory):
+def _dispatch(message, stage, graph_factory, worker=None):
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
         return stage, _error(-32600, "invalid request")
     method = message["method"]
@@ -70,13 +73,16 @@ def _dispatch(message, stage, graph_factory):
     if stage != "ready":
         return stage, _error(-32002, "initialization required")
     if method == "tools/list":
+        if worker is not None:
+            from worker_client import TOOLS as worker_tools
+            return stage, {"result": {"tools": worker_tools}}
         return stage, {"result": {"tools": TOOLS}}
     if method == "tools/call":
-        return stage, _call(params, graph_factory)
+        return stage, _call(params, graph_factory, worker)
     return stage, _error(-32601, "method not found")
 
 
-def serve(graph_factory):
+def serve(graph_factory=None, worker=None):
     stage = "new"
     while True:
         raw = sys.stdin.buffer.readline(MAX_FRAME + 1)
@@ -89,7 +95,7 @@ def serve(graph_factory):
             message = json.loads(raw)
             if isinstance(message, dict) and type(message.get("id")) in (str, int):
                 request_id = message["id"]
-            stage, response = _dispatch(message, stage, graph_factory)
+            stage, response = _dispatch(message, stage, graph_factory, worker)
         except (UnicodeError, ValueError, RecursionError):
             response = _error(-32700, "invalid JSON")
         if response is not None:
