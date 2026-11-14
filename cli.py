@@ -27,6 +27,9 @@ def parser():
     sync = commands.add_parser("sync", help="import reviewed HackerOne report metadata")
     sync.add_argument("--program", required=True)
     sync.add_argument("--catalog", required=True, help="JSON inventory keyed by report ID or asset")
+    bc = commands.add_parser("sync-bugcrowd", help="import reviewed Bugcrowd submissions")
+    bc.add_argument("--engagement", required=True, help="customer engagement code")
+    bc.add_argument("--catalog", required=True, help="inventory JSON keyed by submission or target UUID")
     review = commands.add_parser("review", help="review a suggested remediation owner")
     review.add_argument("case_id")
     review.add_argument("owner")
@@ -46,6 +49,8 @@ def run(args, graph):
         return graph.record_review(args.case_id, args.owner, args.accept)
     if args.command == "sync":
         return connectors.sync(args.program, _load(args.catalog), graph)
+    if args.command == "sync-bugcrowd":
+        return connectors.sync_bugcrowd(args.engagement, _load(args.catalog), graph)
     records = _load(args.file)
     if isinstance(records, dict):
         records = [records]

@@ -1,4 +1,4 @@
-"""Read-only HackerOne report intake with customer-owned asset mappings."""
+"""Read-only bounty platform intake with customer-owned asset mappings."""
 
 import base64
 import hashlib
@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 import re
+from uuid import UUID
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -90,6 +91,22 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def _page(opener, source, url, headers):
+    try:
+        with opener.open(Request(url, headers=headers), timeout=15) as response:
+            raw = response.read(8 * 1024 * 1024 + 1)
+    except HTTPError as exc:
+        raise RuntimeError(f"{source} returned HTTP {exc.code}") from None
+    except (URLError, TimeoutError) as exc:
+        raise RuntimeError(f"{source} connection unavailable") from exc
+    if len(raw) > 8 * 1024 * 1024:
+        raise ValueError("report page exceeds size limit")
+    payload = json.loads(raw)
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        raise ValueError(f"expected a {source} reports page")
+    return payload
+
+
 def sync(program, catalog, graph):
     _program(program, catalog)
     user = os.getenv("HACKERONE_API_USER")
@@ -104,19 +121,7 @@ def sync(program, catalog, graph):
     for page in range(1, 10001):
         query = urlencode({"filter[program][]": program, "filter[state][]": sorted(REVIEWED),
                            "page[number]": page, "page[size]": 25}, doseq=True)
-        try:
-            with opener.open(Request("https://api.hackerone.com/v1/reports?" + query,
-                                     headers=headers), timeout=15) as response:
-                raw = response.read(8 * 1024 * 1024 + 1)
-        except HTTPError as exc:
-            raise RuntimeError(f"HackerOne returned HTTP {exc.code}") from None
-        except (URLError, TimeoutError) as exc:
-            raise RuntimeError("HackerOne connection unavailable") from exc
-        if len(raw) > 8 * 1024 * 1024:
-            raise ValueError("report page exceeds size limit")
-        payload = json.loads(raw)
-        if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
-            raise ValueError("expected a HackerOne reports page")
+        payload = _page(opener, "HackerOne", "https://api.hackerone.com/v1/reports?" + query, headers)
         reports = payload["data"]
         for report in reports:
             if _import(report, program, catalog, graph):
@@ -129,4 +134,70 @@ def sync(program, catalog, graph):
         if fingerprint in seen or not reports:
             raise RuntimeError("HackerOne pagination did not advance")
         seen.add(fingerprint)
+    raise RuntimeError("report page limit exceeded")
+
+
+def _bugcrowd_submission(submission, engagements, catalog, graph):
+    if submission.get("type") != "submission":
+        raise ValueError("expected a Bugcrowd submission")
+    case_id = str(UUID(submission["id"]))
+    attrs = submission["attributes"]
+    if attrs["state"] not in {"triaged", "unresolved", "resolved"} or attrs.get("duplicate"):
+        return False
+    relations = submission["relationships"]
+    engagement_id = relations["engagement"]["data"]["id"]
+    if engagement_id not in engagements:
+        raise PermissionError("submission is outside the configured engagement")
+    target = (relations.get("target", {}).get("data") or {}).get("id")
+    mapping = catalog.get("reports", {}).get(case_id) or catalog.get("assets", {}).get(target)
+    if mapping is None:
+        return False
+    if not isinstance(mapping, dict):
+        raise ValueError("invalid inventory metadata")
+    record = {key: _text(mapping.get(key)) for key in SCOPE_FIELDS}
+    record.update(id=f"bc-{case_id}", title=_text(attrs.get("title"), 240))
+    graph.import_report(record)
+    return True
+
+
+def sync_bugcrowd(engagement, catalog, graph):
+    _program(engagement, catalog)
+    token = os.getenv("BUGCROWD_API_TOKEN")
+    if not token or ":" not in token:
+        raise RuntimeError("set BUGCROWD_API_TOKEN to token-id:token-secret")
+    headers = {
+        "Authorization": f"Token {token}",
+        "Accept": "application/vnd.bugcrowd+json",
+        "Bugcrowd-Version": "2024-03-27",
+    }
+    params = {
+        "filter[engagement]": engagement,
+        "filter[state]": "triaged,unresolved,resolved",
+        "include": "engagement",
+        "fields[engagement]": "code",
+        "fields[submission]": "title,state,engagement,target,duplicate",
+        "page[limit]": 25,
+    }
+    opener = build_opener(_NoRedirect())
+    seen = set()
+    imported = skipped = 0
+    for page in range(10000):
+        params["page[offset]"] = 25 * page
+        payload = _page(opener, "Bugcrowd", "https://api.bugcrowd.com/submissions?" + urlencode(params), headers)
+        engagements = {item["id"] for item in payload.get("included", [])
+                       if item.get("type") == "engagement" and item.get("attributes", {}).get("code") == engagement}
+        submissions = payload["data"]
+        fingerprint = tuple(row["id"] for row in submissions)
+        if fingerprint in seen:
+            raise RuntimeError("Bugcrowd pagination did not advance")
+        seen.add(fingerprint)
+        for row in submissions:
+            if _bugcrowd_submission(row, engagements, catalog, graph):
+                imported += 1
+            else:
+                skipped += 1
+        if not (payload.get("links") or {}).get("next"):
+            return {"imported": imported, "skipped": skipped, "pages": page + 1}
+        if not submissions:
+            raise RuntimeError("empty continuation page")
     raise RuntimeError("report page limit exceeded")
