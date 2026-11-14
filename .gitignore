@@ -34,3 +34,7 @@ test-results/
 *.webm
 .netrc
 .npmrc
+
+.vercel/
+.dev.vars
+.dev.vars.*
