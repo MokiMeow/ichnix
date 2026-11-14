@@ -7,6 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from graph import Graph
+from storage import checks as storage_checks
 
 
 def main():
@@ -15,7 +16,10 @@ def main():
         return 0
     if sys.argv[1:]:
         return 2
-    checks = {}
+    try:
+        checks = storage_checks("ready")
+    except (OSError, ValueError):
+        checks = {"sqlite_configuration": False}
     try:
         graph = Graph()
         graph._query("MATCH (r:Report) RETURN r.key AS key LIMIT 1")

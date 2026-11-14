@@ -11,6 +11,15 @@ import secrets
 import sqlite3
 import time
 
+from storage import connect_private, verify_tables
+
+LEASE_TABLES = {
+    "jobs": ("id", "case_id", "service", "component", "revision", "kind", "state", "created",
+             "worker", "expires", "token_hash", "attempts"),
+    "job_reads": ("job_id", "attempt", "snapshot"),
+    "outcomes": ("job_id", "snapshot", "disposition", "at"),
+}
+
 DISPOSITIONS = {"owner-review": ("needs-owner-review",),
                 "evidence-review": ("evidence-reviewed", "needs-evidence")}
 KINDS = tuple(DISPOSITIONS)
@@ -47,6 +56,12 @@ def _default_db():
     return base / "handoffs" / (_digest(json.dumps(graph)) + ".sqlite3")
 
 
+def handoff_path():
+    if "ICHNIX_HANDOFF_DB" in os.environ:
+        return Path(os.environ["ICHNIX_HANDOFF_DB"])
+    return _default_db()
+
+
 def _worker(value):
     if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", value):
         raise ValueError("invalid worker identifier")
@@ -55,12 +70,19 @@ def _worker(value):
 
 class Handoffs:
     def __init__(self, path=None):
-        self.path = Path(path) if path is not None else _default_db()
-        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        fd = os.open(self.path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-        os.close(fd)
-        with closing(self._connect()) as db:
+        self.path = Path(path) if path is not None else handoff_path()
+        create = path is not None or "ICHNIX_HANDOFF_DB" not in os.environ
+        with closing(self._connect(create=create)) as db:
+            if not create:
+                verify_tables(db, LEASE_TABLES)
+                if db.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+                    raise ValueError("lease database requires WAL")
+                return
+            existing = db.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
+            if existing:
+                verify_tables(db, {"jobs": LEASE_TABLES["jobs"]})
             db.execute("PRAGMA journal_mode=WAL")
+            db.execute("BEGIN IMMEDIATE")
             db.execute("""CREATE TABLE IF NOT EXISTS jobs (
                 id TEXT PRIMARY KEY, case_id TEXT NOT NULL, service TEXT NOT NULL,
                 component TEXT NOT NULL, revision TEXT NOT NULL, kind TEXT NOT NULL,
@@ -71,9 +93,12 @@ class Handoffs:
             db.execute("""CREATE TABLE IF NOT EXISTS outcomes (
                 job_id TEXT PRIMARY KEY, snapshot INTEGER NOT NULL, disposition TEXT NOT NULL, at TEXT NOT NULL)""")
             db.execute("CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(state, expires, created)")
+            verify_tables(db, LEASE_TABLES)
+            db.commit()
 
-    def _connect(self):
-        db = sqlite3.connect(self.path, timeout=30, isolation_level=None)
+    def _connect(self, *, create=False):
+        db = connect_private(self.path, timeout=30, create=create)
+        db.isolation_level = None
         db.row_factory = sqlite3.Row
         return db
 

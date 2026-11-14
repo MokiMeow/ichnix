@@ -41,7 +41,7 @@ services:
           "CMD",
           "python3",
           "-c",
-          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8765/console', timeout=2).close()",
+          "from urllib.request import urlopen; from storage import checks; urlopen('http://127.0.0.1:8765/console', timeout=2).close(); raise SystemExit(not all(checks('ready').values()))",
         ]
       interval: 3s
       timeout: 3s
@@ -49,6 +49,7 @@ services:
     environment:
       ICHNIX_HYDRA_TOKEN_FILE: /run/ichnix-auth/hydra-token
       ICHNIX_IDENTITY_DB:
+      ICHNIX_HANDOFF_DB:
     network_mode: service:graph
     depends_on:
       graph:

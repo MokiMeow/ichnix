@@ -13,28 +13,37 @@ import secrets
 import sqlite3
 import sys
 
+from storage import connect_private, verify_tables
+
+REGISTRY_TABLES = {"identities": ("name", "role", "digest", "issued", "revoked")}
+
 
 def utcnow():
     return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
-def _connect(path, readonly=False):
-    path = Path(path).absolute()
-    if readonly:
-        return sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=2)
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if not path.exists():
-        try:
-            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
-        except FileExistsError:
-            pass
-    if path.stat().st_mode & 0o077:
-        raise ValueError("identity database must have mode 0600")
-    db = sqlite3.connect(path, timeout=2)
-    db.execute("""CREATE TABLE IF NOT EXISTS identities
-        (name TEXT PRIMARY KEY, role TEXT NOT NULL, digest TEXT NOT NULL UNIQUE,
-         issued TEXT NOT NULL, revoked TEXT)""")
+def _connect(path, readonly=False, create=False):
+    db = connect_private(path, create=create, readonly=readonly)
+    try:
+        if create:
+            db.execute("BEGIN IMMEDIATE")
+            existing = db.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
+            if not existing:
+                db.execute("""CREATE TABLE identities
+                    (name TEXT PRIMARY KEY, role TEXT NOT NULL, digest TEXT NOT NULL UNIQUE,
+                     issued TEXT NOT NULL, revoked TEXT)""")
+        verify_tables(db, REGISTRY_TABLES)
+        if create:
+            db.commit()
+    except BaseException:
+        db.close()
+        raise
     return db
+
+
+def initialize(path):
+    with closing(_connect(path, create=True)):
+        pass
 
 
 def _digest(token):
@@ -47,7 +56,7 @@ def issue(path, name, role, output):
     if role == "worker" and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", name):
         raise ValueError("worker names allow letters, numbers, periods, hyphens and underscores")
     token = secrets.token_urlsafe(40)
-    with closing(_connect(path)) as db, db:
+    with closing(_connect(path, create=True)) as db, db:
         db.execute("BEGIN IMMEDIATE")
         prior = db.execute("SELECT revoked FROM identities WHERE name=?", (name,)).fetchone()
         if prior is not None and prior[0] is None:
