@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Operator manual · Ichnix</title>
-    <link rel="icon" href="/evidence-graph.png" />
+    <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/docs.css" />
   </head>
@@ -14,19 +14,21 @@
       <a class="brand" href="/" aria-label="Ichnix home"
         ><img
           src="/evidence-graph.png"
-          width="34"
-          height="34"
+          width="40"
+          height="40"
           alt=""
         />Ichnix</a
       >
       <nav aria-label="Primary">
         <a href="/docs" aria-current="page">Docs</a
-        ><a href="/console">Review console ↗</a>
+        ><a class="nav-console" href="/console"
+          >Review console <span aria-hidden="true">↗</span></a
+        >
       </nav>
     </header>
     <main id="manual" class="manual">
       <header class="manual-intro">
-        <p class="micro">Documentation</p>
+        <p class="micro kicker">Documentation</p>
         <h1>Operator manual</h1>
         <p>
           Connect a bounty program, capture evidence from staging, and hand a
@@ -512,9 +514,9 @@ python3 cli.py handoff status JOB_ID</code></pre>
             <p>
               Ichnix application code is MIT licensed. The checkout includes its
               <code>LICENSE</code> and the notices in
-              <code>public/fonts</code> for bundled DM Sans and Anonymous Pro.
-              HydraDB is distributed under Elastic License 2.0. The container
-              includes the runtime and its notices.
+              <code>public/fonts</code> for bundled Instrument Sans, Instrument
+              Serif and Anonymous Pro. HydraDB is distributed under Elastic
+              License 2.0. The container includes the runtime and its notices.
               <a href="https://github.com/hydra-db/hydradb/blob/v0.4.0/LICENSE"
                 >HydraDB license</a
               >
