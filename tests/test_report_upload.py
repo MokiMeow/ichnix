@@ -55,6 +55,18 @@ class ReportUploadTests(unittest.TestCase):
             self.assertFalse(request("review", "/api/session")[1]["can_import"])
             for _ in range(2):
                 self.assertEqual(request("intake", route, record), (200, {"id": "upload-1"}))
+            with patch.dict(os.environ, ICHNIX_ORIGIN_SECRET="test-origin-credential-that-is-long-enough"):
+                self.assertEqual(request("intake", route, record)[0], 403)
+                conn = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+                try:
+                    conn.request("GET", "/api/session", headers={
+                        "X-Ichnix-Origin-Secret": os.environ["ICHNIX_ORIGIN_SECRET"],
+                        "Authorization": "Bearer " + tokens["intake"],
+                    })
+                    response = conn.getresponse()
+                    self.assertTrue(json.load(response)["can_import"])
+                finally:
+                    conn.close()
             self.assertEqual(len(graph.cases()), 1)
             self.assertEqual(request("intake", "/api/cases/upload-1")[1]["report"], record)
             self.assertEqual(request("intake", "/api/cases/upload-1/reviews", {"accepted": True})[0], 401)

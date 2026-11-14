@@ -1,6 +1,7 @@
 """Loopback web console. The reverse proxy owns TLS in a deployed installation."""
 import argparse
 import json
+import hmac
 import logging
 import mimetypes
 import os
@@ -220,6 +221,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_request(self, write):
         try:
+            if "ICHNIX_ORIGIN_SECRET" in os.environ:
+                expected = os.environ["ICHNIX_ORIGIN_SECRET"]
+                supplied = self.headers.get("X-Ichnix-Origin-Secret", "")
+                if len(expected) < 32 or not hmac.compare_digest(supplied.encode(), expected.encode()):
+                    raise PermissionError("origin access denied")
             self.dispatch(write)
         except PermissionError:
             self.send(403, {"error": "forbidden"})
