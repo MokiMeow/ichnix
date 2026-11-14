@@ -16,7 +16,7 @@ python3 scripts/install-hydra.py
 python3 cli.py survey
 ```
 
-The installer verifies a pinned HydraDB runtime. Once installed, the survey runs offline against a disposable graph and local SQLite stores. It walks three synthetic reports through a host operator, reader, reviewer, local MCP reader and two scoped workers. One retention control fails, another check has missing evidence, and a human gets the final owner decision. [Survey fixtures](testing/fixtures)
+The installer verifies a pinned HydraDB runtime. Once installed, the survey runs offline against a disposable graph and local SQLite stores. It walks four synthetic reports through a host operator, reader, reviewer, local MCP reader and two scoped workers. One retention control fails, another check has missing evidence, and a human gets the final owner decision. The same service on revision r8 passes all three checks. A signed r7 export submitted against r8 is rejected and leaves the r8 evidence unchanged. [Survey fixtures](testing/fixtures)
 
 To see the interface, run `python3 cli.py demo --public-readonly` and open its printed loopback URL. The demo shows synthetic cases, evidence timelines, signed-manifest provenance where available, human decisions and the measured learning curve. Its temporary graph is discarded on exit. The full operator manual is served at `/docs`.
 

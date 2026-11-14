@@ -1,0 +1,10 @@
+{
+  "environment": "staging",
+  "service": "ledger",
+  "revision": "r8",
+  "settings": {
+    "retention_days": 30,
+    "audit_enabled": true,
+    "mask_identifiers": true
+  }
+}

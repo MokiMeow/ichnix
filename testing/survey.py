@@ -27,6 +27,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PRIMARY = "SURVEY-101"
 FOLLOWUP = "SURVEY-102"
 CONTROL = "SURVEY-103"
+CLEAN = "SURVEY-104"
+CASE_IDS = {PRIMARY, FOLLOWUP, CONTROL, CLEAN}
 
 
 def require(condition, message):
@@ -84,22 +86,26 @@ def human(port, credential, *args):
     return json.loads(result.stdout)
 
 
-def collect_events(folder):
-    manifest = FIXTURES / "manifest.json"
-    signature = folder / "manifest.sig"
+def stage(case, manifest, signature, run_id):
+    cmd = [sys.executable, str(ROOT / "cli.py"), "staging", case, "--policy", str(FIXTURES / "policy.json"),
+           "--manifest", str(manifest), "--signature", str(signature), "--run-id", run_id]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+
+def collect_events(folder, case, manifest_name, run_id, expected):
+    manifest = FIXTURES / manifest_name
+    signature = folder / (manifest_name + ".sig")
     cli("staging", "--sign", "--manifest", manifest, "--out", signature, output=False)
-    cmd = [sys.executable, str(ROOT / "cli.py"), "staging", PRIMARY, "--policy", str(FIXTURES / "policy.json"),
-           "--manifest", str(manifest), "--signature", str(signature), "--run-id", "survey-build-7"]
-    # A failed control returns 1 with a complete, recorded observation set.
-    staged = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    require(staged.returncode == 1, "expected the signed fixture to contain a failed control")
+    staged = stage(case, manifest, signature, run_id)
+    expected_status = int(any(value != "passed" for value in expected.values()))
+    require(staged.returncode == expected_status, f"staging exit status differs for {case}")
     events = json.loads(staged.stdout)
-    expected = {"retention_days": "failed", "audit_enabled": "passed", "mask_identifiers": "inconclusive"}
     digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
-    require({e["step"]: e["result"] for e in events} == expected, "unexpected staging observations")
+    require(len(events) == len(expected) and {e["step"]: e["result"] for e in events} == expected,
+            "unexpected staging observations")
     require(all(e["source_digest"] == digest and e["source_method"] == "hmac-sha256" for e in events),
             "missing signed provenance")
-    return events, expected, digest
+    return events, digest
 
 
 def run(folder, port):
@@ -109,8 +115,13 @@ def run(folder, port):
         creds[actor] = folder / (actor + ".token")
         cli("identity", "issue", actor, "--role", role, "--out", creds[actor], output=False)
     reader, reviewer = creds["survey-reader"], creds["survey-reviewer"]
-    require(cli("import", FIXTURES / "cases.json") == {"imported": 3}, "fixture import failed")
-    events, expected, digest = collect_events(folder)
+    require(cli("import", FIXTURES / "cases.json") == {"imported": len(CASE_IDS)}, "fixture import failed")
+    expected = {"retention_days": "failed", "audit_enabled": "passed", "mask_identifiers": "inconclusive"}
+    events, digest = collect_events(folder, PRIMARY, "manifest.json", "survey-build-7", expected)
+    clean_events, clean_digest = collect_events(folder, CLEAN, "manifest-clean.json", "survey-build-8",
+                                               dict.fromkeys(expected, "passed"))
+    stale = stage(CLEAN, FIXTURES / "manifest.json", folder / "manifest.json.sig", "older-export")
+    require(stale.returncode == 2 and not stale.stdout, "previous revision's signed export was accepted")
 
     route = "/api/cases/" + PRIMARY
     review = {"owner": "records-team", "accepted": True}
@@ -120,7 +131,7 @@ def run(folder, port):
     http(port, creds["survey-owner"], route, expected=401)
     require(http(port, reader, route)["evidence"] == events, "reader evidence mismatch")
     remote_cases = human(port, reader, "cases")
-    require({row["id"] for row in remote_cases} == {PRIMARY, FOLLOWUP, CONTROL}, "human CLI inventory mismatch")
+    require({row["id"] for row in remote_cases} == CASE_IDS, "human CLI inventory mismatch")
 
     evidence = cli("handoff", "enqueue", PRIMARY, "evidence-review")
     owner = cli("handoff", "enqueue", FOLLOWUP, "owner-review")
@@ -144,10 +155,13 @@ def run(folder, port):
         human(port, reviewer, "review", PRIMARY, "records-team", "--accept", "--request-id", "survey-review")
     with mcp("local") as advisor:
         listed = advisor.tool("list_cases")
-        require({r["id"] for r in listed} == {PRIMARY, FOLLOWUP, CONTROL}, "unexpected local MCP inventory")
+        require({r["id"] for r in listed} == CASE_IDS, "unexpected local MCP inventory")
         context = advisor.tool("get_case_context", case_id=PRIMARY)
         linked = advisor.tool("get_case_context", case_id=FOLLOWUP)
         unrelated = advisor.tool("get_case_context", case_id=CONTROL)
+        clean = advisor.tool("get_case_context", case_id=CLEAN)
+    require(clean["evidence"] == clean_events and clean["ranked_checks"] == [] and clean["related_reports"] == [],
+            "current evidence or retrieval crossed the deployment revision")
     require(len(context["review_history"]) == 1 and context["review_history"][0]["actor"] == "survey-reviewer"
             and context["review_history"][0]["accepted"] is True, "reviewer replay changed audit count")
     require(context["evidence"] == events and not unrelated["ranked_checks"], "unrelated evidence crossed revisions")
@@ -165,6 +179,8 @@ def run(folder, port):
     cli("identity", "revoke", "survey-reader", output=False)
     http(port, reader, route, expected=401)
     return {"dataset": "synthetic archive and index reviews", "cases": sorted(row["id"] for row in listed),
+            "clean_revision": {"case_id": CLEAN, "revision": clean["report"]["revision"], "controls_passed": len(clean_events),
+                               "manifest_sha256": clean_digest, "stale_export_rejected": True},
             "roles_exercised": ["operator", "reader", "reviewer", "local MCP reader", "evidence worker", "owner worker"],
             "manifest_sha256": digest, "ci_observations": expected, "completed_reviews": dispositions,
             "retrieved_prior_control": routing["ranked_checks"][0]["step"], "human_review_events": 1,

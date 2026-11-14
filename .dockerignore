@@ -52,4 +52,5 @@
 !testing/fixtures/
 !testing/fixtures/cases.json
 !testing/fixtures/manifest.json
+!testing/fixtures/manifest-clean.json
 !testing/fixtures/policy.json

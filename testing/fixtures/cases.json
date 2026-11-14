@@ -22,5 +22,13 @@
     "component": "index",
     "revision": "r3",
     "owner": "catalog-team"
+  },
+  {
+    "id": "SURVEY-104",
+    "title": "Ledger archive policy after deployment",
+    "service": "ledger",
+    "component": "archive",
+    "revision": "r8",
+    "owner": "records-team"
   }
 ]
