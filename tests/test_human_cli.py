@@ -1,5 +1,6 @@
 import json
 import os
+from http.client import HTTPConnection
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
@@ -30,6 +31,15 @@ class HumanClientTests(unittest.TestCase):
                                "ICHNIX_WORKSPACE_URL": f"http://127.0.0.1:{http.server_port}",
                                "ICHNIX_USER_TOKEN_FILE": str(root / role), "ICHNIX_HYDRA_TOKEN_FILE": "/missing"})
                 try:
+                    for role, can_review in (("read", False), ("review", True)):
+                        con = HTTPConnection(*http.server_address, timeout=5)
+                        try:
+                            con.request("GET", "/api/session", headers={"Authorization": "Bearer " + (root / role).read_text().strip()})
+                            session = con.getresponse()
+                            self.assertEqual(session.status, 200)
+                            self.assertIs(json.load(session)["can_review"], can_review)
+                        finally:
+                            con.close()
                     self.assertEqual(invoke("read", "cases").returncode, 0)
                     self.assertEqual(json.loads(invoke("read", "context", case["id"]).stdout)["report"], case)
                     self.assertNotEqual(invoke("read", "review", case["id"], case["owner"], "--accept").returncode, 0)

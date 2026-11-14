@@ -8,6 +8,7 @@ let traceUrl;
 let selected;
 let generation = 0;
 let publicDemo = false;
+let canReview = false;
 let disclosedCase;
 
 function element(tag, text, className) {
@@ -26,6 +27,7 @@ function clearSession() {
   byId("token").value = "";
   generation++;
   token = "";
+  canReview = false;
   selected = null;
   clearTrace();
   detail.replaceChildren();
@@ -154,7 +156,7 @@ async function renderCase(
       element("strong", item.owner),
       element("span", "score " + item.score, "case-meta"),
     );
-    if (!publicDemo)
+    if (canReview)
       row.append(
         reviewControl(report, item.owner, true),
         reviewControl(report, item.owner, false),
@@ -306,6 +308,11 @@ async function refresh() {
   const view = ++generation;
   status.textContent = "Loading cases…";
   try {
+    if (!publicDemo) {
+      const session = await (await request("/api/session")).json();
+      if (view !== generation) return;
+      canReview = session.can_review === true;
+    }
     const result = await request("/api/cases");
     const cases = await result.json();
     if (view !== generation) return;
@@ -334,7 +341,10 @@ async function refresh() {
         "No cases yet. Import a report through the CLI or sync your bounty program.";
     }
   } catch (error) {
-    if (view === generation) status.textContent = error.message;
+    if (view === generation) {
+      if (!publicDemo) clearSession();
+      status.textContent = error.message;
+    }
   }
 }
 

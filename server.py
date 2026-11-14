@@ -111,6 +111,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(404, {"error": "missing asset"})
             return self.send(200, asset.read_bytes(), mimetypes.guess_type(asset)[0] or "application/octet-stream")
 
+        if path == "/api/session" and not write:
+            if not self.authorized():
+                return self.send(401, {"error": "valid access token required"})
+            return self.send(200, {"public_demo": False, "can_review": self.authorized(edit=True)})
         if not self.authorized(write):
             return self.send(401, {"error": "valid access token required"})
         graph = Graph()
