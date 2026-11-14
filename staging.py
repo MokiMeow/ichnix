@@ -54,7 +54,8 @@ def main():
     run_id = uuid.uuid4().hex
     for event in events:
         event["run_id"] = run_id
-        graph.add_evidence(args.case_id, event)
+        graph.add_evidence(args.case_id, event, expected_service=report["service"],
+                           expected_component=report["component"])
     print(json.dumps(events, indent=2))
     return int(any(event['result'] != 'passed' for event in events))
 

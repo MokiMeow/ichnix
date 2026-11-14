@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from time import time_ns
 from urllib.error import HTTPError, URLError
@@ -27,6 +28,12 @@ def _field(obj, name, limit=160):
     if any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise ValueError(f"invalid {name}")
     return value.strip()
+
+
+def _case_id(value):
+    if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9._:-]{1,160}", value):
+        raise ValueError("invalid case id")
+    return value
 
 
 class Graph:
@@ -91,10 +98,16 @@ class Graph:
     def import_report(self, report):
         record = {f: _field(report, f, 240 if f == "title" else 160)
                   for f in ("id", "title", "service", "revision", "component", "owner")}
-        rid = _key("case", record["id"])
+        rid = _key("case", _case_id(report["id"]))
         # Revision-specific lineage means repeat imports and changed mappings do
         # not require deleting earlier evidence. Publish current pointer last.
-        sid = _key("snapshot", record["id"], record["component"], record["revision"])
+        sid = _key("snapshot", record["id"], record["service"], record["component"], record["revision"])
+        # A pre-service-key snapshot can be retained only for the report's
+        # currently published mapping. Never infer legacy ownership by hash.
+        prior = self._query("MATCH (r:Report {id:$id}) RETURN r.service AS service, "
+                            "r.component AS component, r.revision AS revision, r.snapshot AS snapshot", id=rid)
+        if prior and all(prior[0][key] == record[key] for key in ("service", "component", "revision")):
+            sid = prior[0]["snapshot"]
         cid = _key("component", record["component"], record["revision"])
         self._put("ComponentRevision", cid, name=record["component"], revision=record["revision"])
         self._put("Snapshot", sid, revision=record["revision"])
@@ -109,7 +122,7 @@ class Graph:
 
     def _report(self, case_id):
         rows = self._query(f"MATCH (r:Report {{id:$id}}) RETURN {self._report_cols()}, r.snapshot AS snapshot",
-                           id=_key("case", case_id))
+                           id=_key("case", _case_id(case_id)))
         if not rows:
             raise KeyError(case_id)
         return rows[0]
@@ -153,8 +166,12 @@ class Graph:
                  for step, sources in by_step.items() if any(sources.values())]
         return sorted(items, key=lambda item: (-item["score"], item["step"]))
 
-    def add_evidence(self, case_id, evidence):
+    def add_evidence(self, case_id, evidence, *, expected_service=None, expected_component=None):
         r = self._report(case_id)
+        if expected_service is not None and r["service"] != expected_service:
+            raise ValueError("service mapping changed before evidence was recorded")
+        if expected_component is not None and r["component"] != expected_component:
+            raise ValueError("component mapping changed before evidence was recorded")
         record = {k: _field(evidence, k, 240) for k in ("step", "result", "revision")}
         if record["result"] not in ("passed", "failed", "inconclusive"):
             raise ValueError("invalid CI result")

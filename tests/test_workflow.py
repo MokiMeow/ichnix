@@ -20,6 +20,24 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 db.add_evidence(row["id"], event)
 
+    def test_service_remap_isolates_same_revision_evidence(self):
+        with isolated_graph() as db:
+            row = dict(id="case-remap", service="archive", component="records", revision="v1",
+                       owner="triage", title="Review retention")
+            event = dict(step="retention", revision="v1", result="passed")
+            db.import_report(row)
+            db.add_evidence(row["id"], event, expected_service="archive", expected_component="records")
+            db.import_report(dict(row, service="billing"))
+            self.assertEqual(db.context(row["id"])["evidence"], [])
+            with self.assertRaises(ValueError):
+                db.add_evidence(row["id"], event, expected_service="archive", expected_component="records")
+            with self.assertRaises(ValueError):
+                db.add_evidence(row["id"], event, expected_service="billing", expected_component="audit")
+            with self.assertRaises(ValueError):
+                db.import_report(dict(row, id="unsafe/report"))
+            db.import_report(row)
+            self.assertEqual(len(db.context(row["id"])["evidence"]), 1)
+
     def test_policy_requires_matching_scope_and_distinguishes_absence_and_false(self):
         report = dict(service="ledger", revision="v1")
         policy = {"services": {"ledger": {"limit": 1, "redaction": True}}}
