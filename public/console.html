@@ -52,6 +52,23 @@
           Use the access token configured by your workspace administrator.
         </p>
       </form>
+      <form id="report-upload" hidden>
+        <label for="report-file">Mapped report JSON</label>
+        <div class="input-row">
+          <input
+            type="file"
+            id="report-file"
+            accept=".json,application/json"
+            required
+            aria-describedby="report-format"
+          />
+          <button class="cmd primary">Import report</button>
+        </div>
+        <p class="hint" id="report-format">
+          Choose one JSON object with id, title, service, component, revision
+          and owner. Maximum 1 MiB.
+        </p>
+      </form>
       <details id="evaluation" hidden>
         <summary>Learning curve</summary>
         <div id="evaluation-result" aria-live="polite"></div>

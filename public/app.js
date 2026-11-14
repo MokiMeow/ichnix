@@ -54,6 +54,8 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
 }
 
 function clearSession() {
+  byId("report-upload").hidden = true;
+  byId("report-upload").reset();
   byId("token").value = "";
   generation++;
   token = "";
@@ -88,9 +90,11 @@ async function request(path, options = {}) {
   if (!response.ok) {
     if (response.status === 401 || response.status === 403)
       throw new Error(
-        options.method === "POST"
-          ? "A reviewer token is required to save decisions."
-          : "Access denied. Check your workspace token.",
+        path === "/api/import/report"
+          ? "A named intake credential is required."
+          : options.method === "POST"
+            ? "A reviewer token is required to save decisions."
+            : "Access denied. Check your workspace token.",
       );
     throw new Error(
       response.status === 404
@@ -363,6 +367,7 @@ async function refresh() {
       const session = await (await request("/api/session")).json();
       if (view !== generation) return;
       canReview = session.can_review === true;
+      byId("report-upload").hidden = session.can_import !== true;
     }
     const result = await request("/api/cases");
     const cases = await result.json();
@@ -408,7 +413,59 @@ async function refresh() {
   }
 }
 
+async function uploadReport(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const file = byId("report-file").files[0];
+  if (!file || file.size > 1024 * 1024 || !file.size) {
+    status.textContent = "Choose a JSON file between one byte and 1 MiB.";
+    return;
+  }
+  const button = form.querySelector("button");
+  button.disabled = true;
+  const view = generation;
+  try {
+    const body = await file.text();
+    if (view !== generation) return;
+    let report;
+    try {
+      report = JSON.parse(body);
+    } catch {
+      status.textContent = "The selected file is not valid JSON.";
+      return;
+    }
+    const keys = ["id", "title", "service", "revision", "component", "owner"];
+    if (
+      !report ||
+      Object.keys(report).length !== keys.length ||
+      !keys.every(
+        (key) => typeof report[key] === "string" && report[key].trim(),
+      )
+    ) {
+      status.textContent =
+        "Choose one report with the six required metadata fields.";
+      return;
+    }
+    const response = await request("/api/import/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+    const saved = await response.json();
+    if (view !== generation) return;
+    selected = saved.id;
+    form.reset();
+    await refresh();
+    if (selected === saved.id) status.textContent = "Imported " + saved.id;
+  } catch (error) {
+    if (view === generation) status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function initializeConsole() {
+  byId("report-upload").addEventListener("submit", uploadReport);
   login.addEventListener("submit", (event) => {
     event.preventDefault();
     token = byId("token").value.trim();

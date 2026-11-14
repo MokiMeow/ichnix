@@ -51,7 +51,7 @@ def _digest(token):
 
 
 def issue(path, name, role, output):
-    if not re.fullmatch(r"[a-zA-Z0-9_.@-]{1,80}", name) or role not in ("read", "review", "worker"):
+    if not re.fullmatch(r"[a-zA-Z0-9_.@-]{1,80}", name) or role not in ("read", "review", "worker", "intake"):
         raise ValueError("invalid reviewer name or role")
     if role == "worker" and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", name):
         raise ValueError("worker names allow letters, numbers, periods, hyphens and underscores")
@@ -85,7 +85,7 @@ def identities(path):
                 db.execute("SELECT name,role,issued,revoked FROM identities ORDER BY name")]
 
 
-def identify(header, edit=False, worker=False):
+def identify(header, edit=False, worker=False, intake=False):
     prefix = "Bearer "
     if not header.startswith(prefix):
         return None
@@ -99,11 +99,13 @@ def identify(header, edit=False, worker=False):
                                  (_digest(token),)).fetchone()
         except (sqlite3.Error, OSError, ValueError):
             return None
-        roles = ("worker",) if worker else (("review",) if edit else ("review", "read"))
+        roles = ("review", "read", "intake")
+        if worker or intake or edit:
+            roles = ("worker" if worker else "intake" if intake else "review",)
         if row and row[1] in roles:
             return row[0]
         return None
-    if worker:
+    if worker or intake:
         return None
     roles = [("ICHNIX_REVIEW_TOKEN", "shared:review")]
     if not edit:
@@ -116,7 +118,7 @@ def main():
     cmds = parser.add_subparsers(dest="command", required=True)
     add = cmds.add_parser("issue")
     add.add_argument("name")
-    add.add_argument("--role", choices=["read", "review", "worker"], required=True)
+    add.add_argument("--role", choices=["read", "review", "worker", "intake"], required=True)
     add.add_argument("--out", type=Path, required=True, help="new private token file outside the application directory")
     cmds.add_parser("revoke").add_argument("name")
     cmds.add_parser("list")

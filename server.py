@@ -148,10 +148,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_video(asset.read_bytes())
             return self.send(200, asset.read_bytes(), mimetypes.guess_type(asset)[0] or "application/octet-stream")
 
+        if path == "/api/import/report" and write:
+            if not identify(self.headers.get("Authorization", ""), intake=True):
+                return self.send(403, {"error": "named intake credential required"})
+            if self.headers.get_content_type() != "application/json":
+                return self.send(415, {"error": "expected application/json"})
+            report = json.loads(self.body())
+            if not isinstance(report, dict) or report.keys() != {"id", "title", "service", "revision", "component", "owner"}:
+                return self.send(400, {"error": "expected one mapped report with six metadata fields"})
+            Graph().import_report(report)
+            return self.send(200, {"id": report["id"]})
+
         if path == "/api/session" and not write:
             if not self.authorized():
                 return self.send(401, {"error": "valid access token required"})
-            return self.send(200, {"public_demo": False, "can_review": self.authorized(edit=True)})
+            return self.send(200, {"public_demo": False, "can_review": self.authorized(edit=True),
+                                   "can_import": bool(identify(self.headers.get("Authorization", ""), intake=True))})
         if not self.authorized(write):
             return self.send(401, {"error": "valid access token required"})
         graph = Graph()
