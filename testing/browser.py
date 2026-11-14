@@ -36,8 +36,24 @@ def sample_workspace():
         process.wait(timeout=15)
 
 
+class HostedShell(Handler):
+    """Mirror the two hosted route families using an isolated real console."""
+    def dispatch(self, write):
+        if self.path in ("/", "/console", "/workspace", "/workspace/") and not write:
+            shell = "index.html" if self.path == "/" else "console.html"
+            body = (ROOT / "dist" / shell).read_bytes()
+            return self.send(200, body, "text/html; charset=utf-8")
+        if self.path.startswith("/org-api/"):
+            self.path = self.path.replace("/org-api/", "/api/", 1)
+        elif self.path.startswith("/api/"):
+            return self.send(503, {"error": "preview unavailable"})
+        return super().dispatch(write)
+
+
 @contextmanager
-def named_workspace():
+def named_workspace(hosted=False):
+    if hosted:
+        subprocess.run(["node", str(ROOT / "hosting/build-static.mjs")], cwd=ROOT, check=True)
     with TemporaryDirectory() as tmp, isolated_graph() as graph:
         registry = Path(tmp) / "identities.sqlite3"
         tokens = {}
@@ -47,7 +63,7 @@ def named_workspace():
             tokens[role] = out.read_text().strip()
         for report in json.loads((ROOT / "examples/cases.json").read_text()):
             graph.import_report(report)
-        with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(registry)), ConsoleServer(("127.0.0.1", 0), Handler) as http:
+        with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(registry)), ConsoleServer(("127.0.0.1", 0), HostedShell if hosted else Handler) as http:
             thread = Thread(target=http.serve_forever, daemon=True)
             thread.start()
             try:
@@ -146,19 +162,37 @@ def public_checks(browser, origin, width):
         page.close()
 
 
-def role_checks(browser, origin, tokens):
+def role_checks(browser, origin, tokens, hosted=False):
+    if hosted:
+        preview = browser.new_page(viewport={"width": 320, "height": 700})
+        try:
+            preview.goto(origin)
+            expect(preview.get_by_role("link", name="Private sign-in")).to_be_visible()
+            assert preview.evaluate("document.documentElement.scrollWidth") == 320
+            preview.goto(origin + "/console")
+            expect(preview.locator("#status")).to_contain_text("could not complete")
+            expect(preview.locator("#connect")).to_be_hidden()
+            preview.get_by_role("link", name="Private sign-in").click()
+            expect(preview.locator("#connect")).to_be_visible()
+            expect(preview.get_by_role("heading", name="Organization workspace")).to_be_visible()
+        finally:
+            preview.close()
     for role, token in tokens.items():
         page = browser.new_page()
         leaked = []
         requests = []
+        forbidden = []
         def observe(request):
+            path = urlsplit(request.url).path
+            if path.startswith("/api/" if hosted else "/org-api/"):
+                forbidden.append(path)
             if token in request.url:
                 leaked.append("credential in URL")
             if request.url.endswith("/diagram.svg"):
                 requests.append(request.headers.get("authorization") == "Bearer " + token)
         page.on("request", observe)
         try:
-            page.goto(origin + "/console")
+            page.goto(origin + ("/workspace/" if hosted else "/console"))
             page.get_by_label("Access token").fill(token)
             page.get_by_role("button", name="Connect", exact=True).click()
             if role == "worker":
@@ -193,6 +227,7 @@ def role_checks(browser, origin, tokens):
             expect(page.locator("#detail")).to_be_empty()
             expect(page.get_by_label("Access token")).to_have_value("")
         finally:
+            assert not forbidden and not leaked
             page.close()
 
 
@@ -208,9 +243,10 @@ def main():
             with sample_workspace() as origin:
                 for width in (390, 1440):
                     public_checks(browser, origin, width)
-            with named_workspace() as (origin, tokens):
-                role_checks(browser, origin, tokens)
-    print("Chromium passed public, reader, reviewer, worker and intake flows")
+            for hosted in (False, True):
+                with named_workspace(hosted=hosted) as (origin, tokens):
+                    role_checks(browser, origin, tokens, hosted=hosted)
+    print("Chromium passed public and named role flows on native and hosted workspace routes")
 
 
 if __name__ == "__main__":

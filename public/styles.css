@@ -506,3 +506,18 @@ summary:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+html:not([data-hosted="true"]) .hosted-signin {
+  display: none;
+}
+@media (max-width: 32rem) {
+  html[data-hosted="true"] .mast-inner {
+    flex-wrap: wrap;
+    gap: 0.1rem 1rem;
+    padding-block: 0.5rem;
+  }
+  html[data-hosted="true"] .topnav {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.85rem;
+  }
+}

@@ -3,6 +3,10 @@ const desk = byId("desk");
 const detail = byId("detail");
 const status = byId("status");
 const login = byId("connect");
+const orgWorkspace = ["/workspace", "/workspace/"].includes(location.pathname);
+const hostedPreview =
+  document.documentElement.dataset.hosted === "true" && !orgWorkspace;
+const apiBase = orgWorkspace ? "/org-api/" : "/api/";
 let token = "";
 const caseImages = new Set();
 let selected;
@@ -26,7 +30,7 @@ function clearCaseImages() {
 async function loadCaseImage(container, caseId, path, className, alt, failure) {
   try {
     const response = await request(
-      "/api/cases/" + encodeURIComponent(caseId) + "/" + path,
+      "cases/" + encodeURIComponent(caseId) + "/" + path,
     );
     if (response.headers.get("Content-Type")?.split(";")[0] !== "image/svg+xml")
       throw new Error("Expected an SVG image");
@@ -75,7 +79,7 @@ function clearSession() {
 async function request(path, options = {}) {
   let response;
   try {
-    response = await fetch(path, {
+    response = await fetch(apiBase + path, {
       ...options,
       headers: {
         ...(token && { Authorization: "Bearer " + token }),
@@ -90,7 +94,7 @@ async function request(path, options = {}) {
   if (!response.ok) {
     if (response.status === 401 || response.status === 403)
       throw new Error(
-        path === "/api/import/report"
+        path === "import/report"
           ? "A named intake credential is required."
           : options.method === "POST"
             ? "A reviewer token is required to save decisions."
@@ -120,7 +124,7 @@ function reviewControl(report, owner, accepted) {
     row.querySelectorAll("button").forEach((el) => (el.disabled = true));
     try {
       const result = await request(
-        "/api/cases/" + encodeURIComponent(caseId) + "/reviews",
+        "cases/" + encodeURIComponent(caseId) + "/reviews",
         {
           method: "POST",
           headers: {
@@ -349,7 +353,7 @@ async function openCase(caseId) {
     );
   }
   try {
-    const result = await request("/api/cases/" + encodeURIComponent(caseId));
+    const result = await request("cases/" + encodeURIComponent(caseId));
     const context = await result.json();
     if (view !== generation) return;
     status.textContent = "";
@@ -364,12 +368,12 @@ async function refresh() {
   status.textContent = "Loading cases…";
   try {
     if (!publicDemo) {
-      const session = await (await request("/api/session")).json();
+      const session = await (await request("session")).json();
       if (view !== generation) return;
       canReview = session.can_review === true;
       byId("report-upload").hidden = session.can_import !== true;
     }
-    const result = await request("/api/cases");
+    const result = await request("cases");
     const cases = await result.json();
     if (view !== generation) return;
     desk.hidden = false;
@@ -446,7 +450,7 @@ async function uploadReport(event) {
         "Choose one report with the six required metadata fields.";
       return;
     }
-    const response = await request("/api/import/report", {
+    const response = await request("import/report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
@@ -465,6 +469,17 @@ async function uploadReport(event) {
 }
 
 function initializeConsole() {
+  if (orgWorkspace) {
+    document.title = "Organization workspace · Ichnix";
+    document.querySelector(".workspace-intro h1").textContent =
+      "Organization workspace";
+    byId("workspace-label").textContent =
+      "Sign in with a named organization credential.";
+    document
+      .querySelector('.topnav a[href="/console"]')
+      .removeAttribute("aria-current");
+    byId("private-signin").setAttribute("aria-current", "page");
+  }
   byId("report-upload").addEventListener("submit", uploadReport);
   login.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -488,7 +503,7 @@ function initializeConsole() {
     result.setAttribute("aria-busy", "true");
     result.textContent = "Loading measured results…";
     try {
-      const response = await request("/api/evaluation");
+      const response = await request("evaluation");
       const { curve } = await response.json();
       const table = element("table");
       table.append(
@@ -530,16 +545,17 @@ function initializeConsole() {
 
   async function initializeWorkspace() {
     try {
-      const response = await fetch("/api/session", {
+      const response = await fetch(apiBase + "session", {
         cache: "no-store",
         redirect: "error",
         signal: AbortSignal.timeout(4000),
       });
       const session = response.ok ? await response.json() : {};
-      publicDemo = session.public_demo === true;
+      publicDemo =
+        !orgWorkspace && (hostedPreview || session.public_demo === true);
       disclosedCase = publicDemo ? session.disclosed_case : null;
     } catch {
-      publicDemo = false;
+      publicDemo = hostedPreview;
     }
     evaluation.hidden = !publicDemo;
     if (publicDemo) {
