@@ -87,6 +87,12 @@ docker compose up --detach --wait
 docker compose exec console python3 cli.py storage check
 ```
 
+### Git-deployed public preview
+
+Connect the repository to Vercel with the production branch set to `main`. The included configuration publishes a static frontend and two Node functions. Set `ICHNIX_PUBLIC_ORIGIN` to the HTTPS origin of a separately hosted, read-only Ichnix demo. The frontend can read only its published demo cases. Organization accounts, webhooks, HydraDB and SQLite stay in the self-hosted installation.
+
+The optional server-to-server `/api/report-layout` accepts an authenticated pair of categories and returns a display order. The private ingestion service keeps the evidence and can use a local fallback. See the [operator manual](public/docs.html#vercel) for secret names, scopes and setup.
+
 ## Connect a team or coding agent
 
 | Interface                   | Access                                                                                                                                                                     |

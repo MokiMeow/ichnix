@@ -1,0 +1,55 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "node hosting/build-static.mjs",
+  "outputDirectory": "dist",
+  "git": {
+    "deploymentEnabled": true
+  },
+  "rewrites": [
+    {
+      "source": "/console",
+      "destination": "/console.html"
+    },
+    {
+      "source": "/docs",
+      "destination": "/docs.html"
+    },
+    {
+      "source": "/api/:route(session|acceptance|evaluation|cases)",
+      "destination": "/api/public-demo?route=:route"
+    },
+    {
+      "source": "/api/cases/:id",
+      "destination": "/api/public-demo?route=cases/:id"
+    },
+    {
+      "source": "/api/cases/:id/trace.svg",
+      "destination": "/api/public-demo?route=cases/:id/trace.svg"
+    },
+    {
+      "source": "/api/cases/:id/diagram.svg",
+      "destination": "/api/public-demo?route=cases/:id/diagram.svg"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'"
+        }
+      ]
+    }
+  ]
+}

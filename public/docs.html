@@ -36,6 +36,7 @@
               <p>Getting started</p>
               <a href="#walkthrough">Follow a finding</a>
               <a href="#install">Self-host a workspace</a>
+              <a href="#vercel">Host a public preview</a>
               <a href="#storage">Configure SQLite</a>
               <a href="#survey">Test with mock cases</a>
               <a href="#acceptance">Run acceptance</a>
@@ -135,6 +136,52 @@ docker compose ps</code></pre>
               </p>
             </details>
           </section>
+          <section id="vercel">
+            <h2>Host a public preview on Vercel</h2>
+            <p>
+              Import the Git repository from the Vercel dashboard and set the
+              production branch to <code>main</code>. The root
+              <code>vercel.json</code> builds the public site and two Node
+              functions when Vercel receives Git updates. The graph runtime,
+              SQLite stores and private operator console stay on the workspace
+              host.
+            </p>
+            <p>
+              Run
+              <code
+                >python3 cli.py demo --public-readonly --with-disclosure --port
+                18766</code
+              >
+              on a persistent host. Expose that read-only demo through HTTPS and
+              set its exact origin as <code>ICHNIX_PUBLIC_ORIGIN</code> in
+              Vercel. Leave credentials and paths out of the origin. The relay
+              checks public demo mode and forwards only the published case,
+              diagram, acceptance and evaluation routes. Signed-in company
+              workflows use the private self-hosted console.
+            </p>
+            <p>
+              For optional AI layout selection, configure
+              <code>ICHNIX_CF_ACCOUNT_ID</code>,
+              <code>ICHNIX_CF_AI_TOKEN</code> and a random
+              <code>ICHNIX_LAYOUT_SECRET</code> of at least 32 characters in
+              Vercel's server environment. On the private ingestion service
+              configure <code>ICHNIX_LAYOUT_URL</code> to the HTTPS Vercel
+              <code>/api/report-layout</code> URL and
+              <code>ICHNIX_LAYOUT_SECRET_FILE</code> to a private file holding
+              the shared secret. The model receives only the report-source and
+              topic categories and selects a three-way display order. The
+              private workspace retains the report text. Missing credentials or
+              an unavailable provider leave the deterministic local ordering in
+              effect.
+            </p>
+            <p>
+              <a href="https://vercel.com/docs/git">Vercel Git deployments</a> ·
+              <a
+                href="https://developers.cloudflare.com/workers-ai/features/json-mode/"
+                >Workers AI structured responses</a
+              >
+            </p>
+          </section>
           <section id="storage">
             <h2>Configure SQLite</h2>
             <p>
@@ -223,6 +270,19 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
           </section>
           <section id="providers">
             <h2>Connect a program</h2>
+            <p>
+              To send one mapped report directly to a private installation,
+              issue a named credential with
+              <code
+                >python3 cli.py identity issue pipeline --role intake --out
+                /private/pipeline.token</code
+              >. Send its bearer token from the intake process to
+              <code>POST /api/import/report</code> on the organization's HTTPS
+              origin. The JSON object must contain exactly <code>id</code>,
+              <code>title</code>, <code>service</code>, <code>revision</code>,
+              <code>component</code> and <code>owner</code>. Keep this role on
+              the private workspace.
+            </p>
             <p>
               The customer supplies a private catalog mapping report IDs or
               scoped assets to a service, component, deployed revision and
@@ -375,12 +435,13 @@ python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code>
             <details class="manual-subsection" id="agent-profiles">
               <summary>Agent profiles</summary>
               <p>
-                Named identities support three roles. A
+                Named identities support four roles. A
                 <code>read</code> credential opens case context. A
                 <code>review</code> credential can also accept or reject an
                 owner. A <code>worker</code> credential can claim, read and
-                finish a leased review. Worker context omits related report
-                titles and reviewer history.
+                finish a leased review. An <code>intake</code> credential can
+                read cases and import one mapped report. Worker context omits
+                related report titles and reviewer history.
               </p>
             </details>
             <details class="manual-subsection" id="worker-credentials">
