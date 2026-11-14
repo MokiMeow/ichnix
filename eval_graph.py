@@ -36,7 +36,7 @@ def isolated_graph():
         finally:
             for listener in sockets:
                 listener.close()
-        env = dict(os.environ, ICHNIX_STATE_DIR=state, ICHNIX_BOLT_PORT=str(bolt),
+        env = dict(os.environ, ICHNIX_AUTO_HANDOFFS="0", ICHNIX_STATE_DIR=state, ICHNIX_BOLT_PORT=str(bolt),
                    ICHNIX_QUERY_PORT=str(query), ICHNIX_ADMIN_PORT=str(admin),
                    ICHNIX_HYDRA_URL=f"http://127.0.0.1:{query}", ICHNIX_HYDRA_GRAPH="default",
                    ICHNIX_HYDRA_NAMESPACE="default", ICHNIX_HYDRA_CELL="cell-0",

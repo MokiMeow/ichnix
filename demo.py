@@ -2,7 +2,9 @@
 import argparse
 import json
 import os
+from datetime import datetime
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import sys
@@ -15,6 +17,26 @@ from server import ConsoleServer, Handler, ROOT
 from staging import checks, load, manifest_input
 
 
+def public_receipt(path):
+    """Only the documented acceptance observations can be shared by the demo."""
+    with Path(path).open("rb") as stream:
+        raw = stream.read(4097)
+    if len(raw) > 4096:
+        raise ValueError("receipt too large")
+    data = json.loads(raw)
+    expected = {"source": "https://hackerone.com/reports/2236133", "case_id": "h1-curl-2236133", "scope": "local Ichnix acceptance deployment",
+                "source_method": "hmac-sha256", "handoff_state": "complete",
+                "observations": dict.fromkeys(("cache_control", "content_type_options", "referrer_policy"), "passed")}
+    if (any(data.get(k) != v for k, v in expected.items()) or data.get("review_recorded") is not True
+            or not re.fullmatch(r"[0-9a-f]{64}", data.get("manifest_sha256", ""))):
+        raise ValueError("unexpected acceptance receipt")
+    at = datetime.fromisoformat(data["observed_at"])
+    if at.utcoffset() is None:
+        raise ValueError("receipt timestamp requires UTC offset")
+    return {**expected, "review_recorded": True, "observed_at": at.isoformat(),
+            "manifest_sha256": data["manifest_sha256"]}
+
+
 class PublicDemoHandler(Handler):
     """Expose only the sample case routes, even if the operator API grows."""
 
@@ -25,6 +47,8 @@ class PublicDemoHandler(Handler):
         path = unquote(urlsplit(self.path).path)
         if write:
             return self.send(405, {"error": "read-only demo"})
+        if path == "/api/acceptance" and self.server.receipt:
+            return self.send(200, self.server.receipt)
         if path == "/api/evaluation":
             return self.send(200, self.server.evaluation)
         if path == "/api/session":
@@ -40,7 +64,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--public-readonly", action="store_true", help="serve synthetic cases without a token")
+    parser.add_argument("--acceptance-receipt", help="share a separately completed public acceptance receipt")
     args = parser.parse_args()
+    if args.acceptance_receipt and not args.public_readonly:
+        parser.error("sharing a receipt requires --public-readonly")
     if args.public_readonly:
         with isolated_graph() as benchmark:
             evaluation = evaluate(benchmark)
@@ -60,6 +87,7 @@ def main():
                 graph.add_evidence(case["id"], dict(evidence, run_id=run, **provenance))
         if args.public_readonly:
             with ConsoleServer(("127.0.0.1", args.port), PublicDemoHandler) as http:
+                http.receipt = public_receipt(args.acceptance_receipt) if args.acceptance_receipt else None
                 http.evaluation = evaluation
                 http.demo_routes = {"/api/cases"}
                 http.demo_traces = {}
