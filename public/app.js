@@ -120,6 +120,7 @@ async function renderCase(
     ranked_checks = [],
     review_history = [],
     related_reports = [],
+    worker_outcomes = [],
   },
   view,
 ) {
@@ -180,6 +181,17 @@ async function renderCase(
         element("span", "lexical similarity " + match.score, "case-meta"),
       );
       detail.append(row, element("p", match.reason, "review-reason"));
+    }
+  }
+  if (worker_outcomes.length) {
+    detail.append(element("h3", "Worker handoffs"));
+    for (const item of worker_outcomes) {
+      const row = element("div", undefined, "evidence-row");
+      row.append(
+        element("strong", item.disposition.replaceAll("-", " ")),
+        element("span", item.worker),
+      );
+      detail.append(row, element("p", item.at, "case-meta"));
     }
   }
   if (review_history.length) {
