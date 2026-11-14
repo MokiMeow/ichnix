@@ -52,13 +52,31 @@ The default console address is http://127.0.0.1:8765. Database files and generat
 For individual identities, set ICHNIX_IDENTITY_DB to a private file on the console host. Issue one credential per user or worker. The registry stores hashes and supports immediate revocation. A reader can view the organization workspace, a reviewer can also submit owner decisions, and a worker can claim handoffs and read the case context covered by its active lease. Registry mode disables shared token access. Case history records the reviewer, decision and UTC timestamp. HTTP clients can supply an Idempotency-Key on a review retry.
 
 ```sh
-export ICHNIX_IDENTITY_DB="$HOME/.local/state/ichnix/identities.sqlite3"
+export ICHNIX_STATE_DIR="$HOME/.local/state/ichnix"
+export ICHNIX_IDENTITY_DB="$ICHNIX_STATE_DIR/identities.sqlite3"
+export ICHNIX_HANDOFF_DB="$ICHNIX_STATE_DIR/handoffs.sqlite3"
+python3 cli.py storage init
+python3 cli.py storage check
 python3 credentials.py issue alice --role review --out "$HOME/.local/state/ichnix/alice.token"
 python3 credentials.py list
 python3 server.py
 # When access ends
 python3 credentials.py revoke alice
 ```
+
+For a new named-identity Compose deployment, use the container paths below. Keep the same environment for subsequent Compose commands. On an existing installation, reuse the current registry and queue paths to preserve identities and work.
+
+```sh
+export ICHNIX_IDENTITY_DB=/var/lib/ichnix/identities.sqlite3
+export ICHNIX_HANDOFF_DB=/var/lib/ichnix/handoffs.sqlite3
+docker compose build
+docker compose run --rm --no-deps console python3 cli.py storage init
+docker compose run --rm --no-deps console python3 cli.py identity issue operator --role review --out /var/lib/ichnix/operator.token
+docker compose up --detach --wait
+docker compose exec console python3 cli.py storage check
+```
+
+The identity store holds credential hashes and roles. The queue store holds leases and pending dispositions. Keep these files on local persistent storage owned by the service account. With both paths configured, `storage check` tests both schemas and SQLite integrity. `check-workspace` also tests graph authentication and trace rendering.
 
 ## Intake and staging evidence
 
@@ -81,6 +99,18 @@ Use python3 cli.py --help for operator commands. For an MCP client, configure a 
 
 Use `python3 cli.py check-workspace` to exercise a read query against the configured HydraDB graph and render a Pele trace. Generate a worker profile with `python3 cli.py mcp-config --profile worker --workspace-url https://workspace.example.org --worker-token-file /private/worker.token --out /private/mcp.json`. For Codex, add `--format codex` and select a new TOML output path. These files reference private token paths.
 
+People using the CLI from another machine can use the same named reader or reviewer as the web console. Supply a private credential file and an HTTPS origin:
+
+```sh
+export ICHNIX_WORKSPACE_URL=https://workspace.example.org
+export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
+python3 cli.py human cases
+python3 cli.py human context CASE_ID
+python3 cli.py human review CASE_ID TEAM --accept --request-id stable-review-id
+```
+
+The server authorizes each request. Reuse the request ID when retrying the same decision. Keep host-side commands such as `identity`, `import` and `storage init` with the deployment operator.
+
 ## Agent handoffs
 
 Set ICHNIX_AUTO_HANDOFFS=1 in the importing and staging processes to queue owner review after report intake and evidence review after completed CI checks. They must use the console host's state directory and graph configuration. Supply `--run-id` on staging intake to retry the same CI run. To queue a specific case manually:
@@ -92,6 +122,12 @@ python3 handoff_cli.py enqueue IX-108 evidence-review
 A handoff identifies the service, component, revision and current review material. Repeated enqueues for that material return the existing job. A single console host coordinates leases in a private SQLite file. Expired work can be claimed again and stale lease tokens cannot complete it. Keep the queue on the console host's local disk. Each agent should check the case revision and current evidence before acting on a handoff.
 
 To connect a remote coding agent, issue a named worker credential, deliver its token file privately, and configure the agent's stdio MCP command as `python3 /path/to/ichnix/cli.py mcp --worker`. Set ICHNIX_WORKSPACE_URL to the private HTTPS console origin and ICHNIX_WORKER_TOKEN_FILE to the token file on the worker. Agent machines need the Ichnix client and Python. The three worker tools are claim_review, get_review_context and finish_review. The agent gets case data through the lease. The console retains all HydraDB credentials.
+
+## Testing with synthetic cases
+
+Run `python3 cli.py survey` after installing the runtime. This offline survey uses three [mock cases](testing/fixtures/cases.json), six role paths, real SQLite files, real HydraDB and separate MCP processes. It checks failed, passing and missing controls, authorization denials, two agent dispositions and the human audit trail. For a private receipt use `python3 cli.py survey --out /tmp/new-survey.json`.
+
+From a source checkout with a signed-in Codex CLI, `python3 testing/model_survey.py` runs two live model personas on the bundled cases. The evidence inspector checks the signed observations and the owner router checks previous evidence for a related case. The deterministic survey and the test suite require no model credentials.
 
 ## Learning and validation
 

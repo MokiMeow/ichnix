@@ -8,6 +8,8 @@ python3 scripts/install-hydra.py
 python3 -m unittest discover -s tests -v
 ```
 
+Run `python3 cli.py survey` to exercise the [testing fixtures](testing/fixtures) as a host operator, reader, reviewer, local MCP adviser and two named MCP workers. The survey writes its databases and private credentials in temporary directories and checks persisted outcomes before teardown. `python3 testing/model_survey.py` is a separate, opt-in run using a signed-in Codex CLI and model access.
+
 The suite starts disposable HydraDB nodes. Its provider tests use fixtures and do not require accounts. A separate acceptance command fetches metadata for a public disclosure from HackerOne and exercises the private console, signed manifest verification, review queue and worker MCP against a fresh local graph:
 
 ```sh

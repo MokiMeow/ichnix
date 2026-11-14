@@ -12,7 +12,12 @@
     <a class="skip" href="#manual">Skip to content</a>
     <header class="mast">
       <a class="brand" href="/" aria-label="Ichnix home"
-        ><img src="/evidence-graph.png" width="34" height="34" alt="" />Ichnix</a
+        ><img
+          src="/evidence-graph.png"
+          width="34"
+          height="34"
+          alt=""
+        />Ichnix</a
       >
       <nav aria-label="Primary">
         <a href="/docs" aria-current="page">Docs</a
@@ -33,9 +38,11 @@
           <p class="micro">On this page</p>
           <a href="#install">Self-host a workspace</a
           ><a href="#acceptance">Run acceptance</a>
+          <a href="#storage">Configure SQLite</a
+          ><a href="#survey">Test with mock cases</a>
           <a href="#providers">Connect a program</a
           ><a href="#ci">Capture CI evidence</a>
-          <a href="#agents">Connect a coding agent</a
+          <a href="#agents">Connect people and agents</a
           ><a href="#graph">Understand the graph</a>
           <a href="#results">Read the measurements</a
           ><a href="#distribution">License and distribution</a>
@@ -81,6 +88,54 @@ docker compose ps</code></pre>
               named volumes. Put an HTTPS reverse proxy in front of the console
               for remote staff. For a disposable, read-only sample workspace,
               use <code>python3 cli.py demo --public-readonly</code>.
+            </p>
+          </section>
+          <section id="storage">
+            <h2>Configure SQLite</h2>
+            <p>
+              For a new named deployment, set both database paths on the console
+              host. HydraDB stores cases and evidence. SQLite stores hashed
+              identities and durable review leases. All console and intake
+              processes for that organization should share the same local files.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>export ICHNIX_STATE_DIR="$HOME/.local/state/ichnix"
+export ICHNIX_IDENTITY_DB="$ICHNIX_STATE_DIR/identities.sqlite3"
+export ICHNIX_HANDOFF_DB="$ICHNIX_STATE_DIR/handoffs.sqlite3"
+python3 cli.py storage init
+python3 cli.py storage check
+python3 cli.py check-workspace</code></pre>
+            <p>
+              Initialization is idempotent. The check reads database integrity
+              and schemas. For an existing deployment, keep its original paths.
+              For Compose, export the corresponding paths under
+              <code>/var/lib/ichnix</code>, then use
+              <code
+                >docker compose run --rm --no-deps console python3 cli.py
+                storage init</code
+              >
+              before startup. Keep the console state volume across restarts.
+            </p>
+          </section>
+          <section id="survey">
+            <h2>Test with mock cases</h2>
+            <pre tabindex="0"><code>python3 -m unittest discover -s tests -v
+python3 cli.py survey
+python3 cli.py survey --out /tmp/new-survey.json</code></pre>
+            <p>
+              The offline survey runs three synthetic reports through HydraDB,
+              SQLite, the HTTP service, the human CLI and both MCP profiles. One
+              case deliberately has a failed retention check and missing
+              redaction evidence. A second shares its component revision. A
+              third provides an unrelated control case.
+            </p>
+            <p>
+              For a live agent check in a source checkout, run
+              <code>python3 testing/model_survey.py</code> with a signed-in
+              Codex CLI. The evidence inspector and owner router each read one
+              synthetic assignment and submit a disposition. The runner checks
+              the stored SQLite receipt and its corresponding HydraDB outcome.
             </p>
           </section>
           <section id="acceptance">
@@ -249,7 +304,21 @@ python3 cli.py staging h1-curl-2236133 \
             </p>
           </section>
           <section id="agents">
-            <h2>Connect a coding agent</h2>
+            <h2>Connect people and coding agents</h2>
+            <p>
+              Human readers and reviewers can use the web console or the
+              HTTP-backed CLI. Save their named token in a private file. The
+              human CLI uses the console API and works without a graph
+              credential.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>export ICHNIX_WORKSPACE_URL=https://workspace.example.org
+export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
+python3 cli.py human cases
+python3 cli.py human context CASE_ID
+python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code></pre>
+            <h3>Agent profiles</h3>
             <p>
               Named identities support three roles. A
               <code>read</code> credential opens case context. A

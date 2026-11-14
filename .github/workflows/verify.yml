@@ -7,6 +7,9 @@ jobs:
   workspace:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      ICHNIX_IDENTITY_DB: /var/lib/ichnix/identities.sqlite3
+      ICHNIX_HANDOFF_DB: /var/lib/ichnix/handoffs.sqlite3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -18,17 +21,24 @@ jobs:
           docker run --rm --read-only --network none --tmpfs /tmp ichnix:tests python3 cli.py survey
       - name: Start the private workspace
         run: |
-          docker compose up --build --detach --wait
+          docker compose build
+          docker compose run --rm --no-deps console python3 cli.py storage init
+          docker compose run --rm --no-deps console python3 cli.py identity issue ci-reader --role read --out /var/lib/ichnix/ci-reader.token
+          docker compose up --detach --wait
           docker compose exec -T console python3 cli.py import examples/cases.json
       - name: Recreate both services with their original volumes
         run: |
+          docker compose exec -T console python3 cli.py handoff enqueue IX-108 owner-review > "$RUNNER_TEMP/queued.json"
           docker compose down
           docker compose up --detach --wait
+          docker compose exec -T console python3 cli.py storage check
+          job=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$RUNNER_TEMP/queued.json")
+          docker compose exec -T console python3 cli.py handoff status "$job" | python3 -c 'import json,sys; assert json.load(sys.stdin)["state"] == "queued"'
           docker compose exec -T console python3 cli.py context IX-108 | python3 -c 'import json,sys; assert json.load(sys.stdin)["report"]["id"] == "IX-108"'
           docker compose exec -T console python3 - <<'PY'
           from pathlib import Path
           from urllib.request import Request, urlopen
-          token = Path("/var/lib/ichnix/console-token").read_text().strip()
+          token = Path("/var/lib/ichnix/ci-reader.token").read_text().strip()
           request = Request("http://127.0.0.1:8765/api/cases/IX-108/trace.svg",
                             headers={"Authorization": "Bearer " + token})
           with urlopen(request, timeout=5) as response:
