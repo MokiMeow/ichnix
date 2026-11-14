@@ -1,6 +1,7 @@
 """Compare a staging deployment manifest to the organization's approved settings."""
 import argparse
 import json
+import uuid
 from pathlib import Path
 
 from graph import Graph
@@ -49,7 +50,9 @@ def main():
     graph = Graph()
     report = graph.context(args.case_id)['report']
     events = checks(report, load(args.policy), load(args.manifest))
+    run_id = uuid.uuid4().hex
     for event in events:
+        event["run_id"] = run_id
         graph.add_evidence(args.case_id, event)
     print(json.dumps(events, indent=2))
     return int(any(event['result'] != 'passed' for event in events))

@@ -7,6 +7,7 @@ import mimetypes
 import os
 import re
 import subprocess
+from threading import BoundedSemaphore
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +18,29 @@ from graph import Graph
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 MAX_BODY = 1024 * 1024
+
+
+class ConsoleServer(ThreadingHTTPServer):
+    # Apply backpressure before starting a worker, including idle connections.
+    request_queue_size = 64
+
+    def __init__(self, *args):
+        self.slots = BoundedSemaphore(24)
+        super().__init__(*args)
+
+    def process_request(self, request, client_address):
+        self.slots.acquire()
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -99,7 +123,10 @@ class Handler(BaseHTTPRequestHandler):
         if not write and action != "reviews":
             data = graph.context(case_id)
             if action == "trace.svg":
-                svg = subprocess.run(["node", str(ROOT / "trace.mjs")], input=json.dumps(data["evidence"]).encode(), capture_output=True, check=True, timeout=5).stdout
+                events = data["evidence"]
+                latest = events[-1].get("run_id") if events else None
+                events = [e for e in events if e.get("run_id") == latest]
+                svg = subprocess.run(["node", str(ROOT / "trace.mjs")], input=json.dumps(events).encode(), capture_output=True, check=True, timeout=5).stdout
                 return self.send(200, svg, "image/svg+xml")
             return self.send(200, data)
         return self.send(405, {"error": "method"})
@@ -133,4 +160,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if len(os.environ.get("ICHNIX_REVIEW_TOKEN", "")) < 32:
         parser.error("provide ICHNIX_REVIEW_TOKEN with at least 32 characters")
-    ThreadingHTTPServer((args.bind, args.port), Handler).serve_forever()
+    ConsoleServer((args.bind, args.port), Handler).serve_forever()
