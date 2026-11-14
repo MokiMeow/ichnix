@@ -55,5 +55,31 @@ class ConnectorTests(unittest.TestCase):
             connectors._bugcrowd_submission(item, set(), catalog, self.graph)
 
 
+    def test_bugcrowd_delivery_refetches_authoritative_submission(self):
+        case, engagement = str(uuid4()), str(uuid4())
+        secret = secrets.token_hex()
+        body = json.dumps({"data": {"type": "event", "attributes": {"key": "submission.updated"},
+                          "relationships": {"resource": {"data": {"type": "submission", "id": case}}}}}).encode()
+        at = "1718900000"
+        signature = hmac.new(secret.encode(), body + at.encode(), hashlib.sha256).hexdigest()
+        headers = {"X-Bugcrowd-Digest": f"timestamp={at};sha256={signature}"}
+        catalog = {"program": "sample", "reports": {case: self.asset}}
+        included = [{"type": "engagement", "id": engagement, "attributes": {"code": "sample"}}]
+        record = {"id": case, "type": "submission", "attributes": {"state": "triaged", "title": "Sample"},
+                  "relationships": {"engagement": {"data": {"id": engagement}}}}
+        with patch.object(connectors, "_fetch", return_value={"included": included, "data": record}) as fetch:
+            with self.assertRaises(PermissionError):
+                connectors.process_bugcrowd_webhook(body + b" ", headers, secret, "sample", catalog, self.graph)
+            fetch.assert_not_called()
+            with patch.dict(os.environ, BUGCROWD_API_TOKEN="test:" + secrets.token_hex()):
+                result = connectors.process_bugcrowd_webhook(body, headers, secret, "sample", catalog, self.graph)
+                self.assertEqual(result["imported"], 1)
+                self.assertEqual(urlsplit(fetch.call_args.args[2]).path, "/submissions/" + case)
+                included[0]["attributes"]["code"] = "another-program"
+                with self.assertRaises(PermissionError):
+                    connectors.process_bugcrowd_webhook(body, headers, secret, "sample", catalog, self.graph)
+        self.graph.import_report.assert_called_once_with(dict(self.asset, title="Sample", id="bc-" + case))
+
+
 if __name__ == "__main__":
     unittest.main()

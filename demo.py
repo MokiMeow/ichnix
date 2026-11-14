@@ -4,12 +4,13 @@ import json
 import os
 from pathlib import Path
 import secrets
+import subprocess
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from uuid import uuid4
 from unittest.mock import patch
 
-from eval_graph import isolated_graph
+from eval_graph import evaluate, isolated_graph
 from server import ConsoleServer, Handler, ROOT
 from staging import checks, load
 
@@ -21,9 +22,11 @@ class PublicDemoHandler(Handler):
         return not edit
 
     def dispatch(self, write):
-        path = urlsplit(self.path).path
+        path = unquote(urlsplit(self.path).path)
         if write:
             return self.send(405, {"error": "read-only demo"})
+        if path == "/api/evaluation":
+            return self.send(200, self.server.evaluation)
         if path == "/api/session":
             return self.send(200, {"public_demo": True})
         if path.startswith(("/api/", "/hooks/")) and path not in self.server.demo_routes:
@@ -38,6 +41,9 @@ def main():
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--public-readonly", action="store_true", help="serve synthetic cases without a token")
     args = parser.parse_args()
+    if args.public_readonly:
+        with isolated_graph() as benchmark:
+            evaluation = evaluate(benchmark)
     with isolated_graph() as graph:
         cases = json.loads((ROOT / "examples/cases.json").read_text())
         for case in cases:
@@ -51,8 +57,8 @@ def main():
             for evidence in checks(case, policy, manifest):
                 graph.add_evidence(case["id"], dict(evidence, run_id=run))
         if args.public_readonly:
-            import subprocess
             with ConsoleServer(("127.0.0.1", args.port), PublicDemoHandler) as http:
+                http.evaluation = evaluation
                 http.demo_routes = {"/api/cases"}
                 http.demo_traces = {}
                 for case in cases:

@@ -91,7 +91,7 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def _page(opener, source, url, headers):
+def _fetch(opener, source, url, headers):
     try:
         with opener.open(Request(url, headers=headers), timeout=15) as response:
             raw = response.read(8 * 1024 * 1024 + 1)
@@ -101,7 +101,11 @@ def _page(opener, source, url, headers):
         raise RuntimeError(f"{source} connection unavailable") from exc
     if len(raw) > 8 * 1024 * 1024:
         raise ValueError("report page exceeds size limit")
-    payload = json.loads(raw)
+    return json.loads(raw)
+
+
+def _page(opener, source, url, headers):
+    payload = _fetch(opener, source, url, headers)
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
         raise ValueError(f"expected a {source} reports page")
     return payload
@@ -160,16 +164,20 @@ def _bugcrowd_submission(submission, engagements, catalog, graph):
     return True
 
 
-def sync_bugcrowd(engagement, catalog, graph):
-    _program(engagement, catalog)
+def _bugcrowd_headers():
     token = os.getenv("BUGCROWD_API_TOKEN")
     if not token or ":" not in token:
         raise RuntimeError("set BUGCROWD_API_TOKEN to token-id:token-secret")
-    headers = {
+    return {
         "Authorization": f"Token {token}",
         "Accept": "application/vnd.bugcrowd+json",
         "Bugcrowd-Version": "2024-03-27",
     }
+
+
+def sync_bugcrowd(engagement, catalog, graph):
+    _program(engagement, catalog)
+    headers = _bugcrowd_headers()
     params = {
         "filter[engagement]": engagement,
         "filter[state]": "triaged,unresolved,resolved",
@@ -201,3 +209,36 @@ def sync_bugcrowd(engagement, catalog, graph):
         if not submissions:
             raise RuntimeError("empty continuation page")
     raise RuntimeError("report page limit exceeded")
+
+
+def process_bugcrowd_webhook(body, headers, secret, engagement, catalog, graph):
+    """Verify the delivery and fetch current scoped metadata from Bugcrowd."""
+    _program(engagement, catalog)
+    if not secret or len(body) > 1024 * 1024:
+        raise ValueError("invalid webhook configuration or size")
+    digest = {k.lower(): v for k, v in headers.items()}.get("x-bugcrowd-digest", "")
+    signature = re.fullmatch(r"timestamp=([^;\s]{1,64});\s*sha256=([a-f0-9]{64})", digest, re.ASCII)
+    if not signature or not signature[1].isascii():
+        raise PermissionError("invalid delivery signature")
+    expected = hmac.new(secret.encode(), body + signature[1].encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature[2]):
+        raise PermissionError("invalid delivery signature")
+
+    event = json.loads(body)["data"]
+    if event["type"] != "event" or event["attributes"]["key"] not in {"submission.created", "submission.updated"}:
+        return {"imported": 0, "skipped": 1}
+    resource = event["relationships"]["resource"]["data"]
+    if resource["type"] != "submission":
+        raise ValueError("expected submission reference")
+    case_id = str(UUID(resource["id"]))
+    params = {"include": "engagement", "fields[engagement]": "code",
+              "fields[submission]": "title,state,engagement,target,duplicate"}
+    source = "https://api.bugcrowd.com/submissions/" + case_id + "?" + urlencode(params)
+    payload = _fetch(build_opener(_NoRedirect()), "Bugcrowd", source, _bugcrowd_headers())
+    record = payload["data"]
+    if record["id"] != case_id:
+        raise ValueError("unexpected submission")
+    allowed = {item["id"] for item in payload.get("included", []) if item.get("type") == "engagement"
+               and item.get("attributes", {}).get("code") == engagement}
+    imported = _bugcrowd_submission(record, allowed, catalog, graph)
+    return {"imported": int(imported), "skipped": int(not imported)}
