@@ -1180,6 +1180,18 @@ body:has(> .workspace) {
   margin-bottom: 0.25rem;
   color: var(--text);
 }
+.manual-article .result-synthetic {
+  --result-accent: #a9c6ff;
+}
+.manual-article .result-public {
+  --result-accent: #e7c387;
+}
+.manual-article :is(.result-synthetic, .result-public) {
+  border-inline-start-color: var(--result-accent);
+}
+.manual-article :is(.result-synthetic, .result-public) strong:first-child {
+  color: var(--result-accent);
+}
 .chapter-scroll {
   position: relative;
 }

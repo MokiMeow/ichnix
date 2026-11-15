@@ -5,6 +5,24 @@ from ichnix.graph import _key
 
 
 class RelatedReportsTests(unittest.TestCase):
+    def test_duplicate_candidates_require_close_titles_and_the_same_deployment(self):
+        case = dict(id="h1-10", title="Billing retention windows", service="billing",
+                    component="archive", revision="r2", owner="records")
+        with isolated_graph() as db:
+            for change in [{}, {"id": "bc-20", "title": "Billing retention window"},
+                           {"id": "other-service", "service": "catalog"},
+                           {"id": "loose", "title": "Billing retention and masking policy review"},
+                           {"id": "old", "revision": "r1"}]:
+                db.import_report({**case, **change})
+            matches = {r["id"]: r for r in db.context("h1-10")["related_reports"]}
+            self.assertTrue(matches["bc-20"]["possible_duplicate"])
+            self.assertFalse(matches["other-service"]["possible_duplicate"])
+            self.assertFalse(matches["loose"]["possible_duplicate"])
+            self.assertNotIn("old", matches)
+            self.assertNotIn("h1-10", matches)
+            db.import_report({**case, "id": "bc-20", "revision": "r3"})
+            self.assertNotIn("bc-20", {r["id"] for r in db.context("h1-10")["related_reports"]})
+
     def test_vector_retrieval_excludes_stale_unrelated_and_own_reports(self):
         case = dict(id="base", title="Billing retention windows", service="api", component="ledger",
                     revision="v2", owner="billing")

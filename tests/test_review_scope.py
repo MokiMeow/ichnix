@@ -7,6 +7,22 @@ from ichnix.eval_graph import isolated_graph
 
 
 class ReviewScopeTests(TestCase):
+    def test_owner_reason_counts_review_decisions_separately_from_catalog(self):
+        case = dict(id="one", title="Owner routing", service="archive", component="retention",
+                    revision="build-7", owner="data")
+        with isolated_graph() as db:
+            db.import_report(case)
+            db.record_review("one", "records", True)
+            db.record_review("one", "data", False)
+            reasons = {r["owner"]: r["reason"] for r in db.context("one")["recommendations"]}
+            self.assertIn("1 accepted, 0 rejected", reasons["records"])
+            self.assertIn("catalog assignment", reasons["data"])
+            self.assertIn("0 accepted, 1 rejected", reasons["data"])
+            db.import_report({**case, "revision": "build-8"})
+            only, = db.context("one")["recommendations"]
+            self.assertIn("catalog assignment", only["reason"])
+            self.assertIn("no recorded owner reviews", only["reason"])
+
     def test_remapping_case_rejects_decision_from_an_older_console_view(self):
         case = dict(id="one", title="Owner routing", service="archive", component="retention",
                     revision="build-7", owner="data")

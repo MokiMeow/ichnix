@@ -513,6 +513,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.locator("#case-count")).to_have_text("2 on this page")
                 # Following a related case on another page must also move the queue.
                 related = page.get_by_role("button", name="IX-113 · archive", exact=False)
+                expect(page.get_by_text("Possible duplicate · compare reports", exact=True).first).to_be_visible()
                 related.click()
                 expect(page.locator(".case-id")).to_have_text("IX-113")
                 expect(page.locator("#case-select")).to_have_value("IX-113")

@@ -685,7 +685,10 @@ python3 cli.py human cases</code></pre>
                 <strong>Remote worker</strong>
                 <p>
                   Choose this for a teammate’s agent. Its named worker token
-                  gives it the case assigned by a time-limited lease.
+                  authenticates the MCP session. The workspace checks the worker
+                  credential on each request and the lease when reading or
+                  finishing a job. Revoking the credential also blocks calls
+                  from sessions that are already connected.
                 </p>
               </li>
               <li>
@@ -1280,10 +1283,38 @@ export SELFGRAPH_NAMESPACE=YOUR_NAMESPACE
                 Normalized sparse character-trigram vectors are stored as graph
                 properties. A revision-scoped traversal selects up to 128
                 current reports. Application code ranks them by cosine
-                similarity and returns up to five above the threshold. Similar
-                wording alone cannot establish a common cause.
+                similarity and returns up to five matches. A score of 0.85 or
+                higher on the same service and component revision flags a
+                possible duplicate. These candidates appear first. Open the
+                linked case to compare the evidence. Each submission keeps
+                its own ID, history and program status. Matching uses report
+                metadata and works without researcher identities. Different
+                wording can cause the comparison to miss a duplicate.
               </dd>
             </dl>
+            <h3 id="routing-results">How often did the first owner match?</h3>
+            <p class="manual-note result-synthetic">
+              <strong>Synthetic fixtures · 64 held-out reports</strong>
+              With 0, 8, 16, 24 and 32 reviewed training reports, the same
+              64 cases yielded 16, 16, 24, 33 and 46 correct first choices.
+              At the final checkpoint, pooling feedback across components and
+              releases yielded 19/64. The catalog alone yielded 16/64.
+              On the 16 cases from unseen releases, Ichnix and the catalog
+              each scored 4/16.
+            </p>
+            <p class="manual-note result-public">
+              <strong>Public disclosures · 75 real curl reports</strong>
+              Each prediction used only feedback published before that submission.
+              Ichnix and the catalog each matched a credited patch author on
+              56/75 reports across 2021–2025. Neither matched any of the
+              19 reports without the usual patch author. No report had earlier
+              public feedback on its inferred release. The release and patch
+              credits are proxies for the deployed version and internal owner.
+            </p>
+            <p>
+              These figures come from local runs on disposable HydraDB nodes.
+              The console’s learning curve uses a separate six-case synthetic dataset.
+            </p>
             <p>
               One console host coordinates leases in a private SQLite file.
               HydraDB holds the evidence and relationships. Use local durable

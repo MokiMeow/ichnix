@@ -312,13 +312,19 @@ class Graph:
                              "RETURN v.subject AS decision, v.owner AS owner, v.accepted AS accepted, v.at AS at "
                              "ORDER BY v.at", id=snapshot)
         votes = {v["decision"]: v for v in (*legacy, *events)}
-        counts = {report["owner"]: [1, 0]}
+        counts = {report["owner"]: [0, 0]}
         for vote in votes.values():
             pair = counts.setdefault(vote["owner"], [0, 0])
             pair[0 if vote["accepted"] else 1] += 1
-        items = [{"owner": owner, "score": round((yes + 1)/(yes + no + 2), 4),
-                  "reason": f"catalog assignment and reviewed ownership for {report['component']} at {report['revision']}"}
-                 for owner, (yes, no) in counts.items()]
+        items = []
+        for owner, (yes, no) in counts.items():
+            catalog = owner == report["owner"]
+            prior = int(catalog)
+            score = (yes + prior + 1) / (yes + no + prior + 2)
+            feedback = f"{yes} accepted, {no} rejected" if yes or no else "no recorded owner reviews"
+            reason = ("catalog assignment · " if catalog else "") + feedback
+            items.append({"owner": owner, "score": round(score, 4),
+                          "reason": f"{reason} for {report['component']} at {report['revision']}"})
         items.sort(key=lambda item: (-item["score"], item["owner"] != report["owner"], item["owner"]))
         context = {"report": report, "recommendations": items, "evidence": evidence,
                    "ranked_checks": self._ranked_checks(snapshot)}
@@ -326,10 +332,10 @@ class Graph:
             context["review_history"] = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "
                 "RETURN v.owner AS owner, v.accepted AS accepted, v.actor AS actor, v.at AS at ORDER BY v.at", id=snapshot)
             vector = json.loads(stored) if stored else _title_vector(report["title"])
-            context["related_reports"] = self._related_reports(snapshot, vector)
+            context["related_reports"] = self._related_reports(snapshot, vector, report["service"])
         return snapshot, context
 
-    def _related_reports(self, snapshot, vector):
+    def _related_reports(self, snapshot, vector, service):
         if not vector:
             return []
         # Match only published, current snapshots in this installation's own graph.
@@ -338,16 +344,19 @@ class Graph:
             "MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)"
             "<-[:USES_COMPONENT]-(o)<-[:HAS_SNAPSHOT]-(r:Report) "
             "WHERE o.id <> $id AND r.snapshot = o.id "
-            "RETURN r.key AS id, r.title AS title, r.title_vector_v1 AS vector "
+            "RETURN r.key AS id, r.title AS title, r.service AS service, r.title_vector_v1 AS vector "
             "ORDER BY r.key LIMIT 128", id=snapshot)
         matches = []
         for row in rows:
             candidate = json.loads(row["vector"]) if row["vector"] else _title_vector(row["title"])
             score = sum(value * candidate.get(index, 0) for index, value in vector.items())
             if score >= 0.2:
+                possible_duplicate = row["service"] == service and score >= 0.85
                 matches.append({"id": row["id"], "title": row["title"], "score": round(min(score, 1), 3),
-                                "reason": "similar title on the same component revision"})
-        return sorted(matches, key=lambda m: (-m["score"], m["id"]))[:5]
+                                "possible_duplicate": possible_duplicate,
+                                "reason": "close title match on the same service and component revision"
+                                if possible_duplicate else "similar title on the same component revision"})
+        return sorted(matches, key=lambda m: (not m["possible_duplicate"], -m["score"], m["id"]))[:5]
 
     def ranked_checks(self, case_id):
         return self._ranked_checks(self._report(case_id)["snapshot"])

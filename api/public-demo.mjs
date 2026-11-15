@@ -53,7 +53,7 @@ const caseLists = {
   ],
   ranked_checks: ["step", "score", "observations", "reason"],
   review_history: ["owner", "accepted", "actor", "at"],
-  related_reports: ["id", "title", "score", "reason"],
+  related_reports: ["id", "title", "score", "reason", "possible_duplicate"],
   worker_outcomes: ["job_id", "kind", "worker", "disposition", "at"],
 };
 

@@ -557,6 +557,8 @@ function renderCase({
         button,
         element("span", "lexical similarity " + match.score, "case-meta"),
       );
+      if (match.possible_duplicate === true)
+        detail.append(element("strong", "Possible duplicate · compare reports"));
       detail.append(row, element("p", match.reason, "review-reason"));
     }
   }
