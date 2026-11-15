@@ -35,9 +35,9 @@
 !public/evidence-graph.png
 !public/strata.webp
 !public/fonts/
-!public/fonts/IBMPlexMono-Regular.ttf
+!public/fonts/IBMPlexMono-Regular.woff2
 !public/fonts/IBMPlexMono-LICENSE.txt
-!public/fonts/InstrumentSans.ttf
+!public/fonts/InstrumentSans.woff2
 !public/fonts/InstrumentSans-LICENSE.txt
 !examples/
 !examples/cases.json

@@ -21,9 +21,9 @@ const assets = [
   "evidence-graph.png",
   "strata.webp",
   "fonts/IBMPlexMono-LICENSE.txt",
-  "fonts/IBMPlexMono-Regular.ttf",
+  "fonts/IBMPlexMono-Regular.woff2",
   "fonts/InstrumentSans-LICENSE.txt",
-  "fonts/InstrumentSans.ttf",
+  "fonts/InstrumentSans.woff2",
 ];
 const project = resolve(import.meta.dirname, "..");
 const output = join(project, "dist");

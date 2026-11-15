@@ -63,6 +63,7 @@ def named_workspace(hosted=False):
             tokens[role] = out.read_text().strip()
         for report in json.loads((ROOT / "examples/cases.json").read_text()):
             graph.import_report(report)
+        graph.record_review("IX-104", "records", True, actor="fixture-reviewer")
         for index in range(19):
             graph.import_report({**report, "id": f"PAGE-{index:02d}"})
         with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(registry)), ConsoleServer(("127.0.0.1", 0), HostedShell if hosted else Handler) as http:
@@ -97,7 +98,11 @@ def public_checks(browser, origin, width, hosted=False):
                 expect(page.get_by_role("progressbar", name="Connecting to workspace")).to_be_visible()
                 expect(page.locator("#status")).to_be_empty()
                 expect(page.locator("#workspace-skeleton")).to_be_visible()
-                assert page.locator("#activity span").first.evaluate("el => getComputedStyle(el).animationName") == "none"
+                mark = page.locator("#activity .thinking-mark")
+                assert mark.evaluate("el => getComputedStyle(el, '::before').animationName") == "none"
+                page.emulate_media(reduced_motion="no-preference")
+                assert mark.evaluate("el => getComputedStyle(el, '::before').animationName") != "none"
+                page.emulate_media(reduced_motion="reduce")
                 for _ in range(100):
                     if held_session:
                         break
@@ -118,9 +123,16 @@ def public_checks(browser, origin, width, hosted=False):
             if route == "/":
                 artwork = page.request.get(origin + "/strata.webp")
                 assert artwork.ok and artwork.headers["content-type"] == "image/webp"
-                page.locator("input[value=evidence]").focus()
-                page.keyboard.press("ArrowRight")
-                expect(page.locator(".revision-output")).to_be_visible()
+                inspector = page.locator(".specimen")
+                box = inspector.bounding_box()
+                assert abs(box["x"] + box["width"] / 2 - width / 2) <= 1
+                inspector.get_by_role("radio", name="Evidence").focus()
+                for output in ("revision", "handoff"):
+                    page.keyboard.press("ArrowRight")
+                    expect(inspector.locator("." + output + "-output")).to_be_visible()
+                inspector.locator("label", has_text="Evidence").click()
+                expect(inspector.locator(".evidence-output")).to_be_visible()
+                expect(inspector.locator(".readout:visible")).to_have_count(1)
             elif route == "/docs":
                 index = page.locator(".index-panel")
                 if width <= 720:
@@ -301,8 +313,23 @@ def role_checks(browser, origin, tokens, width, hosted=False):
             if role == "intake":
                 case_list = "**/" + ("org-api" if hosted else "api") + "/case-page"
                 page.route(case_list, lambda route: pending_cases.append(route))
+                if width == 820:
+                    first_case = "**/" + ("org-api" if hosted else "api") + "/cases/IX-104"
+                    page.route(first_case, lambda route: route.fulfill(status=503))
             page.get_by_label("Access token").fill(token)
-            page.get_by_role("button", name="Connect", exact=True).click()
+            connect = page.get_by_role("button", name="Connect", exact=True)
+            if role == "read" and width == 390:
+                first_case = "**/" + ("org-api" if hosted else "api") + "/cases/IX-104"
+                pending_detail = []
+                page.route(first_case, lambda route: pending_detail.append(route))
+                with page.expect_request(first_case):
+                    connect.click()
+                expect(page.get_by_role("navigation", name="Case pages")).to_be_hidden()
+                expect(page.get_by_role("combobox", name="Selected case")).to_be_hidden()
+                pending_detail[0].continue_()
+                page.unroute(first_case)
+            else:
+                connect.click()
             if role == "intake":
                 for _ in range(100):
                     if pending_cases:
@@ -312,6 +339,17 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.locator("#report-upload")).to_be_hidden()
                 pending_cases[0].continue_()
                 page.unroute(case_list)
+                if width == 820:
+                    expect(page.locator("#status")).to_contain_text("could not complete")
+                    expect(page.locator("#connect")).to_be_hidden()
+                    expect(page.locator("#report-upload")).to_be_visible()
+                    expect(page.locator("#desk")).to_be_visible()
+                    expect(page.locator("#case-select")).to_have_value("")
+                    expect(page.get_by_role("button", name="Try again")).to_be_visible()
+                    page.unroute(first_case)
+                    if hosted:
+                        page.get_by_role("button", name="Try again").click()
+                        expect(page.locator(".case-id")).to_have_text("IX-104")
             if role == "worker":
                 expect(page.locator("#status")).to_contain_text("denied")
                 expect(page.locator("#workspace-skeleton")).to_be_hidden()
@@ -339,11 +377,29 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     expect(page.locator(".case-id")).to_have_text("IX-104")
                     expect(pager.get_by_role("button", name="Previous")).to_be_disabled()
 
+                if width <= 720:
+                    failed = "**/" + ("org-api" if hosted else "api") + "/cases/PAGE-17"
+                    page.route(failed, lambda route: route.fulfill(status=503))
+                    pager.get_by_role("button", name="Next").click()
+                    expect(page.locator("#status")).to_contain_text("could not complete")
+                    expect(page.locator("#case-select")).to_have_value("IX-104")
+                    expect(pager.get_by_role("button", name="Previous")).to_be_disabled()
+                    page.unroute(failed)
+
                 pager.get_by_role("button", name="Next").focus()
                 page.keyboard.press("Enter")
                 expect(page.locator(".case-id")).to_have_text("PAGE-17")
                 expect(pager.get_by_role("button", name="Next")).to_be_disabled()
                 expect(page.locator("#case-count")).to_have_text("2 on this page")
+                # Following a related case on another page must also move the queue.
+                related = page.get_by_role("button", name="IX-113 · archive", exact=False)
+                related.click()
+                expect(page.locator(".case-id")).to_have_text("IX-113")
+                expect(page.locator("#case-select")).to_have_value("IX-113")
+                expect(page.locator('#cases button[aria-current="true"]')).to_be_disabled()
+                page.get_by_role("button", name="Refresh").click()
+                expect(page.locator("#activity")).to_be_hidden()
+                expect(page.locator(".case-id")).to_have_text("IX-113")
                 pager.get_by_role("button", name="Previous").click()
                 expect(page.locator(".case-id")).to_have_text("IX-104")
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -353,7 +409,11 @@ def role_checks(browser, origin, tokens, width, hosted=False):
             if width <= 720:
                 page.locator("#case-select").select_option("IX-108")
             else:
-                page.locator('#cases button[data-case-id="IX-108"]').click()
+                choice = page.locator('#cases button[data-case-id="IX-108"]')
+                choice.focus()
+                page.keyboard.press("Enter")
+                if role != "read":
+                    expect(page.locator("#detail h2")).to_be_focused()
             if role == "read":
                 expect(page.locator("#status")).to_contain_text("could not complete")
                 expect(page.locator(".case-id")).to_have_text("IX-104")
@@ -404,9 +464,25 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 assert page.locator("#report-file").evaluate("el => el.files.length") == 0
                 page.locator("#report-file").set_input_files({"name": "invalid-utf8.json", "mimeType": "application/json",
                     "buffer": json.dumps(report).encode().replace(b"Review uploaded policy", b"Review \xff policy")})
-                page.get_by_role("button", name="Import report").click()
                 expect(page.locator("#status")).to_have_text("Choose a valid UTF-8 JSON file.")
+                expect(page.get_by_role("button", name="Import report")).to_be_disabled()
+                page.locator("#report-file").set_input_files({"name": "replace.json", "mimeType": "application/json",
+                                                             "buffer": json.dumps(report).encode()})
+                expect(page.locator("#report-drop")).to_contain_text("replace.json")
+                page.get_by_role("button", name="Remove file").click()
+                expect(page.get_by_role("button", name="Import report")).to_be_disabled()
+                expect(page.locator("#report-file")).to_be_focused()
+                drop_box = page.locator("#report-drop").bounding_box()
+                assert abs(drop_box["x"] + drop_box["width"] / 2 - width / 2) <= 1
+                page.locator("#report-file").set_input_files({"name": "invalid-id.json", "mimeType": "application/json",
+                                                             "buffer": json.dumps({**report, "id": ".."}).encode()})
+                page.get_by_role("button", name="Import report").click()
+                expect(page.locator("#status")).to_contain_text("rejected the report")
+                expect(page.get_by_role("button", name="Import report")).to_be_disabled()
                 if hosted:
+                    # The active navigation link must preserve the authenticated session.
+                    page.get_by_role("link", name="Private workspace").click()
+                    expect(page.locator("#report-drop")).to_be_visible()
                     # Use the native chooser on a narrow viewport.
                     page.locator("#report-file").set_input_files({"name": "mapped-case.json", "mimeType": "application/json",
                                                                  "buffer": json.dumps(report).encode("utf-8-sig")})
@@ -432,7 +508,15 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(buttons).to_have_count(0)
             else:
                 expect(page.locator("#report-upload")).to_be_hidden()
-                buttons.first.click()
+                review_url = "**/" + ("org-api" if hosted else "api") + "/cases/IX-108/reviews"
+                pending_review = []
+                page.route(review_url, lambda route: pending_review.append(route))
+                expect(buttons).to_have_count(4)
+                with page.expect_request(review_url):
+                    buttons.first.click()
+                expect(buttons.last).to_be_disabled()
+                pending_review[0].continue_()
+                page.unroute(review_url)
                 expect(page.locator("#status")).to_contain_text("accepted")
                 history = page.locator(".history-panel summary")
                 history.focus()
@@ -441,6 +525,19 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.locator(".review-history")).to_contain_text("browser-review")
                 page.keyboard.press("Space")
                 expect(page.locator(".review-history")).to_be_hidden()
+            if role == "read" and width == 390:
+                page_url = "**/" + ("org-api" if hosted else "api") + "/case-page*"
+                rows = []
+                page.route(page_url, lambda route: route.fulfill(
+                    json={"cases": rows, "previous": None, "next": None}))
+                page.get_by_role("button", name="Refresh").click()
+                expect(page.locator("#detail")).to_have_text("No cases yet.")
+                expect(page.get_by_label("Selected case")).to_be_hidden()
+                rows.append({"id": "IX-104", "title": "audit events retained past the configured window"})
+                page.get_by_role("button", name="Refresh").click()
+                expect(page.locator(".case-id")).to_have_text("IX-104")
+                expect(page.get_by_label("Selected case")).to_be_disabled()
+                page.unroute(page_url)
             if width == 820:
                 family = "org-api" if hosted else "api"
                 if role == "intake":
@@ -454,10 +551,10 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     page.route(path, lambda route: route.fulfill(status=401))
                     buttons.first.click()
                 else:
-                    path = f"**/{family}/cases/IX-113/diagram.svg"
+                    path = f"**/{family}/cases/IX-104/diagram.svg"
                     holds = []
                     page.route(path, lambda route: holds.append(route))
-                    page.locator('#cases button[data-case-id="IX-113"]').click()
+                    page.locator('#cases button[data-case-id="IX-104"]').click()
                     with page.expect_request(path):
                         page.get_by_text("Review workflow diagram", exact=True).click()
                     # A late denial from an old login must not disconnect a newer login with the same token.

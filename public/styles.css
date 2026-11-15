@@ -1,12 +1,12 @@
 @font-face {
   font-family: "IBM Plex Mono";
-  src: url("/fonts/IBMPlexMono-Regular.ttf") format("truetype");
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: "Instrument Sans";
-  src: url("/fonts/InstrumentSans.ttf") format("truetype");
+  src: url("/fonts/InstrumentSans.woff2") format("woff2");
   font-weight: 400 700;
   font-display: swap;
 }
@@ -173,7 +173,6 @@ summary:hover {
 .eyebrow,
 .case-label,
 .specimen-title,
-.run-link,
 .primary-link,
 .plain-link,
 .sample-tabs,
@@ -224,6 +223,7 @@ summary:hover {
   text-decoration: underline;
 }
 .specimen {
+  width: min(100%, 40rem);
   min-width: 0;
   border: 1px solid var(--line);
   background: var(--inset);
@@ -249,24 +249,26 @@ summary:hover {
   color: var(--muted);
 }
 .specimen-context {
-  padding: 22px 20px 16px;
+  padding: 24px 20px 16px;
+  text-align: center;
 }
 .case-label {
   color: var(--accent);
   font-size: 13px;
 }
 .specimen-context p {
-  font-size: 19px;
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  line-height: 1.3;
   font-weight: 550;
   margin-top: 3px;
 }
 .sample-tabs {
-  display: flex;
-  gap: 0;
-  margin: 0;
-  padding: 0 12px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 auto;
+  width: min(100% - 24px, 26rem);
+  padding: 3px;
+  border: 1px solid var(--line);
   min-width: 0;
 }
 .sample-tabs label {
@@ -275,9 +277,8 @@ summary:hover {
   align-items: center;
   cursor: pointer;
   min-height: 44px;
-  padding: 8px 11px;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  justify-content: center;
+  padding: 4px;
   font-size: 14px;
   color: var(--muted);
 }
@@ -288,7 +289,8 @@ summary:hover {
   height: 1px;
 }
 .sample-tabs label:has(:checked) {
-  border-color: var(--accent);
+  background: var(--hover);
+  box-shadow: inset 0 -2px var(--accent);
   color: var(--text);
 }
 .sample-tabs label:has(:focus-visible) {
@@ -299,11 +301,15 @@ summary:hover {
   background: var(--hover);
 }
 .sample-output {
-  padding: 10px 20px 15px;
+  padding: 14px 24px 16px;
 }
 .readout {
   margin: 0;
   font-size: 14px;
+}
+.readout dt {
+  font-family: var(--sans);
+  font-size: 1rem;
 }
 .readout div {
   display: flex;
@@ -318,6 +324,9 @@ summary:hover {
 .readout dd {
   text-align: right;
   overflow-wrap: anywhere;
+}
+.evidence-output dd {
+  flex-shrink: 0;
 }
 .readout .fail {
   color: var(--bad);
@@ -341,6 +350,7 @@ summary:hover {
 .specimen-foot {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
   padding: 12px 20px;
   min-height: 45px;
@@ -348,9 +358,6 @@ summary:hover {
   color: var(--muted);
   text-decoration: none;
   font-size: 13px;
-}
-.run-link {
-  margin-left: auto;
 }
 @media (max-width: 959px) {
   :root {
@@ -388,9 +395,6 @@ summary:hover {
   }
   .launch-actions {
     gap: 15px;
-  }
-  .sample-tabs {
-    padding-inline: 5px;
   }
   .specimen-context,
   .specimen-title,
@@ -433,17 +437,12 @@ html:not([data-hosted="true"]) .hosted-signin {
   flex: none;
   vertical-align: -0.14em;
 }
-.eyebrow .ui-icon {
-  color: var(--accent);
-}
-.readout dd,
-.run-link {
+.readout dd {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
 }
 
-/* The same engraved strata open the guide and close each workspace route. */
 .home {
   width: 100%;
 }
@@ -474,8 +473,7 @@ html:not([data-hosted="true"]) .hosted-signin {
 .hero-inner {
   padding-block: clamp(3rem, 6vw, 6rem);
 }
-.field-hero .eyebrow,
-.field-copy .eyebrow {
+.field-hero .eyebrow {
   color: #d1bd9f;
   font-size: 0.79rem;
   letter-spacing: 0.075em;
@@ -483,7 +481,7 @@ html:not([data-hosted="true"]) .hosted-signin {
 .hero-inner h1 {
   max-width: 13ch;
   color: #f5f2ec;
-  font: 500 clamp(3.15rem, 6.1vw, 6rem)/0.99 var(--sans);
+  font: 500 clamp(3.15rem, 6.1vw, 6rem) / 0.99 var(--sans);
   letter-spacing: -0.065em;
 }
 .field-hero .lede {
@@ -495,20 +493,22 @@ html:not([data-hosted="true"]) .hosted-signin {
 }
 .field-spread {
   display: grid;
-  grid-template-columns: 0.93fr 1.07fr;
-  align-items: center;
-  gap: clamp(2rem, 7vw, 7rem);
+  justify-items: center;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
   padding-block: clamp(3.4rem, 7vw, 6.5rem);
 }
 .field-copy h2,
 .guide-entries h2 {
   color: var(--text);
-  font: 500 clamp(2rem, 3.4vw, 3.6rem)/1.08 var(--sans);
+  font: 500 clamp(2rem, 3.4vw, 3.6rem) / 1.08 var(--sans);
   letter-spacing: -0.05em;
 }
-.field-copy > p:not(.eyebrow) {
-  max-width: 44ch;
-  margin-block: 1.2rem 1.6rem;
+.field-copy {
+  text-align: center;
+}
+.field-copy > p {
+  max-width: 54ch;
+  margin: 0.8rem auto 0;
   color: var(--muted);
 }
 .guide-entries {
@@ -589,7 +589,6 @@ html:not([data-hosted="true"]) .hosted-signin {
       url("/strata.webp");
     background-position: 64% center;
   }
-  .field-spread,
   .footer-inner {
     grid-template-columns: 1fr;
   }

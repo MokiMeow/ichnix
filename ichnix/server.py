@@ -3,7 +3,6 @@ import argparse
 import json
 import hmac
 import logging
-import mimetypes
 import os
 import re
 import subprocess
@@ -24,8 +23,13 @@ PUBLIC_ASSETS = {
     "index.html", "console.html", "docs.html", "app.js", "manual.js", "styles.css", "docs.css",
     "strata.webp",
     "evidence-graph.png",
-    "fonts/IBMPlexMono-Regular.ttf", "fonts/InstrumentSans.ttf",
+    "fonts/IBMPlexMono-Regular.woff2", "fonts/InstrumentSans.woff2",
     "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
+}
+
+STATIC_TYPES = {
+    ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".txt": "text/plain",
+    ".png": "image/png", ".webp": "image/webp", ".woff2": "font/woff2",
 }
 
 
@@ -69,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(15)
 
-    def send(self, status, body, kind="application/json", headers=()):
+    def send(self, status, body, kind="application/json", headers=(), *, cache="no-store"):
         if kind == "application/json":
             body = json.dumps(body, ensure_ascii=False).encode()
         self.send_response(status)
@@ -77,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("Content-Security-Policy", "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'")
         for name, value in headers:
             self.send_header(name, value)
@@ -135,7 +139,8 @@ class Handler(BaseHTTPRequestHandler):
             asset = PUBLIC / name
             if asset.resolve() != asset or not asset.is_file():
                 return self.send(404, {"error": "missing asset"})
-            return self.send(200, asset.read_bytes(), mimetypes.guess_type(asset)[0] or "application/octet-stream")
+            cache = "public, max-age=86400" if asset.suffix in {".woff2", ".webp", ".png"} else "no-store"
+            return self.send(200, asset.read_bytes(), STATIC_TYPES[asset.suffix], cache=cache)
 
         if path == "/api/import/report" and write:
             if not identify(self.headers.get("Authorization", ""), intake=True):

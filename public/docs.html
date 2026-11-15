@@ -507,9 +507,12 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
           <section id="providers">
             <h2><span class="chapter-no">08</span>Connect a program</h2>
             <p>
-              Sign in with an intake credential. Drop a single mapped JSON file
-              on the upload area or use the file picker, then select
-              <strong>Import report</strong>. The console opens the saved case.
+              Sign in with an intake credential and drop one mapped JSON file in
+              the upload area, or browse for it. Check the filename and any
+              validation message. Choose <strong>Remove file</strong> to start
+              over or <strong>Import report</strong> to open the saved case.
+            </p>
+            <p>
               Use UTF-8 JSON up to 1 MiB. Extra fields, duplicate keys, report
               bodies and attachments are rejected. The command-line equivalent
               is <code>python3 cli.py human import-report report.json</code>

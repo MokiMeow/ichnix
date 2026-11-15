@@ -39,13 +39,12 @@
         <button id="leave" class="cmd" hidden>Disconnect</button>
         <div
           id="activity"
-          class="pending-dots"
+          class="view-activity"
           role="progressbar"
           aria-label="Connecting to workspace"
           hidden
         >
-          <span aria-hidden="true"></span><span aria-hidden="true"></span
-          ><span aria-hidden="true"></span>
+          <span class="thinking-mark" aria-hidden="true"></span>
         </div>
       </header>
       <div
@@ -63,30 +62,56 @@
             required
             autocomplete="off"
             spellcheck="false"
-          /><button class="cmd primary">Connect</button>
+          /><button id="connect-submit" class="cmd primary" disabled>
+            Connect
+          </button>
         </div>
         <p class="hint">
           Use the token issued by your workspace administrator.
         </p>
       </form>
-      <form id="report-upload" hidden>
+      <form id="report-upload" aria-label="Import a report" hidden>
         <label id="report-drop" for="report-file">
-          Drop a mapped report here or choose a file
+          <svg
+            aria-hidden="true"
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M12 15V3m-4 4 4-4 4 4M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"
+            />
+          </svg>
+          <strong id="report-name">Drop a report here</strong>
+          <span class="file-caption"
+            ><span id="report-browse">Choose file</span>
+            <span id="report-format">JSON · up to 1 MiB</span></span
+          >
           <input
             type="file"
             id="report-file"
+            class="sr-only"
+            aria-label="Choose a report file"
+            aria-describedby="report-format"
             accept=".json,application/json"
             required
-            aria-describedby="report-format"
           />
         </label>
-        <button id="report-submit" class="cmd primary" disabled>
-          Import report
-        </button>
-        <p class="hint" id="report-format">
-          Choose one JSON object with id, title, service, component, revision
-          and owner. Maximum 1 MiB.
-        </p>
+        <div class="upload-actions">
+          <a href="/docs#providers">Report format</a>
+          <button id="report-clear" type="button" class="cmd" hidden>
+            Remove file
+          </button>
+          <button id="report-submit" class="cmd primary" disabled>
+            <span class="thinking-mark" aria-hidden="true" hidden></span>
+            Import report
+          </button>
+        </div>
       </form>
       <details id="evaluation" hidden>
         <summary>Learning curve</summary>

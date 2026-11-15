@@ -8,6 +8,7 @@ const hostedPreview =
   document.documentElement.dataset.hosted === "true" && !orgWorkspace;
 const apiBase = orgWorkspace ? "/org-api/" : "/api/";
 let token = "";
+let reportBody;
 const caseImages = new Set();
 let imageRequests = new AbortController();
 let selected;
@@ -105,12 +106,11 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
 
 function clearSession() {
   sessionVersion++;
-  byId("report-file").disabled = false;
-  byId("report-drop").classList.remove("dragging");
+  resetReport();
   byId("report-upload").hidden = true;
-  byId("report-upload").reset();
-  byId("report-submit").disabled = true;
   byId("token").value = "";
+  byId("token").readOnly = false;
+  byId("connect-submit").disabled = true;
   endView(++generation);
   byId("activity").removeAttribute("aria-label");
   byId("retry").hidden = true;
@@ -131,6 +131,7 @@ function clearSession() {
   byId("case-count").textContent = "";
   byId("leave").hidden = desk.hidden = true;
   login.hidden = publicDemo;
+  if (orgWorkspace) byId("private-signin").textContent = "Private sign-in";
   status.textContent = "";
   if (!publicDemo) byId("token").focus();
 }
@@ -167,6 +168,7 @@ async function request(path, options = {}) {
     if (response.status === 400 && path === "import/report")
       throw new Error(
         "The workspace rejected the report. Check its identifiers, field names and field lengths.",
+        { cause: response.status },
       );
     if (response.status === 404 && path.startsWith("case-page"))
       throw new Error(
@@ -192,8 +194,8 @@ function reviewControl(report, owner, accepted) {
   button.setAttribute("aria-label", (accepted ? "Accept " : "Reject ") + owner);
   button.addEventListener("click", async () => {
     const view = generation;
-    const row = button.parentElement;
-    row.querySelectorAll("button").forEach((el) => (el.disabled = true));
+    const controls = detail.querySelectorAll(".review-row button");
+    controls.forEach((control) => (control.disabled = true));
     try {
       const result = await request(
         "cases/" + encodeURIComponent(caseId) + "/reviews",
@@ -221,7 +223,7 @@ function reviewControl(report, owner, accepted) {
     } catch (error) {
       if (view === generation) status.textContent = error.message;
     } finally {
-      row.querySelectorAll("button").forEach((el) => (el.disabled = false));
+      controls.forEach((control) => (control.disabled = false));
     }
   });
   return button;
@@ -256,10 +258,9 @@ function renderCase({
 }) {
   clearCaseImages();
   const heading = element("header", undefined, "case-heading");
-  heading.append(
-    element("p", report.id, "case-id"),
-    element("h2", report.title),
-  );
+  const title = element("h2", report.title);
+  title.tabIndex = -1;
+  heading.append(element("p", report.id, "case-id"), title);
   const metadata = element("dl", undefined, "case-scope");
   for (const [label, value] of [
     ["Service", report.service],
@@ -346,7 +347,16 @@ function renderCase({
         match.id + " · " + match.title,
         "case-btn",
       );
-      button.addEventListener("click", () => openCase(match.id));
+      button.addEventListener("click", async () => {
+        const options = byId("case-select").options;
+        if (
+          publicDemo ||
+          [...options].some((option) => option.value === match.id)
+        )
+          await openCase(match.id);
+        else await refresh("?from=" + encodeURIComponent(match.id), match.id);
+        if (selected === match.id) detail.querySelector("h2")?.focus();
+      });
       row.append(
         button,
         element("span", "lexical similarity " + match.score, "case-meta"),
@@ -434,22 +444,30 @@ function renderCase({
   detail.append(trace);
 }
 
-async function openCase(caseId) {
+async function readCase(caseId) {
+  const response = await request("cases/" + encodeURIComponent(caseId));
+  return response.json();
+}
+
+function displayCase(context) {
+  selected = context.report.id;
+  byId("case-select").value = selected;
+  for (const button of byId("cases").querySelectorAll("button")) {
+    button.disabled = button.dataset.caseId === selected;
+    button.setAttribute("aria-current", String(button.disabled));
+  }
+  renderCase(context);
+}
+
+async function openCase(caseId, trigger) {
   const view = beginView("Retrieving case " + caseId);
   try {
-    const result = await request("cases/" + encodeURIComponent(caseId));
-    const context = await result.json();
+    const context = await readCase(caseId);
     if (view !== generation) return;
-    selected = caseId;
-    byId("case-select").value = caseId;
-    for (const button of byId("cases").querySelectorAll("button")) {
-      button.setAttribute(
-        "aria-current",
-        String(button.dataset.caseId === caseId),
-      );
-    }
+    const moveFocus = trigger === document.activeElement;
     endView(view);
-    renderCase(context);
+    displayCase(context);
+    if (moveFocus) detail.querySelector("h2").focus();
   } catch (error) {
     if (view !== generation) return;
     showError(error.message, () => openCase(caseId));
@@ -462,19 +480,35 @@ async function openCase(caseId) {
 async function refresh(query = currentPage, preferred = selected) {
   const view = beginView("Retrieving cases");
   const upload = byId("report-upload");
-  let canImport = false;
   try {
-    if (!publicDemo) {
-      const session = await (await request("session")).json();
-      if (view !== generation) return;
-      canReview = session.can_review === true;
-      canImport = session.can_import === true;
-    }
-    const result = await request(publicDemo ? "cases" : "case-page" + query);
-    const page = await result.json();
+    const [session, page] = await Promise.all([
+      publicDemo ? null : request("session").then((res) => res.json()),
+      request(publicDemo ? "cases" : "case-page" + query).then((res) =>
+        res.json(),
+      ),
+    ]);
     if (view !== generation) return;
     const cases = publicDemo ? page : page.cases;
+    if (
+      query === "?from=" + encodeURIComponent(preferred) &&
+      cases[0]?.id !== preferred
+    )
+      throw new Error("This case is no longer available.");
     if (query && !cases.length) return refresh("");
+    const target = cases.find((report) => report.id === preferred) || cases[0];
+    let context;
+    let initialCaseError;
+    if (target) {
+      try {
+        context = await readCase(target.id);
+      } catch (error) {
+        // A first-case failure still leaves other reports and intake available.
+        if (!desk.hidden) throw error;
+        initialCaseError = error;
+      }
+    }
+    if (view !== generation) return;
+    canReview = session?.can_review === true;
     currentPage = query;
     const pager = byId("case-pager");
     pager.hidden = publicDemo || !(page.previous || page.next);
@@ -486,20 +520,28 @@ async function refresh(query = currentPage, preferred = selected) {
       button.disabled = !cursor;
       button.value = cursor || "";
     }
-    upload.hidden = !canImport;
+    upload.hidden = session?.can_import !== true;
     desk.hidden = false;
     byId("leave").hidden = publicDemo;
     login.hidden = true;
+    if (orgWorkspace) byId("private-signin").textContent = "Private workspace";
     byId("token").value = "";
     const list = byId("cases");
     const picker = byId("case-select");
     list.replaceChildren();
     picker.replaceChildren();
-    picker.disabled = cases.length === 0;
+    picker.disabled = cases.length < 2;
+    picker.hidden = !cases.length;
+    picker.labels[0].hidden = picker.hidden;
     byId("case-count").textContent = pager.hidden
       ? String(cases.length)
       : cases.length + " on this page";
-    if (!cases.length) picker.append(element("option", "No cases"));
+    if (initialCaseError) {
+      const placeholder = element("option", "Choose a case");
+      placeholder.value = "";
+      placeholder.disabled = placeholder.hidden = true;
+      picker.append(placeholder);
+    }
 
     for (const report of cases) {
       const option = element("option", report.id + " · " + report.title);
@@ -508,19 +550,21 @@ async function refresh(query = currentPage, preferred = selected) {
       const button = element("button", undefined, "case-btn");
       button.dataset.caseId = report.id;
       button.append(element("small", report.id), element("span", report.title));
-      button.addEventListener("click", () => openCase(report.id));
+      button.addEventListener("click", () => openCase(report.id, button));
       const li = element("li");
       li.append(button);
       list.append(li);
     }
-    if (cases.length)
-      await openCase(cases.find((r) => r.id === preferred)?.id || cases[0].id);
-    else {
+    if (context) displayCase(context);
+    else if (initialCaseError) {
+      selected = null;
+      picker.value = "";
+      showError(initialCaseError.message, () => openCase(target.id));
+    } else {
       selected = null;
       clearCaseImages();
       status.textContent = "";
-      detail.textContent =
-        "No cases yet. Import a report through the CLI or sync your bounty program.";
+      detail.textContent = "No cases yet.";
     }
   } catch (error) {
     if (view === generation) {
@@ -531,38 +575,40 @@ async function refresh(query = currentPage, preferred = selected) {
   }
 }
 
-function validReportFile(input) {
-  const file = input.files[0];
-  if (file && file.size && file.size <= 1024 * 1024) return file;
-  input.value = "";
-  status.textContent = "Choose a JSON file between one byte and 1 MiB.";
-  return null;
+function resetReport(message = "") {
+  reportBody = undefined;
+  const form = byId("report-upload");
+  form.reset();
+  form.removeAttribute("aria-busy");
+  byId("report-drop").classList.remove("dragging");
+  byId("report-file").disabled = false;
+  byId("report-submit").disabled = true;
+  byId("report-submit").firstElementChild.hidden = true;
+  byId("report-clear").hidden = true;
+  byId("report-clear").disabled = false;
+  byId("report-name").textContent = "Drop a report here";
+  byId("report-browse").textContent = "Choose file";
+  status.textContent = message;
 }
 
-async function uploadReport(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
+async function selectReport() {
   const input = byId("report-file");
-  if (form.hidden || input.disabled) return;
-  const file = validReportFile(input);
-  if (!file) return;
-  const button = byId("report-submit");
-  button.disabled = true;
-  input.disabled = true;
-  const session = sessionVersion;
-  const view = generation;
+  const file = input.files[0];
+  reportBody = undefined;
+  byId("report-submit").disabled = true;
+  if (!file) return resetReport();
+  if (!file.size || file.size > 1024 * 1024)
+    return resetReport("Choose a JSON file between one byte and 1 MiB.");
+  byId("report-name").textContent = file.name;
+  byId("report-browse").textContent = "Replace file";
+  byId("report-clear").hidden = false;
+  status.textContent = "Checking file";
   try {
     const body = await file.arrayBuffer();
-    if (view !== generation) return;
-    let report;
-    try {
-      report = JSON.parse(
-        new TextDecoder("utf-8", { fatal: true }).decode(body),
-      );
-    } catch {
-      status.textContent = "Choose a valid UTF-8 JSON file.";
-      return;
-    }
+    if (input.files[0] !== file) return;
+    const report = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(body),
+    );
     const keys = ["id", "title", "service", "revision", "component", "owner"];
     if (
       !report ||
@@ -570,27 +616,54 @@ async function uploadReport(event) {
       !keys.every(
         (key) => typeof report[key] === "string" && report[key].trim(),
       )
-    ) {
-      status.textContent =
-        "Choose one report with the six required metadata fields.";
-      return;
-    }
+    )
+      return resetReport(
+        "Choose one report with the six required metadata fields.",
+      );
+    reportBody = body;
+    byId("report-submit").disabled = false;
+    status.textContent = "Ready to import " + file.name;
+  } catch {
+    if (input.files[0] === file) resetReport("Choose a valid UTF-8 JSON file.");
+  }
+}
+
+async function uploadReport(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const input = byId("report-file");
+  if (form.hidden || input.disabled || !reportBody) return;
+  const session = sessionVersion;
+  const view = generation;
+  const file = input.files[0];
+  const button = byId("report-submit");
+  button.disabled = input.disabled = byId("report-clear").disabled = true;
+  button.firstElementChild.hidden = false;
+  form.setAttribute("aria-busy", "true");
+  status.textContent = "Importing " + input.files[0].name;
+  try {
     const response = await request("import/report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body,
+      body: reportBody,
     });
     const saved = await response.json();
+    if (session !== sessionVersion) return;
+    resetReport("Imported " + saved.id);
     if (view !== generation) return;
-    form.reset();
     await refresh("?from=" + encodeURIComponent(saved.id), saved.id);
-    if (selected === saved.id) status.textContent = "Imported " + saved.id;
+    if (session === sessionVersion && selected === saved.id)
+      status.textContent = "Imported " + saved.id;
   } catch (error) {
-    if (view === generation) status.textContent = error.message;
+    if (session !== sessionVersion) return;
+    if (error.cause === 400) return resetReport(error.message);
+    status.textContent = error.message;
   } finally {
-    if (session === sessionVersion) {
-      input.disabled = false;
-      button.disabled = !input.files.length;
+    if (session === sessionVersion && input.files[0] === file) {
+      form.removeAttribute("aria-busy");
+      button.firstElementChild.hidden = true;
+      input.disabled = byId("report-clear").disabled = false;
+      button.disabled = !reportBody;
     }
   }
 }
@@ -604,8 +677,11 @@ function initializeConsole() {
     document
       .querySelector('.topnav a[href="/console"]')
       .removeAttribute("aria-current");
-    byId("private-signin").setAttribute("aria-current", "page");
+    const workspaceNav = byId("private-signin");
+    workspaceNav.setAttribute("aria-current", "page");
+    workspaceNav.textContent = "Private workspace";
   }
+  document.querySelector('.topnav [aria-current="page"]').href = "#review";
   const drop = byId("report-drop");
   const input = byId("report-file");
   for (const type of ["dragover", "drop"]) {
@@ -634,37 +710,40 @@ function initializeConsole() {
     if (input.disabled || byId("report-upload").hidden) return;
     const items = [...event.dataTransfer.items];
     if (items.some((item) => item.webkitGetAsEntry?.()?.isDirectory)) {
-      input.value = "";
-      byId("report-submit").disabled = true;
-      status.textContent = "Choose a file instead of a folder.";
-      return;
+      return resetReport("Choose a file instead of a folder.");
     }
     const files = event.dataTransfer.files;
     if (files.length !== 1) {
-      input.value = "";
-      byId("report-submit").disabled = true;
-      status.textContent = "Drop one file at a time.";
-      return;
+      return resetReport("Drop one file at a time.");
     }
     input.files = files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
-  input.addEventListener("change", () => {
-    if (!input.files.length) {
-      byId("report-submit").disabled = true;
-      status.textContent = "";
-      return;
-    }
-    const file = validReportFile(input);
-    byId("report-submit").disabled = !file;
-    if (file) status.textContent = "Ready to import " + file.name;
+  input.addEventListener("change", selectReport);
+  byId("report-clear").addEventListener("click", () => {
+    resetReport();
+    input.focus();
   });
   byId("report-upload").addEventListener("submit", uploadReport);
-  login.addEventListener("submit", (event) => {
+  const field = byId("token");
+  const connect = byId("connect-submit");
+  field.addEventListener("input", () => {
+    connect.disabled = !field.value.trim();
+  });
+  login.addEventListener("submit", async (event) => {
     event.preventDefault();
-    sessionVersion++;
-    token = byId("token").value.trim();
-    refresh();
+    if (connect.disabled) return;
+    const session = ++sessionVersion;
+    token = field.value.trim();
+    connect.disabled = field.readOnly = true;
+    try {
+      await refresh();
+    } finally {
+      if (session === sessionVersion) {
+        field.readOnly = false;
+        connect.disabled = !field.value.trim();
+      }
+    }
   });
   byId("leave").addEventListener("click", clearSession);
   byId("reload").addEventListener("click", () => refresh());

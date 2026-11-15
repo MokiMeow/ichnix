@@ -51,7 +51,7 @@ def workspace():
     class Fixture(SimpleHTTPRequestHandler):
         extensions_map = {
             **SimpleHTTPRequestHandler.extensions_map,
-            ".js": "text/javascript", ".css": "text/css", ".ttf": "font/ttf",
+            ".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2",
         }
 
         def __init__(self, *args, **kwargs):

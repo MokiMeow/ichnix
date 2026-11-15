@@ -50,16 +50,11 @@
         aria-labelledby="case-heading"
       >
         <div class="field-copy">
-          <p class="eyebrow">Case notes / SURVEY-101</p>
           <h2 id="case-heading">One report, three checks.</h2>
           <p>
-            The ledger archive keeps records for 60 days against a 30-day
-            policy. Auditing passed. The staging manifest says nothing about
-            identifier masking, so that check stays open.
+            The staging archive kept records for 60 days against a 30-day
+            policy. Inspect the checks, the deployed revision and the handoff.
           </p>
-          <a class="plain-link" href="/docs#walkthrough"
-            >Read the case walkthrough <span aria-hidden="true">→</span></a
-          >
         </div>
         <section class="specimen" aria-labelledby="sample-title">
           <div class="specimen-title">
@@ -81,7 +76,7 @@
                 <path d="M14 3v5h4M9 12h6m-6 4h6" />
               </svg>
               Case inspector</span
-            ><span>Fixture / r7</span>
+            ><span>Fixture · r7</span>
           </div>
           <div class="specimen-context">
             <span class="case-label">SURVEY-101</span>
@@ -111,7 +106,7 @@
           <div class="sample-output" aria-live="polite">
             <dl class="readout evidence-output">
               <div>
-                <dt>retention_days</dt>
+                <dt>Retention period</dt>
                 <dd class="fail">
                   <svg
                     class="ui-icon"
@@ -133,7 +128,7 @@
                 </dd>
               </div>
               <div>
-                <dt>audit_enabled</dt>
+                <dt>Audit logging</dt>
                 <dd class="pass">
                   <svg
                     class="ui-icon"
@@ -155,7 +150,7 @@
                 </dd>
               </div>
               <div>
-                <dt>mask_identifiers</dt>
+                <dt>Identifier masking</dt>
                 <dd class="pending">
                   <svg
                     class="ui-icon"
@@ -206,28 +201,9 @@
               </div>
             </dl>
           </div>
-          <a
-            class="specimen-foot"
-            href="/docs#survey"
-            aria-label="Run this sample locally with the survey guide"
-            ><code>python3 cli.py survey</code
-            ><span class="run-link"
-              >Guide
-              <svg
-                class="ui-icon"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M4 12h15m-6-6 6 6-6 6" /></svg></span
-          ></a>
+          <a class="specimen-foot" href="/docs#survey"
+            >Run this sample locally <span aria-hidden="true">→</span></a
+          >
         </section>
       </section>
       <section class="guide-entries" id="talk" aria-labelledby="guide-heading">
@@ -267,7 +243,6 @@
         <nav aria-label="Footer navigation">
           <a href="/docs">Operator manual</a>
           <a href="/console">Review console</a>
-          <a href="https://github.com/sansynx/ichnix">GitHub</a>
         </nav>
         <a class="return-link" href="#main"
           >Back to top <span aria-hidden="true">↑</span></a
