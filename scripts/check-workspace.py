@@ -45,7 +45,8 @@ def main():
         print(json.dumps(checks))
         return int(not all(checks.values()))
     try:
-        trace = subprocess.run(["node", str(ROOT / "ichnix" / "trace.mjs")], input=b"[]",
+        sample = {"view": "trace", "case": "readiness", "component": "fixture", "revision": "v1", "events": []}
+        trace = subprocess.run(["node", str(ROOT / "ichnix" / "trace.mjs")], input=json.dumps(sample).encode(),
                                capture_output=True, timeout=10, check=True)
         checks["trace_renderer"] = b"<svg" in trace.stdout
     except (OSError, subprocess.SubprocessError):

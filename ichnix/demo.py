@@ -90,10 +90,7 @@ def _run():
                     http.demo_facts[facts_route] = graph.selfgraph_facts(case["id"])
                     trace = route + "/trace.svg"
                     http.demo_routes.add(trace)
-                    events = graph.context(case["id"])["evidence"]
-                    latest = events[-1].get("run_id") if events else None
-                    payload = [e for e in events if e.get("run_id") == latest]
-                    http.demo_traces[trace] = diagram_svg(payload), []
+                    http.demo_traces[trace] = diagram_svg(graph.evidence_trace(case["id"])), []
                     diagram = route + "/diagram.svg"
                     http.demo_routes.add(diagram)
                     plan, source = graph.review_diagram(case["id"])

@@ -11,16 +11,15 @@
 !public/
 !public/fonts/
 !public/app.js
+!public/manual.js
 !public/console.html
 !public/docs.css
 !public/docs.html
 !public/strata.webp
-!public/evidence-atlas.webp
 !public/evidence-graph.png
 !public/fonts/IBMPlexMono-LICENSE.txt
 !public/fonts/IBMPlexMono-Regular.ttf
 !public/fonts/InstrumentSans-LICENSE.txt
 !public/fonts/InstrumentSans.ttf
 !public/index.html
-!public/review-detail.webp
 !public/styles.css

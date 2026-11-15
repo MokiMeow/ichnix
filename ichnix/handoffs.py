@@ -103,7 +103,7 @@ class Handoffs:
     def enqueue(self, graph, case_id, kind, *, expected_scope=None):
         if kind not in KINDS:
             raise ValueError("invalid review kind")
-        context = graph.context(case_id)
+        _, context = graph.snapshot_context(case_id, include_operator=False)
         report = context["report"]
         if expected_scope and any(report[k] != expected_scope[k] for k in ("service", "component", "revision")):
             raise ValueError("case mapping changed before review handoff")
@@ -166,7 +166,7 @@ class Handoffs:
                     raise PermissionError("lease inactive")
                 return row
             job = active()
-            snapshot, context = graph.snapshot_context(job["case_id"])
+            snapshot, context = graph.snapshot_context(job["case_id"], include_operator=False)
             if any(context["report"][field] != job[field] for field in ("service", "component", "revision")):
                 raise PermissionError("case mapping changed")
             # Graph retrieval can outlive a short lease or overlap completion.
@@ -212,7 +212,7 @@ class Handoffs:
                               (job_id, row["attempts"])).fetchone()
             if not read:
                 raise PermissionError("read the queued review material under this lease first")
-            snapshot, context = graph.snapshot_context(row["case_id"])
+            snapshot, context = graph.snapshot_context(row["case_id"], include_operator=False)
             if read[0] != snapshot or _job_identity(context, row["kind"])[0] != job_id:
                 raise PermissionError("review material changed")
             if row["expires"] <= int(time.time()):

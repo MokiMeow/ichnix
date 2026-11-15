@@ -77,7 +77,8 @@ def named_workspace(hosted=False):
 
 def public_checks(browser, origin, width, hosted=False):
     page = browser.new_page(viewport={"width": width, "height": 850}, reduced_motion="reduce")
-    errors, external, exports = [], [], []
+    errors, external, exports, traces = [], [], [], []
+    page.on("request", lambda req: traces.append(req.url) if req.url.endswith("/trace.svg") else None)
     page.on("request", lambda req: exports.append(req.url) if req.url.endswith("/selfgraph.json") else None)
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.on("request", lambda req: external.append(urlsplit(req.url).netloc)
@@ -95,6 +96,8 @@ def public_checks(browser, origin, width, hosted=False):
             if route == "/console":
                 expect(page.get_by_role("progressbar", name="Connecting to workspace")).to_be_visible()
                 expect(page.locator("#status")).to_be_empty()
+                expect(page.locator("#workspace-skeleton")).to_be_visible()
+                assert page.locator("#activity span").first.evaluate("el => getComputedStyle(el).animationName") == "none"
                 for _ in range(100):
                     if held_session:
                         break
@@ -111,7 +114,7 @@ def public_checks(browser, origin, width, hosted=False):
                     page.unroute("**/api/session")
             page.evaluate("document.fonts.ready")
             assert page.evaluate("document.documentElement.scrollWidth") == width
-            expect(page.get_by_role("navigation", name="Footer navigation")).to_be_visible()
+            expect(page.locator("footer")).to_have_count(1 if route == "/" else 0)
             if route == "/":
                 artwork = page.request.get(origin + "/strata.webp")
                 assert artwork.ok and artwork.headers["content-type"] == "image/webp"
@@ -138,8 +141,18 @@ def public_checks(browser, origin, width, hosted=False):
                 query.fill("01")
                 expect(index.locator("a:visible")).to_have_count(1)
                 index.get_by_role("link", name="Follow a finding").click()
+                expect(index.locator("#chapter-query")).to_have_value("")
                 expect(page.locator("#walkthrough")).to_be_in_viewport()
+                active = index.locator('a[aria-current="location"]')
+                for chapter_id in ("storage", "providers", "install", "distribution"):
+                    page.locator("#" + chapter_id).evaluate("el => el.scrollIntoView()")
+                    expect(active).to_have_attribute("href", "#" + chapter_id)
+                    if width <= 720:
+                        expect(index.locator("summary")).to_be_in_viewport()
+                        expect(index.locator("#current-chapter")).to_contain_text(
+                            active.locator(".chapter-no").text_content())
                 page.goto(origin + "/docs#worker-mcp")
+                expect(active).to_have_attribute("href", "#agents")
                 expect(page.locator("#worker-mcp")).to_have_attribute("open", "")
                 summary = page.locator("#worker-mcp > summary")
                 summary.focus()
@@ -157,6 +170,16 @@ def public_checks(browser, origin, width, hosted=False):
                     else:
                         page.locator(f'#cases button[data-case-id="{case}"]').click()
                     expect(page.locator(".case-id")).to_have_text(case)
+                if width <= 720:
+                    picker = page.get_by_role("combobox", name="Selected case")
+                    if picker.evaluate("el => getComputedStyle(el).appearance === 'base-select'"):
+                        original = picker.input_value()
+                        picker.focus()
+                        page.keyboard.press("Space")
+                        assert picker.evaluate("el => el.matches(':open')")
+                        page.keyboard.press("ArrowDown")
+                        page.keyboard.press("Escape")
+                        expect(picker).to_have_value(original)
                 select("IX-108")
                 download = page.get_by_role("link", name="Download SelfGraph facts (JSON)")
                 expect(download).to_have_attribute("href", "/api/cases/IX-108/selfgraph.json")
@@ -174,10 +197,27 @@ def public_checks(browser, origin, width, hosted=False):
                 assert page.request.get(origin + "/api/cases/PRIVATE/selfgraph.json").status == 404
                 assert page.request.get(origin + "/api/case-page").status == 404
                 expect(page.get_by_role("navigation", name="Case pages")).to_be_hidden()
+                assert not traces
+                trace = page.get_by_text("Observed evidence trace", exact=True)
+                trace.focus()
+                page.keyboard.press("Enter")
                 expect(page.locator(".trace")).to_be_visible()
+                assert len(traces) == 1
+                trace.click()
+                trace.click()
+                expect(page.locator(".trace")).to_be_visible()
+                assert len(traces) == 1
                 page.get_by_text("Review workflow diagram", exact=True).click()
                 expect(page.locator(".review-diagram")).to_be_visible()
-                page.locator(".review-diagram").evaluate("img => img.decode()")
+                for selector in (".trace", ".review-diagram"):
+                    image = page.locator(selector)
+                    image.evaluate("img => img.decode()")
+                    sizes = image.evaluate("""img => {
+                        const box = img.getBoundingClientRect(), parent = img.parentElement.getBoundingClientRect();
+                        return [box.width, img.naturalWidth, parent.width,
+                                (box.left + box.right - parent.left - parent.right) / 2];
+                    }""")
+                    assert sizes[0] <= min(sizes[1:3]) + 0.1 and abs(sizes[3]) < 1
                 select("IX-113")
                 expect(page.locator(".trace")).to_have_count(0)
                 page.get_by_text("Review workflow diagram", exact=True).click()
@@ -201,6 +241,8 @@ def public_checks(browser, origin, width, hosted=False):
                 select("IX-108")
                 page.get_by_text("Review workflow diagram", exact=True).click()
                 expect(page.get_by_text("This workspace could not supply", exact=False)).to_be_visible()
+                expect(page.locator(".trace")).to_have_count(0)
+                page.get_by_text("Observed evidence trace", exact=True).click()
                 expect(page.locator(".trace")).to_be_visible()
                 page.get_by_text("Learning curve", exact=True).click()
                 for caption, expected in (("Feedback from the same component revision", "100%"),
@@ -246,6 +288,15 @@ def role_checks(browser, origin, tokens, width, hosted=False):
         page.on("request", observe)
         try:
             page.goto(origin + ("/workspace/" if hosted else "/console"))
+            login = page.locator("#connect")
+            expect(login).to_be_visible()
+            box = login.bounding_box()
+            assert abs(box["x"] + box["width"] / 2 - width / 2) <= 1
+            intro = page.locator(".workspace-intro").bounding_box()
+            header = page.locator(".mast").bounding_box()
+            form_middle = (intro["y"] + box["y"] + box["height"]) / 2
+            assert abs(form_middle - (850 + header["height"]) / 2) < 50
+            assert page.locator("footer").count() == 0
             pending_cases = []
             if role == "intake":
                 case_list = "**/" + ("org-api" if hosted else "api") + "/case-page"
@@ -263,6 +314,8 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 page.unroute(case_list)
             if role == "worker":
                 expect(page.locator("#status")).to_contain_text("denied")
+                expect(page.locator("#workspace-skeleton")).to_be_hidden()
+                expect(page.get_by_role("progressbar")).to_have_count(0)
                 expect(page.locator("#report-upload")).to_be_hidden()
                 expect(page.locator("#desk")).to_be_hidden()
                 continue
@@ -412,8 +465,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     page.get_by_label("Access token").fill(token)
                     page.get_by_role("button", name="Connect", exact=True).click()
                     expect(page.locator(".case-id")).to_have_text("IX-104")
-                    with page.expect_response(path):
-                        holds[0].fulfill(status=401)
+                    holds[0].fulfill(status=401)  # The old image request was aborted on disconnect.
                     expect(page.get_by_role("button", name="Disconnect")).to_be_visible()
                     page.unroute(path)
                     path = f"**/{family}/cases/IX-104/diagram.svg"

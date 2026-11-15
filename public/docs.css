@@ -70,7 +70,8 @@
 .manual-article {
   min-width: 0;
   padding: 2.2rem 0 3rem clamp(1.75rem, 3.8vw, 3.5rem);
-  width: min(100%, 51rem);
+  width: min(100%, 48rem);
+  margin-inline: auto;
 }
 .manual-intro,
 .workspace-intro {
@@ -125,7 +126,7 @@
 .manual-article p,
 .manual-article dd,
 .manual-article li {
-  max-width: 70ch;
+  max-width: 64ch;
   overflow-wrap: anywhere;
 }
 .manual-article p {
@@ -199,27 +200,68 @@
   justify-content: space-between;
   gap: 1rem;
 }
-/* Reserve the feedback line so a fast response never moves the controls. */
-.pending-line {
-  position: absolute;
-  inset: auto 0 -0.6rem;
-  height: 2px;
-  pointer-events: none;
-  background: var(--line);
+
+body:has(> .workspace) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
 }
-.pending-line::before {
-  content: "";
-  display: block;
-  width: 4rem;
-  max-width: 30%;
-  height: 100%;
-  background: var(--accent);
+.workspace:has(#desk[hidden]) {
+  width: min(calc(100% - 2.25rem), 27rem);
+  padding-block: clamp(1.5rem, 4svh, 3rem);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.workspace-intro h1 {
+  margin-bottom: 0.3rem;
+}
+.workspace:has(#desk[hidden]) .workspace-intro {
+  padding-bottom: 1rem;
+}
+.workspace:has(#desk[hidden]) #retry {
+  align-self: start;
+}
+.pending-dots {
+  position: absolute;
+  inset: auto 0 -0.65rem auto;
+  display: flex;
+  gap: 0.32rem;
+  align-items: center;
+  padding: 0.4rem 0 0.4rem 0.45rem;
+  background: var(--bg);
+}
+.pending-dots span {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 50%;
+  background: var(--muted);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .pending-line {
-    animation: pending-appear 150ms 180ms backwards;
+  .pending-dots span {
+    animation: console-dot 1.4s ease-in-out infinite;
   }
-  @keyframes pending-appear {
+  .pending-dots span:nth-child(2) {
+    animation-delay: 140ms;
+  }
+  .pending-dots span:nth-child(3) {
+    animation-delay: 280ms;
+  }
+  @keyframes console-dot {
+    0%,
+    65%,
+    100% {
+      opacity: 0.35;
+    }
+    28% {
+      opacity: 1;
+    }
+  }
+  .console-skeleton {
+    animation: console-appear 140ms 160ms backwards;
+  }
+  @keyframes console-appear {
     from {
       opacity: 0;
     }
@@ -228,12 +270,24 @@
     }
   }
 }
-.case-diagram [aria-busy="true"],
-#evaluation-result[aria-busy="true"],
-#detail div[aria-busy="true"] {
-  min-height: 2.75rem;
-  background: linear-gradient(var(--line), var(--line)) left center /
-    min(8rem, 40%) 2px no-repeat;
+.console-skeleton,
+#detail:empty[aria-busy="true"]::before,
+#evaluation-result[aria-busy="true"]::before,
+.case-diagram [aria-busy="true"]::before {
+  content: "";
+  display: block;
+  height: 4.4rem;
+  margin-block: 1.25rem;
+  background:
+    linear-gradient(var(--line), var(--line)) 0 0 / min(58%, 18rem) 0.65rem,
+    linear-gradient(var(--surface), var(--surface)) 0 1.6rem / min(85%, 25rem)
+      0.55rem,
+    linear-gradient(var(--surface), var(--surface)) 0 2.8rem / min(70%, 20rem)
+      0.55rem;
+  background-repeat: no-repeat;
+}
+#workspace-label:empty {
+  display: none;
 }
 #workspace-label {
   min-height: 1.5em;
@@ -285,10 +339,11 @@
   background: var(--surface);
 }
 #connect {
-  margin-top: 2rem;
-  max-width: 36rem;
-  border: 1px solid var(--line);
-  padding: 1.35rem;
+  margin-top: 1.35rem;
+  width: 100%;
+}
+.workspace #connect .hint {
+  margin-block: 0.6rem 0;
 }
 #connect label,
 .case-picker {
@@ -492,12 +547,13 @@
 #evaluation table {
   margin-bottom: 1rem;
 }
-.trace {
+.trace,
+.review-diagram {
   display: block;
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-  margin: 1rem 0;
+  inline-size: auto;
+  max-inline-size: 100%;
+  block-size: auto;
+  margin: 0.75rem auto;
 }
 @media (max-width: 60rem) {
   .manual-index a,
@@ -521,15 +577,23 @@
     display: block;
   }
   .manual-rail {
-    padding: 0.7rem 0 0;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bg);
     border-inline-end: 0;
   }
   .index-panel {
     position: static;
-    max-height: none;
+    max-height: min(65dvh, 30rem);
+    overscroll-behavior: contain;
     border: 1px solid var(--line);
   }
   .index-panel summary {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
     padding: 0.65rem 0.85rem;
     min-height: 44px;
   }
@@ -633,12 +697,6 @@
   color: var(--muted);
   margin-block: 0.25rem 0.8rem;
 }
-.review-diagram {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 .history-panel {
   margin-block: 1rem;
   border-block: 1px solid var(--line);
@@ -658,6 +716,59 @@
   align-items: center;
   min-height: 44px;
   font-size: 0.875rem;
+}
+
+@media (max-width: 45rem) {
+  @supports (appearance: base-select) and selector(::picker(select)) {
+    #case-select,
+    #case-select::picker(select) {
+      appearance: base-select;
+    }
+    #case-select {
+      display: flex;
+      align-items: center;
+    }
+    #case-select::picker(select) {
+      inline-size: anchor-size(width);
+      max-inline-size: calc(100vw - 2.25rem);
+      max-height: min(18rem, 45svh);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      font: 0.875rem/1.45 var(--mono);
+      overflow-y: auto;
+    }
+    #case-select option {
+      min-height: 44px;
+      padding: 0.55rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    #case-select option:is(:checked, :focus-visible) {
+      background: var(--hover);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      #case-select::picker(select) {
+        opacity: 0;
+        translate: 0 -0.2rem;
+        transition:
+          opacity 120ms ease-out,
+          translate 120ms ease-out,
+          display 120ms allow-discrete,
+          overlay 120ms allow-discrete;
+      }
+      #case-select:open::picker(select) {
+        opacity: 1;
+        translate: 0;
+      }
+      @starting-style {
+        #case-select:open::picker(select) {
+          opacity: 0;
+          translate: 0 -0.2rem;
+        }
+      }
+    }
+  }
 }
 
 @media (max-width: 24rem) {
@@ -707,4 +818,71 @@
       rgb(20 21 22 / 60%)
     ),
     url("/strata.webp") center 60% / cover;
+}
+
+.manual-index a[aria-current="location"] {
+  color: var(--text);
+  background: var(--hover);
+  box-shadow: inset 2px 0 var(--accent);
+}
+.manual-index a {
+  padding-inline: 0.45rem;
+}
+#current-chapter {
+  display: none;
+}
+.manual-article ol {
+  padding-inline-start: 1.5rem;
+}
+.manual-article li + li {
+  margin-top: 0.55rem;
+}
+@media (max-width: 45rem) {
+  #current-chapter {
+    display: inline;
+    margin-inline-start: 0.4rem;
+    color: var(--muted);
+    font: 0.8rem var(--sans);
+  }
+  .chapter-finder {
+    margin-inline: 0.85rem;
+  }
+  .manual-article :is(section, details, h2, h3) {
+    scroll-margin-top: 4rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (interpolate-size: allow-keywords) and
+    selector(details::details-content) {
+    .manual-subsection,
+    .index-panel,
+    .workspace details {
+      interpolate-size: allow-keywords;
+    }
+    :is(.manual-subsection, .index-panel, .workspace details)::details-content {
+      block-size: 0;
+      overflow: clip;
+      opacity: 0;
+      transition:
+        block-size 170ms ease-out,
+        opacity 140ms ease-out,
+        content-visibility 170ms allow-discrete;
+    }
+    :is(
+        .manual-subsection,
+        .index-panel,
+        .workspace details
+      )[open]::details-content {
+      block-size: auto;
+      opacity: 1;
+    }
+  }
+}
+
+@media (min-width: 45.001rem) {
+  .manual-index {
+    max-height: max(8rem, calc(100dvh - 12rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }

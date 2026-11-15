@@ -33,21 +33,28 @@
     <main class="workspace" id="review">
       <header class="workspace-intro">
         <div>
-          <p class="loc">Workspace <span aria-hidden="true">/</span> Review</p>
           <h1>Review console</h1>
           <p id="workspace-label"></p>
         </div>
         <button id="leave" class="cmd" hidden>Disconnect</button>
         <div
           id="activity"
-          class="pending-line"
+          class="pending-dots"
           role="progressbar"
           aria-label="Connecting to workspace"
           hidden
-        ></div>
+        >
+          <span aria-hidden="true"></span><span aria-hidden="true"></span
+          ><span aria-hidden="true"></span>
+        </div>
       </header>
-      <form id="connect" hidden>
-        <h2>Connect to workspace</h2>
+      <div
+        id="workspace-skeleton"
+        class="console-skeleton"
+        aria-hidden="true"
+        hidden
+      ></div>
+      <form id="connect" aria-label="Connect to workspace" hidden>
         <label for="token">Access token</label>
         <div class="input-row">
           <input
@@ -59,7 +66,7 @@
           /><button class="cmd primary">Connect</button>
         </div>
         <p class="hint">
-          Use the access token configured by your workspace administrator.
+          Use the token issued by your workspace administrator.
         </p>
       </form>
       <form id="report-upload" hidden>
@@ -111,28 +118,5 @@
         ></article>
       </div>
     </main>
-    <footer class="atlas-footer">
-      <div class="footer-inner">
-        <div class="footer-signature">
-          <a class="brand" href="/" aria-label="Ichnix home"
-            ><img
-              src="/evidence-graph.png"
-              width="34"
-              height="34"
-              alt=""
-            />Ichnix</a
-          >
-          <p>A security evidence workspace built on HydraDB.</p>
-        </div>
-        <nav aria-label="Footer navigation">
-          <a href="/docs">Operator manual</a>
-          <a href="/console">Review console</a>
-          <a href="https://github.com/sansynx/ichnix">GitHub</a>
-        </nav>
-        <a class="return-link" href="#review"
-          >Back to top <span aria-hidden="true">↑</span></a
-        >
-      </div>
-    </footer>
   </body>
 </html>

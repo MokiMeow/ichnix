@@ -28,9 +28,7 @@ def parse_mapped_report(raw):
     if _case_id(report["id"]) in (".", ".."):
         raise ValueError("invalid case identifier")
     for key in report:
-        value = _field(report, key, 240 if key == "title" else 160)
-        value.encode("utf-8")  # Reject unpaired surrogates before graph writes.
-        report[key] = value
+        report[key] = _field(report, key, 240 if key == "title" else 160)
     return report
 
 

@@ -7,7 +7,7 @@
     <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/docs.css" />
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/manual.js"></script>
   </head>
   <body>
     <a class="skip" href="#manual">Skip to content</a>
@@ -31,7 +31,7 @@
       <div class="manual-layout">
         <aside class="manual-rail">
           <details class="index-panel" open>
-            <summary>Contents</summary>
+            <summary>Contents <span id="current-chapter"></span></summary>
             <div class="chapter-finder" hidden>
               <label for="chapter-query">Find a chapter</label>
               <input
@@ -102,10 +102,8 @@
             <p class="loc">Docs <span aria-hidden="true">/</span> Operations</p>
             <h1>Operator manual</h1>
             <p>
-              Connect a bounty program, capture staging evidence and hand a
-              scoped review to an engineer or coding agent. Start with
-              <a href="#walkthrough">01 · the case walkthrough</a> or go to
-              <a href="#install">02 · installation</a>.
+              Follow a report from intake to a recorded decision, or
+              <a href="#install">set up your own workspace</a>.
             </p>
           </header>
           <section id="walkthrough" aria-labelledby="walkthrough-title">
@@ -161,16 +159,22 @@ scripts/start-hydra.sh</code></pre>
               renderer.
             </p>
             <pre tabindex="0"><code>python3 cli.py check-workspace</code></pre>
-            <p>
-              The default state directory is <code>~/.local/state/ichnix</code>.
-              Set <code>ICHNIX_STATE_DIR</code> consistently to move it. For an
-              existing graph, configure <code>ICHNIX_HYDRA_URL</code>,
-              <code>ICHNIX_HYDRA_TOKEN_FILE</code>,
-              <code>ICHNIX_HYDRA_NAMESPACE</code>,
-              <code>ICHNIX_HYDRA_GRAPH</code> and
-              <code>ICHNIX_HYDRA_CELL</code>. Use authenticated HTTPS for remote
-              connections.
-            </p>
+            <details class="manual-subsection" id="graph-settings">
+              <summary>
+                Use an existing graph or change the state directory
+              </summary>
+              <p>
+                The default state directory is
+                <code>~/.local/state/ichnix</code>. Set
+                <code>ICHNIX_STATE_DIR</code> consistently to move it. For an
+                existing graph, configure <code>ICHNIX_HYDRA_URL</code>,
+                <code>ICHNIX_HYDRA_TOKEN_FILE</code>,
+                <code>ICHNIX_HYDRA_NAMESPACE</code>,
+                <code>ICHNIX_HYDRA_GRAPH</code> and
+                <code>ICHNIX_HYDRA_CELL</code>. Use authenticated HTTPS for
+                remote connections.
+              </p>
+            </details>
             <details class="manual-subsection" id="containers">
               <summary>Container deployment</summary>
               <pre tabindex="0"><code>docker compose up --build --detach --wait
@@ -216,48 +220,53 @@ docker compose ps</code></pre>
               <span class="chapter-no">03</span>Host a public preview on Vercel
             </h2>
             <p>
-              Import the Git repository from the Vercel dashboard and set the
-              production branch to <code>main</code>. The root
-              <code>vercel.json</code> builds the public site and three Node
-              functions when Vercel receives Git updates. The graph runtime,
-              SQLite stores and private operator console stay on the workspace
-              host.
+              Vercel serves the website. A persistent host runs HydraDB, SQLite
+              and the read-only demo.
             </p>
-            <p>
-              Run
-              <code
-                >python3 cli.py demo --public-readonly --with-disclosure --port
-                18766</code
-              >
-              on a persistent host. Expose that read-only demo through HTTPS and
-              set its exact origin as <code>ICHNIX_PUBLIC_ORIGIN</code> in
-              Vercel. Leave credentials and paths out of the origin. The relay
-              checks public demo mode and forwards only the published case,
-              diagram, acceptance and evaluation routes. Signed-in company
-              workflows can use a separately configured private organization
-              origin.
-            </p>
-            <p>
-              For optional AI layout selection, configure
-              <code>ICHNIX_CF_ACCOUNT_ID</code>,
-              <code>ICHNIX_CF_AI_TOKEN</code> and a random
-              <code>ICHNIX_LAYOUT_SECRET</code> of at least 32 characters in
-              Vercel's server environment. On the private ingestion service
-              configure <code>ICHNIX_LAYOUT_URL</code> to the HTTPS Vercel
-              <code>/api/report-layout</code> URL and
-              <code>ICHNIX_LAYOUT_SECRET_FILE</code> to a private file holding
-              the shared secret. The model receives only the report-source and
-              topic categories and selects a three-way display order. The
-              private workspace retains the report text. Missing credentials or
-              an unavailable provider leave the deterministic local ordering in
-              effect.
-            </p>
-            <p>
-              <a href="https://vercel.com/docs/git">Vercel Git deployments</a> ·
+            <ol>
+              <li>
+                Import the repository into Vercel and select
+                <code>main</code> as the production branch. The included
+                <code>vercel.json</code> configures the build and functions.
+              </li>
+              <li>
+                On the persistent host, start the demo:
+                <pre
+                  tabindex="0"
+                ><code>python3 cli.py demo --public-readonly --with-disclosure --port 18766</code></pre>
+              </li>
+              <li>
+                Expose the demo over HTTPS. Set
+                <code>ICHNIX_PUBLIC_ORIGIN</code> in Vercel to its origin,
+                without a path or credentials.
+              </li>
+            </ol>
+            <details class="manual-subsection" id="ai-layout">
+              <summary>Configure Workers AI layout selection</summary>
+              <p>
+                In Vercel, set <code>ICHNIX_CF_ACCOUNT_ID</code>,
+                <code>ICHNIX_CF_AI_TOKEN</code> and a random
+                <code>ICHNIX_LAYOUT_SECRET</code> of at least 32 characters.
+              </p>
+              <p>
+                On the private ingestion service, point
+                <code>ICHNIX_LAYOUT_URL</code> at the HTTPS Vercel
+                <code>/api/report-layout</code> endpoint. Set
+                <code>ICHNIX_LAYOUT_SECRET_FILE</code> to the private file
+                containing the same secret.
+              </p>
+              <p>
+                The model receives the source and topic categories and chooses a
+                display order. Report text stays in the workspace. If the
+                provider is unavailable, the local layout takes over.
+              </p>
               <a
                 href="https://developers.cloudflare.com/workers-ai/features/json-mode/"
                 >Workers AI structured responses</a
               >
+            </details>
+            <p>
+              <a href="https://vercel.com/docs/git">Vercel Git deployments</a>
             </p>
           </section>
           <section id="hosted-workspace">
@@ -266,34 +275,58 @@ docker compose ps</code></pre>
               workspace
             </h2>
             <p>
-              In Vercel, set <code>ICHNIX_WORKSPACE_ORIGIN</code> to the HTTPS
-              root of a dedicated persistent organization installation and
-              <code>ICHNIX_ORIGIN_SECRET</code> to a random secret of at least
-              32 characters. Configure the matching secret on that origin and
-              require the relay’s <code>X-Ichnix-Origin-Secret</code> header.
-              Keep this deployment and its data separate from the read-only
-              demo. Apply production values only to deployments trusted to
-              access this organization.
+              Give your team a private sign-in at
+              <code>/workspace</code>. The public demo at
+              <a href="/console">/console</a> uses a separate origin.
             </p>
-            <p>
-              Sign in at <code>/workspace</code> using a named organization
-              credential. The hosted relay forwards a bearer credential to the
-              organization API for case reads, owner reviews and single-report
-              intake. A named intake credential is required to upload. The
-              public demo at <code>/console</code> stays anonymous. Remote
-              workers can use the hosted organization relay with a named worker
-              credential and the hosted client setting below.
-            </p>
-            <p>
-              For platform events, register <code>/hooks/hackerone</code> or
-              <code>/hooks/bugcrowd</code> on the Vercel hostname. Configure the
-              provider signing secrets, organization program scope and catalog
-              on the private origin as described under
-              <a href="#providers">Connect a program</a>. The relay preserves
-              the signed delivery bytes and signature for verification by that
-              origin. Webhooks and mapped uploads accept up to 1 MiB. Review
-              decisions accept up to 16 KiB.
-            </p>
+            <details class="manual-subsection" id="workspace-origin">
+              <summary>Connect the private origin</summary>
+              <ol>
+                <li>
+                  Set <code>ICHNIX_WORKSPACE_ORIGIN</code> in Vercel to the
+                  HTTPS root of the organization installation.
+                </li>
+                <li>
+                  Set <code>ICHNIX_ORIGIN_SECRET</code> to the same random
+                  secret of at least 32 characters on Vercel and the origin.
+                  Require the relay’s <code>X-Ichnix-Origin-Secret</code> header
+                  on the origin.
+                </li>
+                <li>
+                  Apply production values only to deployments trusted to access
+                  the organization.
+                </li>
+              </ol>
+            </details>
+            <details class="manual-subsection" id="workspace-roles">
+              <summary>Sign in, upload and connect a worker</summary>
+              <p>
+                Sign in with a named organization credential. The relay forwards
+                it to the organization API. Readers can open cases, reviewers
+                can record decisions, and intake credentials can upload one
+                report at a time.
+              </p>
+              <p>
+                For remote workers, use a named worker credential and the
+                <a href="#worker-mcp">hosted client settings</a>.
+              </p>
+            </details>
+            <details class="manual-subsection" id="workspace-hooks">
+              <summary>Receive signed platform events</summary>
+              <p>
+                Register <code>/hooks/hackerone</code> or
+                <code>/hooks/bugcrowd</code> on the Vercel hostname.
+                <a href="#providers"
+                  >Configure the program, catalog and signing secrets</a
+                >
+                on the private origin. The relay preserves the signed bytes for
+                verification.
+              </p>
+              <p>
+                Webhooks and mapped uploads accept up to 1 MiB. Review decisions
+                accept up to 16 KiB.
+              </p>
+            </details>
           </section>
           <section id="storage">
             <h2><span class="chapter-no">05</span>Configure SQLite</h2>
@@ -311,17 +344,20 @@ export ICHNIX_HANDOFF_DB="$ICHNIX_STATE_DIR/handoffs.sqlite3"
 python3 cli.py storage init
 python3 cli.py storage check
 python3 cli.py check-workspace</code></pre>
-            <p>
-              Initialization is idempotent. The check reads database integrity
-              and schemas. For an existing deployment, keep its original paths.
-              For Compose, export the corresponding paths under
-              <code>/var/lib/ichnix</code>, then use
-              <code
-                >docker compose run --rm console python3 cli.py storage
-                init</code
-              >
-              before startup. Keep the console state volume across restarts.
-            </p>
+            <details class="manual-subsection" id="storage-compose">
+              <summary>Existing deployments and Compose</summary>
+              <p>
+                Initialization is idempotent. The check reads database integrity
+                and schemas. For an existing deployment, keep its original
+                paths. For Compose, export the corresponding paths under
+                <code>/var/lib/ichnix</code>, then use
+                <code
+                  >docker compose run --rm console python3 cli.py storage
+                  init</code
+                >
+                before startup. Keep the console state volume across restarts.
+              </p>
+            </details>
             <details class="manual-subsection" id="recovery">
               <summary>Recover a private workspace</summary>
               <p>
@@ -353,21 +389,24 @@ python3 cli.py check-workspace</code></pre>
             <pre tabindex="0"><code>python3 -m unittest discover -s tests -v
 python3 cli.py survey
 python3 cli.py survey --out /tmp/new-survey.json</code></pre>
-            <p>
-              The offline survey runs four synthetic reports through HydraDB,
-              SQLite, HTTP, the CLI and both MCP profiles. Two ledger reports
-              share revision r7, and a third report covers an unrelated
-              component. In SURVEY-104, all three controls pass on ledger
-              revision r8. Replaying the signed r7 manifest against r8 is
-              rejected without adding evidence.
-            </p>
-            <p>
-              For a live agent check in a source checkout, run
-              <code>python3 testing/model_survey.py</code> with a signed-in
-              Codex CLI. The evidence inspector and owner router each read one
-              synthetic assignment and submit a disposition. The runner checks
-              the stored SQLite receipt and its corresponding HydraDB outcome.
-            </p>
+            <details class="manual-subsection" id="survey-results">
+              <summary>What the survey covers</summary>
+              <p>
+                The offline survey runs four synthetic reports through HydraDB,
+                SQLite, HTTP, the CLI and both MCP profiles. Two ledger reports
+                share revision r7, and a third report covers an unrelated
+                component. In SURVEY-104, all three controls pass on ledger
+                revision r8. Replaying the signed r7 manifest against r8 is
+                rejected without adding evidence.
+              </p>
+              <p>
+                For a live agent check in a source checkout, run
+                <code>python3 testing/model_survey.py</code> with a signed-in
+                Codex CLI. The evidence inspector and owner router each read one
+                synthetic assignment and submit a disposition. The runner checks
+                the stored SQLite receipt and its corresponding HydraDB outcome.
+              </p>
+            </details>
           </section>
           <section id="acceptance">
             <h2><span class="chapter-no">07</span>Run acceptance</h2>
@@ -377,34 +416,38 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
               HackerOne and works without a provider account.
             </p>
             <pre tabindex="0"><code>python3 cli.py acceptance</code></pre>
-            <p>
-              <strong>Public source.</strong> The importer retrieves the
-              disclosed title and report ID from curl’s HackerOne program. The
-              public website representation can change independently of the
-              authenticated customer API.
-              <a href="https://hackerone.com/reports/2236133"
-                >HackerOne disclosure #2236133</a
-              >
-              ·
-              <a href="https://curl.se/docs/CVE-2023-46219.html"
-                >curl advisory</a
-              >
-            </p>
-            <p>
-              <strong>Local evidence.</strong> The run assigns a local service
-              and owner, observes three HTTP headers on its own Ichnix instance,
-              signs the staging manifest, checks the results, and records a
-              completed MCP handoff and reviewer decision. Its receipt
-              identifies the service under test, observation time, manifest
-              digest and outcome. Exit code <code>0</code> means these checks
-              passed. The run makes no measurement of curl’s deployment.
-            </p>
-            <p>
-              The public preview serves a
-              <a href="/api/acceptance">filtered acceptance receipt</a>. On a
-              self-hosted workspace, use the command above to generate your own
-              receipt.
-            </p>
+            <details class="manual-subsection" id="acceptance-source">
+              <summary>Read the acceptance receipt</summary>
+              <p>
+                <strong>Public source.</strong> The importer retrieves the
+                disclosed title and report ID from curl’s HackerOne program. The
+                public website representation can change independently of the
+                authenticated customer API.
+                <a href="https://hackerone.com/reports/2236133"
+                  >HackerOne disclosure #2236133</a
+                >
+                ·
+                <a href="https://curl.se/docs/CVE-2023-46219.html"
+                  >curl advisory</a
+                >
+              </p>
+              <p>
+                <strong>Local evidence.</strong> The run assigns a local service
+                and owner, observes three HTTP headers on its own Ichnix
+                instance, signs the staging manifest, checks the results, and
+                records a completed MCP handoff and reviewer decision. Its
+                receipt identifies the service under test, observation time,
+                manifest digest and outcome. Exit code <code>0</code> means
+                these checks passed. The run makes no measurement of curl’s
+                deployment.
+              </p>
+              <p>
+                The public preview serves a
+                <a href="/api/acceptance">filtered acceptance receipt</a>. On a
+                self-hosted workspace, use the command above to generate your
+                own receipt.
+              </p>
+            </details>
           </section>
           <section id="providers">
             <h2><span class="chapter-no">08</span>Connect a program</h2>
@@ -417,26 +460,31 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
               is <code>python3 cli.py human import-report report.json</code>
               with the workspace URL and intake token file configured.
             </p>
-            <p>
-              To send one mapped report directly to a private installation,
-              issue a named credential with
-              <code
-                >python3 cli.py identity issue pipeline --role intake --out
-                /private/pipeline.token</code
-              >. Send its bearer token from the intake process to
-              <code>POST /api/import/report</code> on the organization's HTTPS
-              origin. The JSON object must contain exactly <code>id</code>,
-              <code>title</code>, <code>service</code>, <code>revision</code>,
-              <code>component</code> and <code>owner</code>. Keep this role on
-              the private workspace.
-            </p>
-            <p>
-              The customer supplies a private catalog mapping report IDs or
-              scoped assets to a service, component, deployed revision and
-              owning team. Unmapped reports are skipped. A source report keeps
-              its provider identity. Attachments, payments and researcher
-              correspondence stay on the bounty platform.
-            </p>
+            <details class="manual-subsection" id="mapped-api">
+              <summary>
+                Import from an API client and map catalog entries
+              </summary>
+              <p>
+                To send one mapped report directly to a private installation,
+                issue a named credential with
+                <code
+                  >python3 cli.py identity issue pipeline --role intake --out
+                  /private/pipeline.token</code
+                >. Send its bearer token from the intake process to
+                <code>POST /api/import/report</code> on the organization's HTTPS
+                origin. The JSON object must contain exactly <code>id</code>,
+                <code>title</code>, <code>service</code>, <code>revision</code>,
+                <code>component</code> and <code>owner</code>. Keep this role on
+                the private workspace.
+              </p>
+              <p>
+                The customer supplies a private catalog mapping report IDs or
+                scoped assets to a service, component, deployed revision and
+                owning team. Unmapped reports are skipped. A source report keeps
+                its provider identity. Attachments, payments and researcher
+                correspondence stay on the bounty platform.
+              </p>
+            </details>
             <details class="manual-subsection" id="public-report">
               <summary>Map a disclosed report</summary>
               <p>
@@ -554,8 +602,10 @@ python3 cli.py staging h1-curl-2236133 \
               method. Exit <code>0</code> means all configured values matched,
               <code>1</code> means a value differed or was missing, and
               <code>2</code> means intake could not complete. A missing setting
-              appears as inconclusive. The console displays the latest run as a
-              Pele sequence diagram.
+              appears as inconclusive. Open the evidence trace to see checks
+              from the latest run. Checks from one manifest appear together,
+              grouped by result. Single observations and mixed sources appear in
+              recorded order.
             </p>
             <p class="manual-note">
               A signed manifest attests to bytes provided by the holder of the
@@ -890,28 +940,5 @@ export SELFGRAPH_NAMESPACE=ichnix-ledger
         </article>
       </div>
     </main>
-    <footer class="atlas-footer">
-      <div class="footer-inner">
-        <div class="footer-signature">
-          <a class="brand" href="/" aria-label="Ichnix home"
-            ><img
-              src="/evidence-graph.png"
-              width="34"
-              height="34"
-              alt=""
-            />Ichnix</a
-          >
-          <p>A security evidence workspace built on HydraDB.</p>
-        </div>
-        <nav aria-label="Footer navigation">
-          <a href="/docs">Operator manual</a>
-          <a href="/console">Review console</a>
-          <a href="https://github.com/sansynx/ichnix">GitHub</a>
-        </nav>
-        <a class="return-link" href="#manual"
-          >Back to top <span aria-hidden="true">↑</span></a
-        >
-      </div>
-    </footer>
   </body>
 </html>

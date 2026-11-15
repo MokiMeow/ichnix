@@ -51,7 +51,7 @@ node scripts/render-architecture.mjs
 git diff -- docs/architecture.svg
 ```
 
-Open the SVG in a browser and check labels, arrows and direction. Commit the renderer and regenerated output together when changing the topology. The [case trace renderer](ichnix/trace.mjs) builds sequence diagrams from observed CI events.
+Open the SVG in a browser and check labels, arrows and direction. Commit the renderer and regenerated output together when changing the topology. The [case trace renderer](ichnix/trace.mjs) chooses a control matrix, sequence or empty evidence view from the recorded CI observations. Its separate workflow diagram shows scope and the latest owner decision.
 
 ## Submit a change
 

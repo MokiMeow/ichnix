@@ -21,9 +21,9 @@ from ichnix.intake import MAX_REPORT_BYTES, parse_mapped_report
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 PUBLIC_ASSETS = {
-    "index.html", "console.html", "docs.html", "app.js", "styles.css", "docs.css",
+    "index.html", "console.html", "docs.html", "app.js", "manual.js", "styles.css", "docs.css",
     "strata.webp",
-    "evidence-graph.png", "evidence-atlas.webp", "review-detail.webp",
+    "evidence-graph.png",
     "fonts/IBMPlexMono-Regular.ttf", "fonts/InstrumentSans.ttf",
     "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
 }
@@ -181,14 +181,10 @@ class Handler(BaseHTTPRequestHandler):
         if not write and action == "diagram.svg":
             plan, source = graph.review_diagram(case_id)
             return self.send(200, diagram_svg(plan), "image/svg+xml", [("X-Ichnix-Layout-Source", source)])
+        if not write and action == "trace.svg":
+            return self.send(200, diagram_svg(graph.evidence_trace(case_id)), "image/svg+xml")
         if not write and action != "reviews":
-            data = graph.context(case_id)
-            if action == "trace.svg":
-                events = data["evidence"]
-                latest = events[-1].get("run_id") if events else None
-                events = [e for e in events if e.get("run_id") == latest]
-                return self.send(200, diagram_svg(events), "image/svg+xml")
-            return self.send(200, data)
+            return self.send(200, graph.context(case_id))
         return self.send(405, {"error": "method"})
 
     def handoff(self, path, write):

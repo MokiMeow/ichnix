@@ -9,6 +9,7 @@ const hostedPreview =
 const apiBase = orgWorkspace ? "/org-api/" : "/api/";
 let token = "";
 const caseImages = new Set();
+let imageRequests = new AbortController();
 let selected;
 let generation = 0;
 let sessionVersion = 0;
@@ -28,6 +29,7 @@ function beginView(label) {
   const activity = byId("activity");
   activity.setAttribute("aria-label", label);
   activity.hidden = false;
+  byId("workspace-skeleton").hidden = !desk.hidden || !login.hidden;
   detail.setAttribute("aria-busy", "true");
   detail.inert = true;
   byId("retry").hidden = true;
@@ -39,6 +41,7 @@ function beginView(label) {
 function endView(view) {
   if (view !== generation) return;
   byId("activity").hidden = true;
+  byId("workspace-skeleton").hidden = true;
   detail.removeAttribute("aria-busy");
   detail.inert = false;
 }
@@ -51,14 +54,17 @@ function showError(message, retry) {
 }
 
 function clearCaseImages() {
+  imageRequests.abort();
+  imageRequests = new AbortController();
   for (const url of caseImages) URL.revokeObjectURL(url);
   caseImages.clear();
 }
 
 async function loadCaseImage(container, caseId, path, className, alt, failure) {
+  const { signal } = imageRequests;
   container.setAttribute("aria-busy", "true");
   const retryImage = () => {
-    if (!container.isConnected || selected !== caseId) return;
+    if (signal.aborted || !container.isConnected || selected !== caseId) return;
     const retry = element("button", "Retry image", "cmd");
     retry.type = "button";
     retry.onclick = () =>
@@ -69,11 +75,12 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
   try {
     const response = await request(
       "cases/" + encodeURIComponent(caseId) + "/" + path,
+      { signal },
     );
     if (response.headers.get("Content-Type")?.split(";")[0] !== "image/svg+xml")
       throw new Error("Expected an SVG image");
     const blob = await response.blob();
-    if (!container.isConnected || selected !== caseId) return;
+    if (signal.aborted || !container.isConnected || selected !== caseId) return;
     const url = URL.createObjectURL(blob);
     caseImages.add(url);
     const image = element("img", undefined, className);
@@ -140,7 +147,9 @@ async function request(path, options = {}) {
       },
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(30000),
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(30000)])
+        : AbortSignal.timeout(30000),
     });
   } catch {
     throw new Error("Connection failed. Check that the workspace is running.");
@@ -208,7 +217,7 @@ function reviewControl(report, owner, accepted) {
         (accepted ? "accepted" : "rejected") +
         " for " +
         owner;
-      await renderCase(context, view);
+      renderCase(context);
     } catch (error) {
       if (view === generation) status.textContent = error.message;
     } finally {
@@ -218,18 +227,33 @@ function reviewControl(report, owner, accepted) {
   return button;
 }
 
-async function renderCase(
-  {
-    report,
-    recommendations,
-    evidence,
-    ranked_checks = [],
-    review_history = [],
-    related_reports = [],
-    worker_outcomes = [],
-  },
-  view,
-) {
+function imageDisclosure(label, caseId, path, className, alt, failure) {
+  const disclosure = element("details", undefined, "case-diagram");
+  const container = element("div");
+  disclosure.append(element("summary", label), container);
+  disclosure.addEventListener("toggle", () => {
+    if (
+      !disclosure.open ||
+      !disclosure.isConnected ||
+      selected !== caseId ||
+      container.childNodes.length ||
+      container.getAttribute("aria-busy") === "true"
+    )
+      return;
+    loadCaseImage(container, caseId, path, className, alt, failure);
+  });
+  return disclosure;
+}
+
+function renderCase({
+  report,
+  recommendations,
+  evidence,
+  ranked_checks = [],
+  review_history = [],
+  related_reports = [],
+  worker_outcomes = [],
+}) {
   clearCaseImages();
   const heading = element("header", undefined, "case-heading");
   heading.append(
@@ -259,22 +283,16 @@ async function renderCase(
     heading.append(exportLink);
   }
   detail.replaceChildren(heading);
-  const diagram = element("details", undefined, "case-diagram");
-  const diagramBody = element("div");
-  diagram.append(element("summary", "Review workflow diagram"), diagramBody);
-  diagram.addEventListener("toggle", () => {
-    if (!diagram.open || diagramBody.dataset.loaded) return;
-    diagramBody.dataset.loaded = "true";
-    loadCaseImage(
-      diagramBody,
+  detail.append(
+    imageDisclosure(
+      "Review workflow diagram",
       report.id,
       "diagram.svg",
       "review-diagram",
       "Review workflow for " + report.id + " on revision " + report.revision,
       "This workspace could not supply a review diagram. The case details remain available below.",
-    );
-  });
-  detail.append(diagram);
+    ),
+  );
   if (publicDemo && report.id === disclosedCase) {
     const source = element("a", "Read the disclosed HackerOne report");
     source.href = "https://hackerone.com/reports/2236133";
@@ -398,24 +416,22 @@ async function renderCase(
       detail.append(details);
     }
   }
-  const trace = element("div");
-  detail.append(
-    element("h3", "Observed evidence trace"),
-    trace,
-    element(
-      "p",
-      "Latest run · recorded steps include partial runs",
-      "case-meta",
-    ),
-  );
-  await loadCaseImage(
-    trace,
+  const trace = imageDisclosure(
+    "Observed evidence trace",
     report.id,
     "trace.svg",
     "trace",
     "Observed steps in the latest run for " + report.id,
     "The observed evidence trace is unavailable.",
   );
+  trace.append(
+    element(
+      "p",
+      "Latest run · recorded steps include partial runs",
+      "case-meta",
+    ),
+  );
+  detail.append(trace);
 }
 
 async function openCase(caseId) {
@@ -433,7 +449,7 @@ async function openCase(caseId) {
       );
     }
     endView(view);
-    await renderCase(context, view);
+    renderCase(context);
   } catch (error) {
     if (view !== generation) return;
     showError(error.message, () => openCase(caseId));
@@ -584,8 +600,7 @@ function initializeConsole() {
     document.title = "Organization workspace · Ichnix";
     document.querySelector(".workspace-intro h1").textContent =
       "Organization workspace";
-    byId("workspace-label").textContent =
-      "Sign in with a named organization credential.";
+
     document
       .querySelector('.topnav a[href="/console"]')
       .removeAttribute("aria-current");
@@ -775,8 +790,9 @@ function initializeConsole() {
         selected ??= disclosedCase;
         return refresh();
       }
-      if (!orgWorkspace)
-        byId("workspace-label").textContent = "Private workspace";
+      byId("workspace-label").textContent = orgWorkspace
+        ? ""
+        : "Private workspace";
       login.hidden = false;
     } catch {
       if (view !== generation) return;
@@ -797,66 +813,4 @@ function initializeConsole() {
   initializeWorkspace();
 }
 
-if (desk) {
-  initializeConsole();
-} else {
-  const index = document.querySelector(".index-panel");
-  if (index) {
-    const finder = index.querySelector(".chapter-finder");
-    const query = byId("chapter-query");
-    const chapters = [...index.querySelectorAll(".manual-index a")].map(
-      (link) => {
-        const section = document.getElementById(link.hash.slice(1));
-        const topics = [...section.querySelectorAll("h2,h3,summary")].map(
-          (el) => el.textContent,
-        );
-        return [
-          link,
-          [link.innerText, ...topics]
-            .join(" ")
-            .toLowerCase()
-            .replace(/\s+/g, " "),
-        ];
-      },
-    );
-    finder.hidden = false;
-    query.addEventListener("input", () => {
-      const term = query.value.trim().toLowerCase();
-      let matches = 0;
-      for (const [link, topics] of chapters) {
-        link.hidden = !topics.includes(term);
-        if (!link.hidden) matches++;
-      }
-      let group;
-      for (const child of byId("chapter-links").children) {
-        if (child.tagName === "P") {
-          group = child;
-          group.hidden = true;
-        } else if (!child.hidden && group) group.hidden = false;
-      }
-      byId("chapter-result").textContent = !term
-        ? ""
-        : matches
-          ? matches + (matches === 1 ? " chapter" : " chapters")
-          : "No matching chapters.";
-    });
-    const compact = matchMedia("(max-width:45rem)");
-    const adapt = () => {
-      index.open = !compact.matches;
-    };
-    const openLinkedSection = () => {
-      const id = location.hash.slice(1);
-      const target = id && document.getElementById(id);
-      const subsection = target && target.closest(".manual-subsection");
-      if (subsection) subsection.open = true;
-    };
-    adapt();
-    openLinkedSection();
-    window.addEventListener("hashchange", openLinkedSection);
-    compact.addEventListener("change", adapt);
-    index.addEventListener("click", (event) => {
-      if (!compact.matches || !event.target.closest("a")) return;
-      index.open = false;
-    });
-  }
-}
+if (desk) initializeConsole();

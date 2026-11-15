@@ -28,12 +28,11 @@
 !public/console.html
 !public/docs.html
 !public/app.js
+!public/manual.js
 !public/styles.css
 !public/docs.css
 !public/evidence-graph.png
 !public/strata.webp
-!public/evidence-atlas.webp
-!public/review-detail.webp
 !public/fonts/
 !public/fonts/IBMPlexMono-Regular.ttf
 !public/fonts/IBMPlexMono-LICENSE.txt

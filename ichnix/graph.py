@@ -37,6 +37,7 @@ def _field(obj, name, limit=160):
     value = obj.get(name)
     if not isinstance(value, str) or not value.strip() or len(value) > limit:
         raise ValueError(f"invalid {name}")
+    value.encode("utf-8")  # Reject unpaired surrogates before any graph mutation.
     if any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise ValueError(f"invalid {name}")
     return value.strip()
@@ -59,6 +60,37 @@ def _title_vector(title):
             counts[index] += 1
     norm = math.sqrt(sum(n * n for n in counts.values()))
     return {index: round(n / norm, 8) for index, n in sorted(counts.items())}
+
+
+def _run_diagram(report, evidence):
+    run = evidence[-1].get("run_id") if evidence else None
+    controls = {status: {"count": 0, "steps": []} for status in ("passed", "failed", "inconclusive")}
+    events = []
+    total = 0
+    source = None
+    for event in evidence:
+        if event.get("run_id") != run:
+            continue
+        record_source = (event.get("source_method"), event.get("source_digest"))
+        if total == 0:
+            source = record_source
+        elif record_source != source:
+            source = None
+        group = controls[event["result"]]
+        group["count"] += 1
+        if len(group["steps"]) < 6:
+            group["steps"].append(event["step"])
+        if len(events) < 12:
+            events.append({key: event.get(key) for key in ("step", "result", "source_method")})
+        total += 1
+    manifest = None
+    if run and total > 1 and source:
+        method, digest = source
+        if method in ("hmac-sha256", "local-file") and re.fullmatch(r"[0-9a-f]{64}", digest or ""):
+            manifest = {"method": method, "prefix": digest[:12]}
+    return {"case": report["id"], "service": report["service"], "component": report["component"],
+            "revision": report["revision"], "run": run, "controls": controls, "manifest": manifest,
+            "events": events, "omitted": total - len(events)}
 
 
 class Graph:
@@ -178,13 +210,15 @@ class Graph:
             layout, source = review_layout.local_layout(facts), "local"
         else:
             layout = row["layout"]
-        evidence = context["evidence"]
-        run = evidence[-1].get("run_id") if evidence else None
-        results = Counter(e["result"] for e in evidence if e.get("run_id") == run)
-        counts = {k: results[k] for k in ("passed", "failed", "inconclusive")}
-        return {"layout": layout, "case": report["id"], "service": report["service"], "component": report["component"],
-                "revision": report["revision"], "owner": context["recommendations"][0]["owner"], "controls": counts,
-                "reviewed": bool(context["review_history"])}, source
+        run = _run_diagram(report, context["evidence"])
+        history = context["review_history"]
+        decision = {key: history[-1][key] for key in ("owner", "accepted")} if history else None
+        return {**run, "view": "workflow", "layout": layout, "owner": context["recommendations"][0]["owner"],
+                "decision": decision}, source
+
+    def evidence_trace(self, case_id):
+        report = self._report(case_id)
+        return {**_run_diagram(report, self._snapshot_evidence(report["snapshot"])), "view": "trace"}
 
     def cases(self):
         return self._query(f"MATCH (r:Report) RETURN {self._report_cols()} ORDER BY r.key")
@@ -245,7 +279,7 @@ class Graph:
     def _snapshot_evidence(self, snapshot):
         return self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
                            "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id, "
-                           "e.digest AS source_digest, e.method AS source_method ORDER BY e.observed",
+                           "e.digest AS source_digest, e.method AS source_method ORDER BY e.observed, e.id",
                            id=snapshot)
 
     def selfgraph_facts(self, case_id):
@@ -271,17 +305,13 @@ class Graph:
                               "evidence": [{"source_id": source}]})
         return {"entities": entities, "relations": relations}
 
-    def snapshot_context(self, case_id):
+    def snapshot_context(self, case_id, *, include_operator=True):
         report = self._report(case_id)
         snapshot = report.pop("snapshot")
         stored = report.pop("vector")
-        vector = json.loads(stored) if stored else _title_vector(report["title"])
         evidence = self._snapshot_evidence(snapshot)
         legacy = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
                             "RETURN v.id AS decision, v.owner AS owner, v.accepted AS accepted", id=snapshot)
-        audit = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "
-                            "RETURN v.owner AS owner, v.accepted AS accepted, v.actor AS actor, "
-                            "v.at AS at ORDER BY v.at", id=snapshot)
         events = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW_EVENT]->(v) "
                              "RETURN v.subject AS decision, v.owner AS owner, v.accepted AS accepted, v.at AS at "
                              "ORDER BY v.at", id=snapshot)
@@ -294,9 +324,14 @@ class Graph:
                   "reason": f"catalog assignment and reviewed ownership for {report['component']} at {report['revision']}"}
                  for owner, (yes, no) in counts.items()]
         items.sort(key=lambda item: (-item["score"], item["owner"] != report["owner"], item["owner"]))
-        return snapshot, {"report": report, "recommendations": items, "evidence": evidence,
-                "ranked_checks": self._ranked_checks(snapshot), "review_history": audit,
-                "related_reports": self._related_reports(snapshot, vector)}
+        context = {"report": report, "recommendations": items, "evidence": evidence,
+                   "ranked_checks": self._ranked_checks(snapshot)}
+        if include_operator:
+            context["review_history"] = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "
+                "RETURN v.owner AS owner, v.accepted AS accepted, v.actor AS actor, v.at AS at ORDER BY v.at", id=snapshot)
+            vector = json.loads(stored) if stored else _title_vector(report["title"])
+            context["related_reports"] = self._related_reports(snapshot, vector)
+        return snapshot, context
 
     def _related_reports(self, snapshot, vector):
         if not vector:

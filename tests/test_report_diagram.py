@@ -15,7 +15,7 @@ from ichnix.eval_graph import isolated_graph
 from ichnix.graph import Graph
 from ichnix import review_layout
 
-from ichnix.server import ConsoleServer, Handler
+from ichnix.server import ConsoleServer, Handler, diagram_svg
 
 
 REPORT = {"id": "h1-example-930", "title": "Sensitive Company private retention review",
@@ -86,9 +86,9 @@ class ReportDiagramTests(unittest.TestCase):
             url = f"http://127.0.0.1:{server.server_port}/api/cases/{REPORT['id']}/diagram.svg"
             for name in ("read", "review", "worker"):
                 issue(registry, name, name, Path(root) / name)
-            def request(role):
+            def request(role, view="diagram.svg"):
                 token = (Path(root) / role).read_text().strip()
-                return urlopen(Request(url, headers={"Authorization": "Bearer " + token}), timeout=10)
+                return urlopen(Request(url.rsplit("/", 1)[0] + "/" + view, headers={"Authorization": "Bearer " + token}), timeout=10)
             with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(registry)):
                 with request("read") as response:
                     self.assertEqual(response.headers["X-Ichnix-Layout-Source"], "local")
@@ -96,6 +96,8 @@ class ReportDiagramTests(unittest.TestCase):
                     text = " ".join(ET.fromstring(response.read()).itertext())
                     for item in ("Await staging evidence", REPORT["id"], REPORT["owner"], REPORT["component"]):
                         self.assertIn(item, text)
+                with request("read", "trace.svg") as response:
+                    self.assertIn("No staging observations", " ".join(ET.fromstring(response.read()).itertext()))
                 with self.assertRaises(HTTPError) as denied:
                     request("worker")
                 self.assertEqual(denied.exception.code, 401)
@@ -107,3 +109,72 @@ class ReportDiagramTests(unittest.TestCase):
                     text = " ".join(ET.fromstring(response.read()).itertext())
                     self.assertIn("1 passed / 0 failed / 0 inconclusive", text)
                     self.assertNotIn("Await staging evidence", text)
+
+                with request("read", "trace.svg") as response:
+                    svg = ET.fromstring(response.read())
+                    self.assertIn("pele-sequence", svg.attrib["class"])
+                    self.assertIn("retention (passed)", " ".join(svg.itertext()))
+                    self.assertNotIn("retention (failed)", " ".join(svg.itertext()))
+
+    def test_trace_and_workflow_follow_recorded_source_checks_and_decision(self):
+        with isolated_graph() as graph:
+            key = graph.import_report(REPORT)
+            def svg_facts(data):
+                svg = ET.fromstring(diagram_svg(data))
+                ns = "{http://www.w3.org/2000/svg}"
+                self.assertFalse(any(svg.iter(ns + "script")))
+                self.assertFalse(any(svg.iter(ns + "image")))
+                self.assertFalse(any(svg.iter(ns + "a")))
+                return " ".join(svg.itertext()), len(list(svg.iter(ns + "path")))
+            empty_trace, _ = svg_facts(graph.evidence_trace(key))
+            self.assertIn("No staging observations", empty_trace)
+            self.assertIn(REPORT["id"], empty_trace)
+            empty_workflow, edges = svg_facts(graph.review_diagram(key)[0])
+            self.assertIn("Await owner decision", empty_workflow)
+            graph.add_evidence(key, {"step": "superseded", "result": "passed", "revision": "r7", "run_id": "old"})
+            for method, step, result in [
+                    ("hmac-sha256", "retain_days", "failed"), ("local-file", "audit_control", "inconclusive")]:
+                graph.add_evidence(key, {"step": step, "result": result, "revision": "r7", "run_id": "current",
+                                        "source_method": method, "source_digest": "a" * 64})
+            graph.record_review(key, REPORT["owner"], False, actor="fixture")
+            trace, _ = svg_facts(graph.evidence_trace(key))
+            workflow, new_edges = svg_facts(graph.review_diagram(key)[0])
+            for svg in (trace, workflow):
+                for label in ("retain_days", "audit_control"):
+                    self.assertIn(label, svg)
+                self.assertNotIn("superseded", svg)
+                self.assertNotIn("a" * 64, svg)
+            for label in ("Signed manifest", "Local manifest", "current"):
+                self.assertIn(label, trace)
+            self.assertIn("Rejected", workflow)
+            self.assertIn("Inconclusive", workflow)
+            self.assertNotEqual(edges, new_edges)
+
+    def test_trace_bounds_dense_runs_and_displays_missing_run_identifier(self):
+        with isolated_graph() as graph:
+            key = graph.import_report(REPORT)
+            for index in range(14):
+                graph.add_evidence(key, {"step": f"ci_check_{index}", "result": "passed", "revision": "r7"})
+            trace = " ".join(ET.fromstring(diagram_svg(graph.evidence_trace(key))).itertext())
+            self.assertIn("Run ID unrecorded", trace)
+            self.assertIn("ci_check_11", trace)
+            self.assertNotIn("ci_check_12", trace)
+            self.assertIn("2 further observations", trace)
+            plan, _ = graph.review_diagram(key)
+            workflow = " ".join(ET.fromstring(diagram_svg(plan)).itertext())
+            self.assertIn("14 passed / 0 failed / 0 inconclusive", workflow)
+            self.assertIn("ci_check_0 (+13)", workflow)
+
+    def test_one_signed_manifest_renders_a_control_matrix(self):
+        with isolated_graph() as graph:
+            key = graph.import_report(REPORT)
+            for step in ("referrer_policy", "cache_control", "content_type_options"):
+                graph.add_evidence(key, {"step": step, "result": "passed", "revision": "r7",
+                                   "run_id": "headers", "source_method": "hmac-sha256", "source_digest": "a" * 64})
+            svg = ET.fromstring(diagram_svg(graph.evidence_trace(key)))
+            self.assertIn("pele-block", svg.attrib["class"].split())
+            text = " ".join(svg.itertext())
+            for word in ("Signed manifest", "SHA-256 prefix", "a" * 12, "referrer_policy", "Passed", "3"):
+                self.assertIn(word, text)
+            self.assertNotIn("a" * 64, text)
+            self.assertNotIn("Inconclusive", text)
