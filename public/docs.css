@@ -231,22 +231,30 @@ body:has(> .workspace) {
 .workspace:has(#desk[hidden]) #retry {
   align-self: center;
 }
-.view-activity {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translate(-50%, 50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  max-width: 100%;
-  padding-inline: 0.65rem;
-  background: var(--bg);
-  color: var(--muted);
-  font: 0.78rem/1.4 var(--mono);
+.workspace:has(#activity:not([hidden])):has(#desk[hidden]):has(#connect[hidden])
+  .workspace-intro {
+  visibility: hidden;
 }
-.view-activity::after {
-  content: attr(aria-label);
+.view-activity {
+  position: fixed;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  background: var(--bg);
+  color: var(--text);
+  font: 0.875rem/1.4 var(--mono);
+  pointer-events: none;
+}
+#activity-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -254,15 +262,15 @@ body:has(> .workspace) {
 .thinking-mark {
   display: inline-grid;
   place-items: center;
-  inline-size: 1em;
+  inline-size: 1.1em;
   flex: none;
   color: var(--accent);
   font:
-    1.15rem/1 system-ui,
+    1.35rem/1 system-ui,
     sans-serif;
 }
 .thinking-mark::before {
-  content: "✳";
+  content: "✳︎";
 }
 @media (prefers-reduced-motion: no-preference) {
   .thinking-mark::before {
@@ -273,49 +281,26 @@ body:has(> .workspace) {
     100% {
       content: "·";
     }
-    12%,
-    87% {
-      content: "✧";
+    10%,
+    90% {
+      content: "✢";
     }
-    25%,
-    75% {
-      content: "✳";
+    20%,
+    80% {
+      content: "✳︎";
     }
-    38%,
-    62% {
+    30%,
+    70% {
       content: "✶";
     }
+    40%,
+    60% {
+      content: "✻";
+    }
     50% {
-      content: "✺";
+      content: "✽";
     }
   }
-  .console-skeleton {
-    animation: console-appear 140ms 160ms backwards;
-  }
-  @keyframes console-appear {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-}
-.console-skeleton,
-#detail:empty[aria-busy="true"]::before,
-#evaluation-result[aria-busy="true"]::before,
-.case-diagram [aria-busy="true"]::before {
-  content: "";
-  display: block;
-  height: 4.4rem;
-  margin-block: 1.25rem;
-  background:
-    linear-gradient(var(--line), var(--line)) 0 0 / min(58%, 18rem) 0.65rem,
-    linear-gradient(var(--surface), var(--surface)) 0 1.6rem / min(85%, 25rem)
-      0.55rem,
-    linear-gradient(var(--surface), var(--surface)) 0 2.8rem / min(70%, 20rem)
-      0.55rem;
-  background-repeat: no-repeat;
 }
 #workspace-label:empty {
   display: none;

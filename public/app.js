@@ -26,11 +26,36 @@ function element(tag, text, className) {
   return el;
 }
 
+const pendingActivity = new Map();
+
+function updateActivity() {
+  let label = "";
+  for (const [target, task] of pendingActivity) {
+    if (
+      target.isConnected &&
+      !target.closest("details:not([open])") &&
+      (target === detail || !target.closest("[inert]"))
+    )
+      label = task.label;
+  }
+  const caption = byId("activity-label");
+  byId("activity").hidden = !label;
+  if (caption.textContent !== label) caption.textContent = label;
+}
+
+function startActivity(target, label) {
+  const task = { label };
+  pendingActivity.delete(target);
+  pendingActivity.set(target, task);
+  updateActivity();
+  return () => {
+    if (pendingActivity.get(target) === task) pendingActivity.delete(target);
+    updateActivity();
+  };
+}
+
 function beginView(label) {
-  const activity = byId("activity");
-  activity.setAttribute("aria-label", label);
-  activity.hidden = false;
-  byId("workspace-skeleton").hidden = !desk.hidden || !login.hidden;
+  startActivity(detail, label);
   detail.setAttribute("aria-busy", "true");
   detail.inert = true;
   byId("retry").hidden = true;
@@ -41,10 +66,10 @@ function beginView(label) {
 
 function endView(view) {
   if (view !== generation) return;
-  byId("activity").hidden = true;
-  byId("workspace-skeleton").hidden = true;
+  pendingActivity.delete(detail);
   detail.removeAttribute("aria-busy");
   detail.inert = false;
+  updateActivity();
 }
 
 function showError(message, retry) {
@@ -63,6 +88,10 @@ function clearCaseImages() {
 
 async function loadCaseImage(container, caseId, path, className, alt, failure) {
   const { signal } = imageRequests;
+  const finish = startActivity(
+    container,
+    path === "trace.svg" ? "Loading evidence trace" : "Loading review diagram",
+  );
   container.setAttribute("aria-busy", "true");
   const retryImage = () => {
     if (signal.aborted || !container.isConnected || selected !== caseId) return;
@@ -101,6 +130,7 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
     retryImage();
   } finally {
     container.removeAttribute("aria-busy");
+    finish();
   }
 }
 
@@ -111,8 +141,8 @@ function clearSession() {
   byId("token").value = "";
   byId("token").readOnly = false;
   byId("connect-submit").disabled = true;
+  pendingActivity.clear();
   endView(++generation);
-  byId("activity").removeAttribute("aria-label");
   byId("retry").hidden = true;
   byId("retry").onclick = null;
   for (const id of ["previous-page", "next-page"]) {
@@ -194,6 +224,7 @@ function reviewControl(report, owner, accepted) {
   button.setAttribute("aria-label", (accepted ? "Accept " : "Reject ") + owner);
   button.addEventListener("click", async () => {
     const view = generation;
+    const finish = startActivity(button, "Saving owner review");
     const controls = detail.querySelectorAll(".review-row button");
     controls.forEach((control) => (control.disabled = true));
     try {
@@ -223,6 +254,7 @@ function reviewControl(report, owner, accepted) {
     } catch (error) {
       if (view === generation) status.textContent = error.message;
     } finally {
+      finish();
       controls.forEach((control) => (control.disabled = false));
     }
   });
@@ -234,6 +266,7 @@ function imageDisclosure(label, caseId, path, className, alt, failure) {
   const container = element("div");
   disclosure.append(element("summary", label), container);
   disclosure.addEventListener("toggle", () => {
+    updateActivity();
     if (
       !disclosure.open ||
       !disclosure.isConnected ||
@@ -583,7 +616,8 @@ function resetReport(message = "") {
   byId("report-drop").classList.remove("dragging");
   byId("report-file").disabled = false;
   byId("report-submit").disabled = true;
-  byId("report-submit").firstElementChild.hidden = true;
+  pendingActivity.delete(byId("report-file"));
+  updateActivity();
   byId("report-clear").hidden = true;
   byId("report-clear").disabled = false;
   byId("report-name").textContent = "Drop a report here";
@@ -602,7 +636,8 @@ async function selectReport() {
   byId("report-name").textContent = file.name;
   byId("report-browse").textContent = "Replace file";
   byId("report-clear").hidden = false;
-  status.textContent = "Checking file";
+  status.textContent = "";
+  const finish = startActivity(input, "Checking report");
   try {
     const body = await file.arrayBuffer();
     if (input.files[0] !== file) return;
@@ -625,6 +660,8 @@ async function selectReport() {
     status.textContent = "Ready to import " + file.name;
   } catch {
     if (input.files[0] === file) resetReport("Choose a valid UTF-8 JSON file.");
+  } finally {
+    finish();
   }
 }
 
@@ -638,9 +675,9 @@ async function uploadReport(event) {
   const file = input.files[0];
   const button = byId("report-submit");
   button.disabled = input.disabled = byId("report-clear").disabled = true;
-  button.firstElementChild.hidden = false;
+  const finish = startActivity(form, "Importing report");
   form.setAttribute("aria-busy", "true");
-  status.textContent = "Importing " + input.files[0].name;
+  status.textContent = "";
   try {
     const response = await request("import/report", {
       method: "POST",
@@ -659,9 +696,9 @@ async function uploadReport(event) {
     if (error.cause === 400) return resetReport(error.message);
     status.textContent = error.message;
   } finally {
+    finish();
     if (session === sessionVersion && input.files[0] === file) {
       form.removeAttribute("aria-busy");
-      button.firstElementChild.hidden = true;
       input.disabled = byId("report-clear").disabled = false;
       button.disabled = !reportBody;
     }
@@ -762,6 +799,7 @@ function initializeConsole() {
   );
   const evaluation = byId("evaluation");
   evaluation.addEventListener("toggle", async () => {
+    updateActivity();
     if (!publicDemo || !evaluation.open) return;
     const result = byId("evaluation-result");
     if (
@@ -769,6 +807,7 @@ function initializeConsole() {
       result.getAttribute("aria-busy") === "true"
     )
       return;
+    const finish = startActivity(result, "Loading learning curve");
     result.setAttribute("aria-busy", "true");
     result.replaceChildren();
     try {
@@ -840,6 +879,7 @@ function initializeConsole() {
       result.textContent = "Results unavailable. Close and reopen to retry.";
     } finally {
       result.removeAttribute("aria-busy");
+      finish();
     }
   });
 

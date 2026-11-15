@@ -76,6 +76,17 @@ def named_workspace(hosted=False):
                 thread.join()
 
 
+def expect_activity(page, label):
+    activity = page.get_by_role("progressbar")
+    expect(activity).to_have_count(1)
+    expect(activity).to_have_accessible_name(label)
+    expect(activity).to_be_visible()
+    bounds = activity.bounding_box()
+    viewport = page.viewport_size
+    for position, size in (("x", "width"), ("y", "height")):
+        assert abs(bounds[position] + bounds[size] / 2 - viewport[size] / 2) <= 1
+
+
 def public_checks(browser, origin, width, hosted=False):
     page = browser.new_page(viewport={"width": width, "height": 850}, reduced_motion="reduce")
     errors, external, exports, traces = [], [], [], []
@@ -95,9 +106,9 @@ def public_checks(browser, origin, width, hosted=False):
                 page.route("**/api/session", lambda job: held_session.append(job))
             page.goto(origin + route)
             if route == "/console":
-                expect(page.get_by_role("progressbar", name="Connecting to workspace")).to_be_visible()
+                expect_activity(page, "Connecting to workspace")
                 expect(page.locator("#status")).to_be_empty()
-                expect(page.locator("#workspace-skeleton")).to_be_visible()
+                expect(page.locator(".thinking-mark")).to_have_count(1)
                 mark = page.locator("#activity .thinking-mark")
                 assert mark.evaluate("el => getComputedStyle(el, '::before').animationName") == "none"
                 page.emulate_media(reduced_motion="no-preference")
@@ -211,9 +222,30 @@ def public_checks(browser, origin, width, hosted=False):
                 expect(page.get_by_role("navigation", name="Case pages")).to_be_hidden()
                 assert not traces
                 trace = page.get_by_text("Observed evidence trace", exact=True)
+                pending_trace, pending_curve = [], []
+                page.route("**/api/cases/*/trace.svg", lambda job: pending_trace.append(job))
+                page.route("**/api/evaluation", lambda job: pending_curve.append(job))
                 trace.focus()
-                page.keyboard.press("Enter")
+                with page.expect_request("**/api/cases/*/trace.svg"):
+                    page.keyboard.press("Enter")
+                expect_activity(page, "Loading evidence trace")
+                curve = page.get_by_text("Learning curve", exact=True)
+                with page.expect_request("**/api/evaluation"):
+                    curve.click()
+                expect_activity(page, "Loading learning curve")
+                curve.click()
+                expect_activity(page, "Loading evidence trace")
+                trace.click()
+                expect(page.get_by_role("progressbar")).to_have_count(0)
+                trace.click()
+                expect_activity(page, "Loading evidence trace")
+                pending_curve[0].continue_()
+                page.unroute("**/api/evaluation")
+                expect_activity(page, "Loading evidence trace")
+                pending_trace[0].continue_()
+                page.unroute("**/api/cases/*/trace.svg")
                 expect(page.locator(".trace")).to_be_visible()
+                expect(page.get_by_role("progressbar")).to_have_count(0)
                 assert len(traces) == 1
                 trace.click()
                 trace.click()
@@ -352,7 +384,6 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                         expect(page.locator(".case-id")).to_have_text("IX-104")
             if role == "worker":
                 expect(page.locator("#status")).to_contain_text("denied")
-                expect(page.locator("#workspace-skeleton")).to_be_hidden()
                 expect(page.get_by_role("progressbar")).to_have_count(0)
                 expect(page.locator("#report-upload")).to_be_hidden()
                 expect(page.locator("#desk")).to_be_hidden()
@@ -496,6 +527,8 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     page.get_by_role("button", name="Import report").click()
                 expect(page.get_by_role("button", name="Import report")).to_be_disabled()
                 page.locator("#report-upload").evaluate("form => form.requestSubmit()")
+                expect_activity(page, "Importing report")
+                expect(page.locator("#status")).to_be_empty()
                 assert len(submissions) == 1
                 if hosted:
                     assert submissions[0].request.post_data_buffer == json.dumps(report).encode("utf-8-sig")
@@ -514,6 +547,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(buttons).to_have_count(4)
                 with page.expect_request(review_url):
                     buttons.first.click()
+                expect_activity(page, "Saving owner review")
                 expect(buttons.last).to_be_disabled()
                 pending_review[0].continue_()
                 page.unroute(review_url)
@@ -570,7 +604,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     page.get_by_text("Review workflow diagram", exact=True).click()
                 expect(page.locator("#status")).to_contain_text("Access denied")
                 expect(page.locator("#desk")).to_be_hidden()
-                expect(page.locator("#activity")).not_to_have_attribute("aria-label", "Retrieving case IX-108")
+                expect(page.locator("#activity")).to_be_hidden()
                 assert page.locator("#retry").evaluate("el => el.onclick === null")
                 assert page.locator("#case-pager button").evaluate_all("els => els.every(e => !e.value && e.disabled)")
             else:

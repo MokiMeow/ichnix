@@ -37,22 +37,18 @@
           <p id="workspace-label"></p>
         </div>
         <button id="leave" class="cmd" hidden>Disconnect</button>
-        <div
-          id="activity"
-          class="view-activity"
-          role="progressbar"
-          aria-label="Connecting to workspace"
-          hidden
-        >
-          <span class="thinking-mark" aria-hidden="true"></span>
-        </div>
       </header>
       <div
-        id="workspace-skeleton"
-        class="console-skeleton"
-        aria-hidden="true"
+        id="activity"
+        class="view-activity"
+        role="progressbar"
+        aria-live="polite"
+        aria-labelledby="activity-label"
         hidden
-      ></div>
+      >
+        <span class="thinking-mark" aria-hidden="true"></span>
+        <span id="activity-label"></span>
+      </div>
       <form id="connect" aria-label="Connect to workspace" hidden>
         <label for="token">Access token</label>
         <div class="input-row">
@@ -108,7 +104,6 @@
             Remove file
           </button>
           <button id="report-submit" class="cmd primary" disabled>
-            <span class="thinking-mark" aria-hidden="true" hidden></span>
             Import report
           </button>
         </div>
