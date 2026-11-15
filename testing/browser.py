@@ -111,7 +111,10 @@ def public_checks(browser, origin, width, hosted=False):
                     page.unroute("**/api/session")
             page.evaluate("document.fonts.ready")
             assert page.evaluate("document.documentElement.scrollWidth") == width
+            expect(page.get_by_role("navigation", name="Footer navigation")).to_be_visible()
             if route == "/":
+                artwork = page.request.get(origin + "/strata.webp")
+                assert artwork.ok and artwork.headers["content-type"] == "image/webp"
                 page.locator("input[value=evidence]").focus()
                 page.keyboard.press("ArrowRight")
                 expect(page.locator(".revision-output")).to_be_visible()
@@ -121,6 +124,19 @@ def public_checks(browser, origin, width, hosted=False):
                     expect(index).not_to_have_attribute("open", "")
                     index.locator("summary").focus()
                     page.keyboard.press("Enter")
+                chapter_links = index.locator("a[href^='#']")
+                assert chapter_links.count() == page.locator(".manual-article > section").count()
+                for number, chapter in enumerate(chapter_links.all(), start=1):
+                    anchor = chapter.get_attribute("href")
+                    expect(chapter.locator(".chapter-no")).to_have_text(f"{number:02}")
+                    expect(page.locator(anchor + " h2 .chapter-no")).to_have_text(f"{number:02}")
+                query = index.get_by_role("searchbox", name="Find a chapter")
+                query.fill("Bugcrowd")
+                expect(index.get_by_role("link", name="Connect a program")).to_be_visible()
+                query.fill("nonexistent-chapter")
+                expect(index.get_by_role("status")).to_have_text("No matching chapters.")
+                query.fill("01")
+                expect(index.locator("a:visible")).to_have_count(1)
                 index.get_by_role("link", name="Follow a finding").click()
                 expect(page.locator("#walkthrough")).to_be_in_viewport()
                 page.goto(origin + "/docs#worker-mcp")

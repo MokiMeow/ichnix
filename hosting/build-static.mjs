@@ -18,6 +18,7 @@ const assets = [
   "styles.css",
   "docs.css",
   "evidence-graph.png",
+  "strata.webp",
   "evidence-atlas.webp",
   "review-detail.webp",
   "fonts/IBMPlexMono-LICENSE.txt",

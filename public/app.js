@@ -802,6 +802,44 @@ if (desk) {
 } else {
   const index = document.querySelector(".index-panel");
   if (index) {
+    const finder = index.querySelector(".chapter-finder");
+    const query = byId("chapter-query");
+    const chapters = [...index.querySelectorAll(".manual-index a")].map(
+      (link) => {
+        const section = document.getElementById(link.hash.slice(1));
+        const topics = [...section.querySelectorAll("h2,h3,summary")].map(
+          (el) => el.textContent,
+        );
+        return [
+          link,
+          [link.innerText, ...topics]
+            .join(" ")
+            .toLowerCase()
+            .replace(/\s+/g, " "),
+        ];
+      },
+    );
+    finder.hidden = false;
+    query.addEventListener("input", () => {
+      const term = query.value.trim().toLowerCase();
+      let matches = 0;
+      for (const [link, topics] of chapters) {
+        link.hidden = !topics.includes(term);
+        if (!link.hidden) matches++;
+      }
+      let group;
+      for (const child of byId("chapter-links").children) {
+        if (child.tagName === "P") {
+          group = child;
+          group.hidden = true;
+        } else if (!child.hidden && group) group.hidden = false;
+      }
+      byId("chapter-result").textContent = !term
+        ? ""
+        : matches
+          ? matches + (matches === 1 ? " chapter" : " chapters")
+          : "No matching chapters.";
+    });
     const compact = matchMedia("(max-width:45rem)");
     const adapt = () => {
       index.open = !compact.matches;

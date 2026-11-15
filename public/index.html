@@ -26,52 +26,40 @@
       </div>
     </header>
     <main id="main" class="home">
-      <section class="intro-block" aria-labelledby="intro-title">
-        <div class="intro-copy">
-          <p class="eyebrow">
-            <svg
-              class="ui-icon"
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M12 2.5 20 6v5.5c0 4.8-3 8-8 10-5-2-8-5.2-8-10V6z" />
-              <path d="m8.5 11.5 2.4 2.4 4.7-5" />
-            </svg>
-            Product security / Ichnix
-          </p>
-          <h1 id="intro-title">Keep the evidence<br />with the finding.</h1>
+      <section class="field-hero" aria-labelledby="intro-title">
+        <div class="hero-inner">
+          <p class="eyebrow">Bug bounty triage</p>
+          <h1 id="intro-title">Every finding<br />has a history.</h1>
           <p class="lede">
-            A self-hosted workspace for bug bounty triage. Connect each report
-            to a deployed revision, its staging checks and the team that can fix
-            it.
+            Trace a security report to the code that shipped, the checks your
+            team ran and the engineer who reviewed it.
           </p>
           <div class="launch-actions">
             <a class="primary-link" href="/console"
-              >Open review console
-              <svg
-                class="ui-icon"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M4 12h15m-6-6 6 6-6 6" /></svg></a
-            ><a class="plain-link" href="/docs#install">Self-host Ichnix</a>
+              >Open review console <span aria-hidden="true">↗</span></a
+            >
+            <a class="plain-link" href="#workflow"
+              >Follow a finding <span aria-hidden="true">↓</span></a
+            >
           </div>
+        </div>
+      </section>
+      <section
+        class="field-spread"
+        id="workflow"
+        aria-labelledby="case-heading"
+      >
+        <div class="field-copy">
+          <p class="eyebrow">Case notes / SURVEY-101</p>
+          <h2 id="case-heading">One report, three checks.</h2>
+          <p>
+            The ledger archive keeps records for 60 days against a 30-day
+            policy. Auditing passed. The staging manifest says nothing about
+            identifier masking, so that check stays open.
+          </p>
+          <a class="plain-link" href="/docs#walkthrough"
+            >Read the case walkthrough <span aria-hidden="true">→</span></a
+          >
         </div>
         <section class="specimen" aria-labelledby="sample-title">
           <div class="specimen-title">
@@ -242,56 +230,48 @@
           ></a>
         </section>
       </section>
-      <section
-        class="manual-entry"
-        id="workflow"
-        aria-labelledby="manual-title"
-      >
-        <div id="talk">
-          <h2 id="manual-title">Operator manual</h2>
-          <p>Follow a sample review or set up a workspace for your team.</p>
-        </div>
-        <a class="plain-link" href="/docs#walkthrough"
-          >Read the walkthrough
-          <svg
-            class="ui-icon"
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-            focusable="false"
+      <section class="guide-entries" id="talk" aria-labelledby="guide-heading">
+        <h2 id="guide-heading">Where does your team start?</h2>
+        <div class="entry-links">
+          <a href="/docs#install"
+            ><span>02 / Platform engineering</span
+            ><strong>Run a private workspace</strong
+            ><span aria-hidden="true">↗</span></a
           >
-            <path d="M4 12h15m-6-6 6 6-6 6" /></svg
-        ></a>
+          <a href="/docs#providers"
+            ><span>08 / Product security</span
+            ><strong>Connect a bounty program</strong
+            ><span aria-hidden="true">↗</span></a
+          >
+          <a href="/docs#agents"
+            ><span>10 / Security operations</span
+            ><strong>Hand a case to a reviewer</strong
+            ><span aria-hidden="true">↗</span></a
+          >
+        </div>
       </section>
     </main>
-    <footer class="site-footer">
-      <span>Ichnix</span>
-      <div>
-        <a href="/docs">Documentation</a>
-        <a href="https://github.com/sansynx/ichnix">GitHub</a>
-        <a href="#main"
-          >Back to top
-          <svg
-            class="ui-icon"
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-            focusable="false"
+    <footer class="atlas-footer">
+      <div class="footer-inner">
+        <div class="footer-signature">
+          <a class="brand" href="/" aria-label="Ichnix home"
+            ><img
+              src="/evidence-graph.png"
+              width="34"
+              height="34"
+              alt=""
+            />Ichnix</a
           >
-            <path d="M12 20V4m-6 6 6-6 6 6" /></svg
-        ></a>
+          <p>A security evidence workspace built on HydraDB.</p>
+        </div>
+        <nav aria-label="Footer navigation">
+          <a href="/docs">Operator manual</a>
+          <a href="/console">Review console</a>
+          <a href="https://github.com/sansynx/ichnix">GitHub</a>
+        </nav>
+        <a class="return-link" href="#main"
+          >Back to top <span aria-hidden="true">↑</span></a
+        >
       </div>
     </footer>
   </body>
