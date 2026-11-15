@@ -3,12 +3,14 @@ import { render } from "pele";
 import { withWorkspaceColors } from "./diagram-theme.mjs";
 
 const diagram = `flowchart TB
-  B["Bounty program"] -->|Mapped report| G["HydraDB evidence graph"]
-  C["Customer CI"] -->|Staging observations| G
-  H["Reviewer console / CLI"] <-->|Context and decisions| G
-  G <-->|Context and outcomes| A["Private handoff API"]
-  A <-->|Role and lease checks| Q["SQLite identities and queue"]
-  W["Coding agent via MCP"] <-->|One leased review| A`;
+  P["HackerOne / Bugcrowd"] -->|Signed webhook| I["Private intake"]
+  U["Console / CLI upload"] -->|Mapped report| I
+  I -->|Report snapshot| G["HydraDB evidence graph"]
+  C["Signed staging checks"] --> G
+  G <-->|Evidence and owner decisions| H["Console / CLI reviewer"]
+  G <-->|Case context and outcomes| A["Worker API"]
+  A <-->|Identity and lease| Q["SQLite"]
+  W["Coding agent via MCP"] <-->|Assigned review| A`;
 
 const { svg } = render(diagram, {
   idPrefix: "ichnix-arch",
@@ -26,18 +28,18 @@ writeFileSync(
 );
 
 const review = `flowchart TB
-  U["Mapped upload"] -->|Intake token| S["Private intake"]
-  P["Program webhook"] -->|Signature + catalog| S
-  S --> R["Report snapshot"]
-  R --> V["Component revision"]
-  C["Signed staging manifest"] -->|Service + revision| V
-  V --> E["Recorded controls"]
-  E --> H["Review context"]
-  V -->|Prior owner decisions| H
-  H --> O["Reviewer"]
-  H --> W["Leased MCP worker"]
-  O -->|Owner decision| D["HydraDB review history"]
-  W -->|Disposition| D`;
+  R["New report snapshot"] --> V["Shared component revision"]
+  R --> E["Current staging checks"]
+  V -->|Find earlier cases| P["Prior report snapshots"]
+  P --> C["Prior staging checks"]
+  V --> O["Owner decisions"]
+  C -->|Rank checks| H["Review context"]
+  O -->|Rank owners| H
+  E --> H
+  H --> A["Reviewer via console / CLI"]
+  H --> W["Worker via MCP"]
+  A -->|Accept or reject owner| O
+  W --> D["Disposition on leased snapshot"]`;
 
 const workflow = render(review, {
   idPrefix: "ichnix-review",

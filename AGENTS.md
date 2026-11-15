@@ -2,6 +2,19 @@
 
 Ichnix links security reports to the deployed revision, staging observations and owner decisions. The Python CLI, HTTP console and stdio MCP server share the graph and evidence model in [ichnix](ichnix). Use the operator entry point `python3 cli.py --help` to find supported commands.
 
+## Evaluate a checkout
+
+From the repository root, complete the [native Ubuntu setup](README.md#try-it-locally) through installation of the pinned HydraDB runtime. The commands below start their own disposable graph nodes and exit. You can leave the demo server stopped. The bundled cases work without platform credentials or a model API key.
+
+1. Run `python3 cli.py survey` to exercise synthetic intake, signed staging evidence, a human CLI review and two stdio MCP workers. In the JSON receipt, `completed_reviews` should map `evidence-review` to `needs-evidence` and `owner-review` to `needs-owner-review`. The separate `human_review_events` count should be 1.
+2. Run `python3 cli.py evaluate`. Read `curve` in training order and compare `owner_top1`, `pooled_owner_top1` and `catalog_owner_top1` on the same six held-out reports. Only the separate training reports receive feedback. The [README](README.md#how-it-learns) gives the expected counts.
+
+For the ranking logic, read `snapshot_context` and `_ranked_checks` in [graph.py](ichnix/graph.py). For the handoff, [survey.py](testing/survey.py) shows the actual MCP calls in order: `claim_review`, `get_review_context`, `finish_review`. The organization's staging checks supply the observations. The worker can flag missing evidence, and a human reviewer records the owner decision.
+
+For private integrations, use the CLI and MCP setup links in the [README](README.md). Authenticated customer bounty programs have yet to be exercised end to end.
+
+## Repository boundaries
+
 - [public](public) contains the browser shells and bundled assets. The private workspace and the read-only demo use separate origins. A public shell can render before sign-in. Every private API operation checks the named identity and role on the server.
 - [api](api) holds the Vercel relays. The static builder and the self-hosted server each allowlist public assets. Update both when shipping an asset. Keep server configuration, source files and local fixtures outside those lists.
 - [testing](testing) contains reproducible workflows and synthetic fixtures, and [tests](tests) contains regression checks. Put disposable receipts, captures and local report samples in the ignored `.local/` directory. See [Contributing](CONTRIBUTING.md) for setup and review.
