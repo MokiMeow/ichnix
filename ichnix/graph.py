@@ -1,6 +1,7 @@
 """Versioned remediation evidence stored in a dedicated HydraDB graph."""
 
 import hashlib
+from itertools import islice
 import pwd
 from threading import Lock
 from datetime import datetime, timezone
@@ -45,6 +46,17 @@ def _title_vector(title):
             counts[index] += 1
     norm = math.sqrt(sum(n * n for n in counts.values()))
     return {index: round(n / norm, 8) for index, n in sorted(counts.items())}
+
+
+_GENERIC_TITLE_WORDS = frozenset(
+    "a an and another bug critical duplicate finding found high in issue low medium new of on "
+    "possible problem report security severe site test the to urgent vulnerability website".split()
+)
+
+
+def _specific_title(title):
+    return any(word.isalpha() and len(word) > 1 and word not in _GENERIC_TITLE_WORDS
+               for word in re.findall(r"[^\W_]+", title.casefold()))
 
 
 def _run_diagram(report, evidence):
@@ -332,31 +344,59 @@ class Graph:
             context["review_history"] = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "
                 "RETURN v.owner AS owner, v.accepted AS accepted, v.actor AS actor, v.at AS at ORDER BY v.at", id=snapshot)
             vector = json.loads(stored) if stored else _title_vector(report["title"])
-            context["related_reports"] = self._related_reports(snapshot, vector, report["service"])
+            context["related_reports"] = self._related_reports(snapshot, vector, report, evidence)
         return snapshot, context
 
-    def _related_reports(self, snapshot, vector, service):
-        if not vector:
-            return []
-        # Match only published, current snapshots in this installation's own graph.
-        # Bound the candidate count before calculating lexical similarity.
-        rows = self._query(
-            "MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)"
-            "<-[:USES_COMPONENT]-(o)<-[:HAS_SNAPSHOT]-(r:Report) "
-            "WHERE o.id <> $id AND r.snapshot = o.id "
-            "RETURN r.key AS id, r.title AS title, r.service AS service, r.title_vector_v1 AS vector "
-            "ORDER BY r.key LIMIT 128", id=snapshot)
+    def _related_reports(self, snapshot, vector, report, evidence):
+        scope = ("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)"
+                 "<-[:USES_COMPONENT]-(o)<-[:HAS_SNAPSHOT]-(r:Report) ")
+        current = "o.id <> $id AND r.snapshot = o.id"
+        fields = "r.key AS id, r.title AS title, r.service AS service, r.title_vector_v1 AS vector"
+        rows = self._query(scope + "WHERE " + current + " RETURN " + fields
+                           + " ORDER BY r.key LIMIT 128", id=snapshot)
+        candidates = {row["id"]: row for row in rows}
+        failures = {}
+        for event in reversed(evidence):
+            if event["source_method"] == "hmac-sha256" and event["result"] == "failed":
+                failures.setdefault(event["source_digest"], set()).add(event["step"])
+        shared = {}
+        eligible = (pair for pair in failures.items() if len(pair[1]) >= 2)
+        for digest, steps in islice(eligible, 4):
+            rows = self._query(scope + "MATCH (o)-[:HAS_EVIDENCE]->(e) WHERE " + current
+                + " AND r.service = $service AND e.digest = $digest AND e.method = 'hmac-sha256' "
+                "AND e.result = 'failed' AND e.step IN $steps "
+                "RETURN DISTINCT r.key AS id, r.title AS title, e.step AS step "
+                "ORDER BY r.key, e.step LIMIT 512",
+                id=snapshot, service=report["service"], digest=digest, steps=sorted(steps))
+            overlap = {}
+            for row in rows:
+                key = row["id"]
+                checks = overlap.setdefault(key, set())
+                checks.add(row["step"])
+                if len(checks) >= 2:
+                    candidates.setdefault(key, row)
+                    shared.setdefault(key, checks)
+
         matches = []
-        for row in rows:
-            candidate = json.loads(row["vector"]) if row["vector"] else _title_vector(row["title"])
+        for key, row in candidates.items():
+            candidate = json.loads(row["vector"]) if row.get("vector") else _title_vector(row["title"])
             score = sum(value * candidate.get(index, 0) for index, value in vector.items())
-            if score >= 0.2:
-                possible_duplicate = row["service"] == service and score >= 0.85
-                matches.append({"id": row["id"], "title": row["title"], "score": round(min(score, 1), 3),
-                                "possible_duplicate": possible_duplicate,
-                                "reason": "close title match on the same service and component revision"
-                                if possible_duplicate else "similar title on the same component revision"})
-        return sorted(matches, key=lambda m: (not m["possible_duplicate"], -m["score"], m["id"]))[:5]
+            if key in shared:
+                reason = "Both submissions recorded failures on the same signed staging manifest: " + ", ".join(sorted(shared[key])[:3])
+                priority = 0
+            elif score >= 0.85 and row["service"] == report["service"] and (
+                    _specific_title(report["title"]) and _specific_title(row["title"])):
+                reason = "close title match on the same service and component revision"
+                priority = 1
+            elif score >= 0.2:
+                reason = "similar title on the same component revision"
+                priority = 2
+            else:
+                continue
+            match = {"id": key, "title": row["title"], "score": round(min(score, 1), 3),
+                     "possible_duplicate": priority < 2, "reason": reason}
+            matches.append((priority, -score, key, match))
+        return [match for _, _, _, match in sorted(matches)[:5]]
 
     def ranked_checks(self, case_id):
         return self._ranked_checks(self._report(case_id)["snapshot"])

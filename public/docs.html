@@ -1278,18 +1278,23 @@ export SELFGRAPH_NAMESPACE=YOUR_NAMESPACE
                 its strongest observation for that check. The ranking suggests
                 which existing control to inspect.
               </dd>
-              <dt>Related titles</dt>
+              <dt>Compare related submissions</dt>
               <dd>
-                Normalized sparse character-trigram vectors are stored as graph
-                properties. A revision-scoped traversal selects up to 128
-                current reports. Application code ranks them by cosine
-                similarity and returns up to five matches. A score of 0.85 or
-                higher on the same service and component revision flags a
-                possible duplicate. These candidates appear first. Open the
-                linked case to compare the evidence. Each submission keeps
-                its own ID, history and program status. Matching uses report
-                metadata and works without researcher identities. Different
-                wording can cause the comparison to miss a duplicate.
+                Open a suggested report to compare the two histories. Ichnix
+                puts evidence matches first when two current submissions on the
+                same service, component and release share at least two distinct
+                failed checks on the same signed staging manifest. The reason
+                names the checks. A later passing run stays in the history.
+              </dd>
+              <dd>
+                For differently worded titles, Ichnix checks the four most recent
+                signed manifests with multiple failures, reading up to 512 distinct
+                report/check pairs per manifest. It also compares up to 128 titles
+                on the component revision using character-trigram cosine similarity.
+                Specific titles scoring at least 0.85 on the same service can
+                flag a possible duplicate. The console shows up to five results.
+                A reviewer decides whether they describe the same issue. Each
+                report keeps its own ID and program status.
               </dd>
             </dl>
             <h3 id="routing-results">How often did the first owner match?</h3>

@@ -468,6 +468,7 @@ function renderCase({
     jumps.setAttribute("aria-label", "Example sections");
     for (const [label, id] of [
       ["Compare runs", "case-evidence"],
+      ["Compare submissions", "case-related"],
       ["Owner review", "case-owners"],
       ["Worker handoff", "case-handoffs"],
     ]) {
@@ -535,7 +536,9 @@ function renderCase({
     }
   }
   if (related_reports.length) {
-    detail.append(element("h3", "Related reports"));
+    detail.append(
+      Object.assign(element("h3", "Related reports"), { id: "case-related" }),
+    );
     for (const match of related_reports) {
       const row = element("div", undefined, "evidence-row");
       const button = element(

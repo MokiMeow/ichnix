@@ -231,6 +231,8 @@ def public_checks(browser, origin, width, hosted=False):
                 expect(page.locator(".case-id")).to_have_text("IX-214")
                 guide = page.get_by_role("navigation", name="Example sections")
                 expect(guide.get_by_role("link", name="Compare runs")).to_have_attribute("href", "#case-evidence")
+                expect(guide.get_by_role("link", name="Compare submissions")).to_have_attribute("href", "#case-related")
+                expect(page.get_by_text("Both submissions recorded failures", exact=False)).to_contain_text("redaction_enabled, retention_days")
                 compare = page.get_by_role("table", name="Two most recent recorded runs")
                 expect(compare.get_by_role("row", name="retention days failed passed")).to_be_attached()
                 expect(compare.get_by_role("row", name="audit enabled inconclusive inconclusive")).to_be_attached()

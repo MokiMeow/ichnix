@@ -32,6 +32,7 @@ def seed_guided_case(graph, policy, baseline):
     graph.record_review(case_id, "data-platform", True, actor="sample-reviewer", expected_scope=case)
 
     corrected = dict(baseline, settings={**baseline["settings"], "retention_days": 30})
+    baseline = dict(baseline, settings={**baseline["settings"], "redaction_enabled": False})
     with TemporaryDirectory() as folder:
         key = Path(folder) / "sample.key"
         with key.open("xb") as handle:
@@ -44,9 +45,12 @@ def seed_guided_case(graph, policy, baseline):
                 manifest.write_text(json.dumps(settings), encoding="utf-8")
                 sign(manifest, signature)
                 observed, provenance = manifest_input(manifest, signature)
+                # Two sample submissions cite the same original deployment export.
+                reports = (case_id, "IX-104") if run == "baseline" else (case_id,)
                 for evidence in checks(case, policy, observed):
-                    graph.add_evidence(case_id, dict(evidence, run_id=run, **provenance),
-                                       expected_service=case["service"], expected_component=case["component"])
+                    for report_id in reports:
+                        graph.add_evidence(report_id, dict(evidence, run_id=run, **provenance),
+                                           expected_service=case["service"], expected_component=case["component"])
 
         # Exercise a real lease without claiming jobs from the optional disclosure replay.
         queue = Handoffs(Path(folder) / "sample-queue.sqlite")
