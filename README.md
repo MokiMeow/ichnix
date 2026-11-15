@@ -9,7 +9,7 @@ Ichnix is a self-hosted bug bounty triage workspace for product security teams. 
 ## How it works
 
 1. **Bring in a report.** Connect a HackerOne or Bugcrowd program through signed webhooks, or upload mapped JSON in the private console. The bounty platform continues to handle researcher communication and payouts.
-2. **Trace the evidence.** Self-hosted [HydraDB](https://github.com/hydra-db/hydradb) ties each report snapshot to its staging results. Through the component revision, Ichnix finds earlier reviews, ranks potential owners using their accepted or rejected assignments, and suggests checks that mattered on that release.
+2. **Trace the evidence.** Self-hosted HydraDB ties each report snapshot to its staging results. Through the component revision, Ichnix finds earlier reviews, ranks potential owners using their accepted or rejected assignments, and suggests checks that mattered on that release.
    Two researchers can describe the same failure in different words. Ichnix flags submissions on the same deployment when both record at least two of the same failures on one signed staging manifest. A reviewer can compare the named checks and both histories before deciding whether the reports describe the same bug.
 3. **Hand off the review.** Engineers inspect the case in the console or CLI. A coding agent can claim a review through the Model Context Protocol (MCP), read the evidence for its assigned case, and record an outcome such as a request for more evidence.
 
@@ -46,6 +46,16 @@ HydraDB connects each report snapshot to a component revision. An owner decision
 > **Public disclosures · 75 real curl reports.** In a chronological replay, Ichnix and the catalog each matched a credited patch author on **56/75**. None had earlier public feedback on the inferred release. Both missed all 19 reports where the usual patch author lacked credit. Patch credit is a proxy for internal ownership. [Evaluation details](https://ichnix.vercel.app/docs#routing-results)
 
 The duplicate example is synthetic. Shared CI failures can have different causes. Duplicate precision and recall on a labeled customer program remain unmeasured.
+
+## Core technology
+
+| Repository | Role in Ichnix |
+| --- | --- |
+| [HydraDB](https://github.com/hydra-db/hydradb) | Stores the evidence graph. Ichnix traverses it to rank owners and checks and to find reports linked by staging failures. |
+| [SelfGraph](https://github.com/hydra-db/selfgraph) | Consumers can import a case’s exported facts, including the release, recorded checks and their evidence sources. |
+| [AnyDoc](https://github.com/firecrawl/anydoc) | Optional offline conversion of report documents to Markdown through the CLI. |
+| [SQLite](https://github.com/sqlite/sqlite) | Stores workspace identities and review leases so an agent can claim a handoff and resume its work. |
+| [Pele](https://github.com/obsidianmd/pele) | Renders the architecture diagram and the review and evidence diagrams in the console. |
 
 ## Guides
 
