@@ -76,15 +76,10 @@ def named_workspace(hosted=False):
                 thread.join()
 
 
-def expect_activity(page, label):
-    activity = page.get_by_role("progressbar")
-    expect(activity).to_have_count(1)
-    expect(activity).to_have_accessible_name(label)
+def expect_activity(page, label, section):
+    activity = page.locator(section).get_by_role("progressbar", name=label, exact=True)
     expect(activity).to_be_visible()
-    bounds = activity.bounding_box()
-    viewport = page.viewport_size
-    for position, size in (("x", "width"), ("y", "height")):
-        assert abs(bounds[position] + bounds[size] / 2 - viewport[size] / 2) <= 1
+    assert activity.evaluate("el => getComputedStyle(el).position") == "static"
 
 
 def public_checks(browser, origin, width, hosted=False):
@@ -106,10 +101,10 @@ def public_checks(browser, origin, width, hosted=False):
                 page.route("**/api/session", lambda job: held_session.append(job))
             page.goto(origin + route)
             if route == "/console":
-                expect_activity(page, "Connecting to workspace")
+                expect_activity(page, "Connecting to workspace", ".workspace-intro")
                 expect(page.locator("#status")).to_be_empty()
                 expect(page.locator(".thinking-mark")).to_have_count(1)
-                mark = page.locator("#activity .thinking-mark")
+                mark = page.locator(".workspace-intro .thinking-mark")
                 assert mark.evaluate("el => getComputedStyle(el, '::before').animationName") == "none"
                 page.emulate_media(reduced_motion="no-preference")
                 assert mark.evaluate("el => getComputedStyle(el, '::before').animationName") != "none"
@@ -154,21 +149,45 @@ def public_checks(browser, origin, width, hosted=False):
                 expect(page.locator(".topnav a").first).to_be_focused()
                 if width <= 720:
                     page.get_by_role("button", name="Close menu").click()
+                    toggle.click()
+                    page.mouse.move(width // 2, 700)
+                    page.mouse.wheel(0, 300)
+                    expect(primary).to_be_hidden()
+                    page.evaluate("window.scrollTo(0, 0)")
+                    page.wait_for_function("scrollY === 0")
+                    toggle.click()
+                topics = page.locator('a[href^="/docs#"]').evaluate_all("(links) => links.map(link => link.hash)")
+                page.locator('.topnav a[href="/docs"]').click()
+                expect(page.locator(".manual h1")).to_be_visible()
+                for topic in topics:
+                    expect(page.locator(topic)).to_have_count(1)
+                page.go_back()
                 artwork = page.request.get(origin + "/strata.webp")
                 assert artwork.ok and artwork.headers["content-type"] == "image/webp"
                 inspector = page.locator(".specimen")
                 box = inspector.bounding_box()
                 assert abs(box["x"] + box["width"] / 2 - width / 2) <= 1
-                inspector.get_by_role("radio", name="Evidence").focus()
-                for output in ("revision", "handoff"):
+                inspector.get_by_role("radio", name="Intake").focus()
+                for output in ("evidence", "handoff"):
                     page.keyboard.press("ArrowRight")
                     expect(inspector.locator("." + output + "-output")).to_be_visible()
-                inspector.locator("label", has_text="Evidence").click()
-                expect(inspector.locator(".evidence-output")).to_be_visible()
+                inspector.locator("label", has_text="Intake").click()
+                expect(inspector.locator(".intake-output")).to_be_visible()
                 expect(inspector.locator(".readout:visible")).to_have_count(1)
             elif route == "/docs":
                 index = page.locator(".index-panel")
                 if width <= 720:
+                    expect(index).not_to_have_attribute("open", "")
+                    index.locator("summary").click()
+                    bar = index.get_by_role("slider", name="Scroll chapter list")
+                    start_y = page.evaluate("scrollY")
+                    bar.focus()
+                    page.keyboard.press("End")
+                    expect(bar).to_have_value("100")
+                    expect(index.get_by_role("link").last).to_be_in_viewport()
+                    assert page.evaluate("scrollY") == start_y
+                    page.mouse.move(8, 710)
+                    page.mouse.wheel(0, 300)
                     expect(index).not_to_have_attribute("open", "")
                     page.keyboard.press("/")
                     expect(index.get_by_role("searchbox")).to_be_focused()
@@ -209,6 +228,19 @@ def public_checks(browser, origin, width, hosted=False):
                 expect(page.locator("#leave")).to_be_hidden()
                 expect(page.locator("#report-upload")).to_be_hidden()
                 expect(page.locator("#detail .review-row button")).to_have_count(0)
+                expect(page.locator(".case-id")).to_have_text("IX-214")
+                guide = page.get_by_role("navigation", name="Example sections")
+                expect(guide.get_by_role("link", name="Compare runs")).to_have_attribute("href", "#case-evidence")
+                compare = page.get_by_role("table", name="Two most recent recorded runs")
+                expect(compare.get_by_role("row", name="retention days failed passed")).to_be_attached()
+                expect(compare.get_by_role("row", name="audit enabled inconclusive inconclusive")).to_be_attached()
+                expect(page.get_by_text("sample-evidence-worker", exact=True)).to_be_attached()
+                with page.expect_download() as brief:
+                    page.get_by_role("link", name="Download report README").click()
+                assert brief.value.suggested_filename == "README.md"
+                text = brief.value.path().read_text()
+                assert '    id: "IX-214"' in text and "run_id" not in text
+                assert page.request.post(origin + "/api/cases/IX-214/reviews", data={}).status == 405
                 def select(case):
                     if width <= 720:
                         page.locator("#case-select").select_option(case)
@@ -225,7 +257,28 @@ def public_checks(browser, origin, width, hosted=False):
                         page.keyboard.press("ArrowDown")
                         page.keyboard.press("Escape")
                         expect(picker).to_have_value(original)
+                pending_case = []
+                case_url = "**/api/cases/IX-108"
+                page.route(case_url, lambda job: pending_case.append(job))
+                with page.expect_request(case_url):
+                    if width <= 720:
+                        page.locator("#case-select").select_option("IX-108")
+                    else:
+                        page.locator('#cases button[data-case-id="IX-108"]').click()
+                expect_activity(page, "Retrieving case IX-108", "#detail")
+                pending_case[0].continue_()
+                page.unroute(case_url)
+                expect(page.locator(".case-id")).to_have_text("IX-108")
+                case_requests = []
+                page.on("request", lambda req: case_requests.append(req.url)
+                        if req.url == origin + "/api/cases/IX-108" else None)
+                select("IX-214")
                 select("IX-108")
+                assert not case_requests, "a public case revisit fetched the same snapshot again"
+                with page.expect_response(origin + "/api/cases/IX-108"):
+                    page.get_by_role("button", name="Refresh").click()
+                expect(page.locator("#case-content")).not_to_have_attribute("aria-busy", "true")
+                assert len(case_requests) == 1
                 download = page.get_by_role("link", name="Download SelfGraph facts (JSON)")
                 expect(download).to_have_attribute("href", "/api/cases/IX-108/selfgraph.json")
                 assert not exports
@@ -250,20 +303,21 @@ def public_checks(browser, origin, width, hosted=False):
                 trace.focus()
                 with page.expect_request("**/api/cases/*/trace.svg"):
                     page.keyboard.press("Enter")
-                expect_activity(page, "Loading evidence trace")
+                expect_activity(page, "Loading evidence trace", "#detail .case-diagram")
                 curve = page.get_by_text("Learning curve", exact=True)
                 with page.expect_request("**/api/evaluation"):
                     curve.click()
-                expect_activity(page, "Loading learning curve")
+                expect_activity(page, "Loading learning curve", "#evaluation")
+                expect_activity(page, "Loading evidence trace", "#detail .case-diagram")
                 curve.click()
-                expect_activity(page, "Loading evidence trace")
+                expect_activity(page, "Loading evidence trace", "#detail .case-diagram")
                 trace.click()
                 expect(page.get_by_role("progressbar")).to_have_count(0)
                 trace.click()
-                expect_activity(page, "Loading evidence trace")
+                expect_activity(page, "Loading evidence trace", "#detail .case-diagram")
                 pending_curve[0].continue_()
                 page.unroute("**/api/evaluation")
-                expect_activity(page, "Loading evidence trace")
+                expect_activity(page, "Loading evidence trace", "#detail .case-diagram")
                 pending_trace[0].continue_()
                 page.unroute("**/api/cases/*/trace.svg")
                 expect(page.locator(".trace")).to_be_visible()
@@ -311,6 +365,7 @@ def public_checks(browser, origin, width, hosted=False):
                 page.get_by_text("Observed evidence trace", exact=True).click()
                 expect(page.locator(".trace")).to_be_visible()
                 page.get_by_text("Learning curve", exact=True).click()
+                page.get_by_text("View exact scores", exact=True).click()
                 for caption, expected in (("Feedback from the same component revision", "100%"),
                                           ("Same feedback pooled across components", "33.3%")):
                     table = page.get_by_role("table", name=caption)
@@ -463,7 +518,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.locator("#case-select")).to_have_value("IX-113")
                 expect(page.locator('#cases button[aria-current="true"]')).to_be_disabled()
                 page.get_by_role("button", name="Refresh").click()
-                expect(page.locator("#activity")).to_be_hidden()
+                expect(page.get_by_role("progressbar")).to_have_count(0)
                 expect(page.locator(".case-id")).to_have_text("IX-113")
                 pager.get_by_role("button", name="Previous").click()
                 expect(page.locator(".case-id")).to_have_text("IX-104")
@@ -563,7 +618,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     page.get_by_role("button", name="Import report").click()
                 expect(page.get_by_role("button", name="Import report")).to_be_disabled()
                 page.locator("#report-upload").evaluate("form => form.requestSubmit()")
-                expect_activity(page, "Importing report")
+                expect_activity(page, "Importing report", "#report-upload")
                 expect(page.locator("#status")).to_be_empty()
                 assert len(submissions) == 1
                 if hosted:
@@ -583,7 +638,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(buttons).to_have_count(4)
                 with page.expect_request(review_url):
                     buttons.first.click()
-                expect_activity(page, "Saving owner review")
+                expect_activity(page, "Saving owner review", "#detail .review-row")
                 expect(buttons.last).to_be_disabled()
                 pending_review[0].continue_()
                 page.unroute(review_url)
@@ -640,7 +695,7 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                     page.get_by_text("Review workflow diagram", exact=True).click()
                 expect(page.locator("#status")).to_contain_text("Access denied")
                 expect(page.locator("#desk")).to_be_hidden()
-                expect(page.locator("#activity")).to_be_hidden()
+                expect(page.get_by_role("progressbar")).to_have_count(0)
                 assert page.locator("#retry").evaluate("el => el.onclick === null")
                 assert page.locator("#case-pager button").evaluate_all("els => els.every(e => !e.value && e.disabled)")
             else:

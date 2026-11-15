@@ -27,7 +27,6 @@ const assets = [
   "nav.js",
   "strata-mobile.webp",
   "report-review.svg",
-  "report-review.webp",
   "fonts/IBMPlexMono-LICENSE.txt",
   "fonts/IBMPlexMono-Regular.woff2",
   "fonts/InstrumentSans-LICENSE.txt",

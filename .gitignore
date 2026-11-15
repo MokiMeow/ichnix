@@ -1,6 +1,7 @@
-.env
-.env.*
-!.env.example
+# Local credentials and generated client profiles
+.env*
+.dev.vars
+.dev.vars.*
 *.token
 hydra-token
 console-token
@@ -9,42 +10,43 @@ console-token
 *.pem
 *.key
 *.p12
-*.sqlite*
-*.db
-*.db-wal
-*.db-shm
-*.db-journal
-*.log
+.netrc
+.npmrc
+private/
+ichnix-mcp.json
+ichnix-mcp.toml
+ichnix-reader.json
+
+# Workspace state and private reports
+.local/
 .state/
 .runtime/
 data/
 artifacts/
 reports/
+*.sqlite*
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Build tools and caches
 node_modules/
 __pycache__/
 *.pyc
 .venv/
-.DS_Store
-coverage/
-private/
-*.har
-*.trace
-playwright-report/
-test-results/
-*.webm
-*.mp4
-.netrc
-.npmrc
-
 .vercel/
-.dev.vars
-.dev.vars.*
 dist/
 .dist-build-*/
-.env*
+.DS_Store
 
-# Private workspace configuration and local QA artifacts
-.local/
-ichnix-mcp.json
-ichnix-mcp.toml
+# Local validation, captures and recordings
+coverage/
+playwright-report/
+test-results/
+*.har
+*.trace
+*.log
+*.webm
+*.mp4
 *.mov

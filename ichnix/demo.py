@@ -5,14 +5,56 @@ import os
 from pathlib import Path
 import secrets
 import sys
+from tempfile import TemporaryDirectory
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
 from unittest.mock import patch
 
 from ichnix.eval_graph import evaluate, isolated_graph
+from ichnix.handoffs import Handoffs
 from scripts.acceptance import CASE, run_local_workflow
 from ichnix.server import ConsoleServer, Handler, ROOT, diagram_svg
-from ichnix.staging import checks, load, manifest_input
+from ichnix.staging import checks, load, manifest_input, sign
+
+
+GUIDED_CASE = {
+    "id": "IX-214", "title": "Audit retention after a staging configuration change",
+    "service": "ledger", "component": "audit-store", "revision": "build-108", "owner": "product-security",
+}
+
+
+def seed_guided_case(graph, policy, baseline):
+    """Build a replayable review using only the disposable demo graph and manifests."""
+    case = GUIDED_CASE
+    case_id = case["id"]
+    graph.import_report(case)
+    graph.record_review(case_id, "product-security", False, actor="sample-reviewer", expected_scope=case)
+    graph.record_review(case_id, "data-platform", True, actor="sample-reviewer", expected_scope=case)
+
+    corrected = dict(baseline, settings={**baseline["settings"], "retention_days": 30})
+    with TemporaryDirectory() as folder:
+        key = Path(folder) / "sample.key"
+        with key.open("xb") as handle:
+            os.fchmod(handle.fileno(), 0o600)
+            handle.write(secrets.token_bytes(32))
+        with patch.dict(os.environ, ICHNIX_CI_HMAC_KEY_FILE=str(key)):
+            for run, settings in (("baseline", baseline), ("after-change", corrected)):
+                manifest = Path(folder) / f"{run}.json"
+                signature = manifest.with_suffix(".sig")
+                manifest.write_text(json.dumps(settings), encoding="utf-8")
+                sign(manifest, signature)
+                observed, provenance = manifest_input(manifest, signature)
+                for evidence in checks(case, policy, observed):
+                    graph.add_evidence(case_id, dict(evidence, run_id=run, **provenance),
+                                       expected_service=case["service"], expected_component=case["component"])
+
+        # Exercise a real lease without claiming jobs from the optional disclosure replay.
+        queue = Handoffs(Path(folder) / "sample-queue.sqlite")
+        job = queue.enqueue(graph, case_id, "evidence-review", expected_scope=case)
+        worker = "sample-evidence-worker"
+        lease = queue.claim(worker)
+        queue.case_context(graph, job["id"], worker, lease["token"])
+        queue.finish(job["id"], worker, lease["token"], disposition="needs-evidence", graph=graph)
 
 
 class PublicDemoHandler(Handler):
@@ -70,6 +112,7 @@ def _run():
             for evidence in checks(case, policy, manifest):
                 graph.add_evidence(case["id"], dict(evidence, run_id=run, **provenance))
         if args.public_readonly:
+            seed_guided_case(graph, policy, manifest)
             with ConsoleServer(("127.0.0.1", args.port), PublicDemoHandler) as http:
                 http.receipt = receipt
                 http.disclosed_case = CASE if args.with_disclosure else None
@@ -78,6 +121,7 @@ def _run():
                 http.demo_traces = {}
                 http.demo_facts = {}
                 public_ids = {case["id"] for case in cases}
+                public_ids.add(GUIDED_CASE["id"])
                 if http.disclosed_case:
                     public_ids.add(http.disclosed_case)
                 for case in graph.cases():

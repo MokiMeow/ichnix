@@ -60,109 +60,122 @@
         <aside class="manual-rail">
           <details class="index-panel" open>
             <summary>Contents <span id="current-chapter"></span></summary>
-            <div class="chapter-finder" hidden>
-              <label for="chapter-query">Find a chapter</label>
-              <input
-                type="search"
-                id="chapter-query"
-                placeholder="Title, topic or number"
-                autocomplete="off"
-                aria-controls="chapter-links"
-              />
-              <p id="chapter-result" role="status"></p>
+            <div class="index-body">
+              <div class="chapter-finder" hidden>
+                <label for="chapter-query">Find a chapter</label>
+                <input
+                  type="search"
+                  id="chapter-query"
+                  placeholder="Title, topic or number"
+                  autocomplete="off"
+                  aria-controls="chapter-links"
+                />
+                <p id="chapter-result" role="status"></p>
+              </div>
+              <div class="chapter-scroll">
+                <nav
+                  id="chapter-links"
+                  class="manual-index"
+                  aria-label="Manual contents"
+                >
+                  <p>Start here</p>
+                  <a href="#walkthrough"
+                    ><span class="chapter-no">01</span>Follow a finding</a
+                  >
+                  <a href="#install"
+                    ><span class="chapter-no">02</span>Self-host a workspace</a
+                  >
+                  <a href="#cli"
+                    ><span class="chapter-no">03</span>Set up the CLI</a
+                  >
+                  <a href="#providers"
+                    ><span class="chapter-no">04</span>Connect a program</a
+                  >
+                  <a href="#agents"
+                    ><span class="chapter-no">05</span>Set up MCP</a
+                  >
+                  <p>Operate a workspace</p>
+                  <a href="#ci"
+                    ><span class="chapter-no">06</span>Capture CI evidence</a
+                  >
+                  <a href="#storage"
+                    ><span class="chapter-no">07</span>Configure storage</a
+                  >
+                  <a href="#hosted-workspace"
+                    ><span class="chapter-no">08</span>Host a private
+                    workspace</a
+                  >
+                  <a href="#vercel"
+                    ><span class="chapter-no">09</span>Host a public preview</a
+                  >
+                  <p>Reference</p>
+                  <a href="#selfgraph"
+                    ><span class="chapter-no">10</span>Export to SelfGraph</a
+                  >
+                  <a href="#graph"
+                    ><span class="chapter-no">11</span>Graph and retrieval</a
+                  >
+                  <a href="#distribution"
+                    ><span class="chapter-no">12</span>Licenses</a
+                  >
+                </nav>
+              </div>
             </div>
-            <nav
-              id="chapter-links"
-              class="manual-index"
-              aria-label="Manual contents"
-            >
-              <p>Getting started</p>
-              <a href="#walkthrough"
-                ><span class="chapter-no">01</span>Follow a finding</a
-              >
-              <a href="#install"
-                ><span class="chapter-no">02</span>Self-host a workspace</a
-              >
-              <a href="#vercel"
-                ><span class="chapter-no">03</span>Host a public preview</a
-              >
-              <a href="#hosted-workspace"
-                ><span class="chapter-no">04</span>Hosted organization
-                workspace</a
-              >
-              <a href="#storage"
-                ><span class="chapter-no">05</span>Configure storage</a
-              >
-              <a href="#survey"
-                ><span class="chapter-no">06</span>Test with mock cases</a
-              >
-              <a href="#acceptance"
-                ><span class="chapter-no">07</span>Run acceptance</a
-              >
-              <p>Operations</p>
-              <a href="#providers"
-                ><span class="chapter-no">08</span>Connect a program</a
-              >
-              <a href="#ci"
-                ><span class="chapter-no">09</span>Capture CI evidence</a
-              >
-              <a href="#agents"
-                ><span class="chapter-no">10</span>Connect coding agents</a
-              >
-              <a href="#selfgraph"
-                ><span class="chapter-no">11</span>Export to SelfGraph</a
-              >
-              <p>Reference</p>
-              <a href="#graph"
-                ><span class="chapter-no">12</span>Graph and retrieval</a
-              >
-              <a href="#results"
-                ><span class="chapter-no">13</span>Measurements</a
-              >
-              <a href="#distribution"
-                ><span class="chapter-no">14</span>Licenses</a
-              >
-            </nav>
           </details>
         </aside>
         <article class="manual-article">
           <header class="manual-intro">
-            <p class="loc">Docs <span aria-hidden="true">/</span> Operations</p>
             <h1>Operator manual</h1>
-            <p>
-              New to Ichnix?
-              <a href="/console">Explore the read-only console</a>
-              to see how a review works. To import a report of your own,
-              <a href="#containers">start a private workspace</a>, then
-              <a href="#first-upload">try your first upload</a>.
-            </p>
+            <p>Follow a report from intake to the team that owns it.</p>
+            <ul>
+              <li>
+                <a href="/console">Open the read-only console</a> to browse
+                published cases.
+              </li>
+              <li>
+                <a href="#containers">Start a private workspace</a> to upload
+                your own reports.
+              </li>
+              <li>
+                Already have access? Connect the
+                <a href="#cli">command line</a> or
+                <a href="#agents">your coding agent</a>.
+              </li>
+            </ul>
           </header>
           <section id="walkthrough" aria-labelledby="walkthrough-title">
             <h2 id="walkthrough-title">
               <span class="chapter-no">01</span>Follow a finding
             </h2>
+
             <p>
-              A case brings a report, its deployment and its checks into one
-              review. Here’s how to read the synthetic ledger example on the
-              landing page.
+              Open a report in the review console. The case brings the
+              deployment, recorded checks and owner decisions into one view.
             </p>
             <ol class="walkthrough-steps">
               <li>
-                <strong>Locate the deployment.</strong> SURVEY-101 maps to the
-                ledger service’s archive component at revision r7. The report
-                and its CI observations share that snapshot.
+                <strong>Identify the deployment.</strong>
+                <p>
+                  Read the service, component and revision beneath the title.
+                  These fields come from your catalog or the authenticated
+                  upload.
+                </p>
               </li>
               <li>
-                <strong>Inspect the evidence.</strong> Retention is 60 days
-                against a 30-day policy. Auditing passes. The manifest omits
-                identifier masking, so the check stays inconclusive. A signature
-                authenticates the manifest’s source. A reviewer still assesses
-                the original finding.
+                <strong>Inspect the evidence.</strong>
+                <p>
+                  Open a recorded run to read its CI observations. Compare runs
+                  when more than one is available. A missing observation leaves
+                  the check inconclusive.
+                </p>
               </li>
               <li>
-                <strong>Record the outcome.</strong> The evidence worker claims
-                a scoped lease and records <code>needs-evidence</code>. Later
-                reviewers can retrieve that outcome from the same snapshot.
+                <strong>Review ownership.</strong>
+                <p>
+                  Read the suggested owners and prior decisions. In a private
+                  workspace, a reviewer can accept or reject a team. A worker
+                  assigned to the case can record the outcome of its review.
+                </p>
               </li>
             </ol>
             <details class="manual-subsection" id="report-flow">
@@ -189,10 +202,6 @@
                 </figcaption>
               </figure>
             </details>
-            <p>
-              <a href="#survey">Run the sample locally</a> ·
-              <a href="/console">Explore the public cases</a>
-            </p>
           </section>
           <section id="install">
             <h2><span class="chapter-no">02</span>Self-host a workspace</h2>
@@ -201,51 +210,81 @@
               runs both the console and HydraDB on your computer. You can use it
               with Windows, macOS or Linux.
             </p>
+            <details class="manual-subsection" id="get-source">
+              <summary>Get the project files</summary>
+              <p>
+                Open the
+                <a href="https://github.com/sansynx/ichnix"
+                  >Ichnix repository</a
+                >
+                with an account that has access. Choose
+                <strong>Code → Download ZIP</strong>
+                and extract it, or run these commands with Git installed.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>git clone https://github.com/sansynx/ichnix.git
+cd ichnix</code></pre>
+              <p>
+                Run the setup commands from the folder containing
+                <code>cli.py</code> and <code>compose.yaml</code>.
+              </p>
+            </details>
             <details class="manual-subsection" id="containers">
               <summary>
                 Docker Desktop on Windows and macOS, or Linux Compose
               </summary>
+              <p>
+                Start Docker Desktop with Linux containers on
+                <a
+                  href="https://docs.docker.com/desktop/setup/install/windows-install/"
+                  >Windows (WSL 2)</a
+                >
+                or
+                <a
+                  href="https://docs.docker.com/desktop/setup/install/mac-install/"
+                  >macOS</a
+                >. On Linux, use Docker Engine with Compose v2. Apple silicon
+                runs the Linux amd64 image under emulation.
+              </p>
               <ol>
                 <li>
-                  Install and start
-                  <a
-                    href="https://docs.docker.com/desktop/setup/install/windows-install/"
-                    >Docker Desktop for Windows</a
-                  >
-                  with WSL 2 and Linux containers,
-                  <a
-                    href="https://docs.docker.com/desktop/setup/install/mac-install/"
-                    >Docker Desktop for Mac</a
-                  >, or Docker Engine with Compose v2 on Linux. Apple silicon
-                  runs the Linux amd64 image under emulation.
+                  <strong>Start the workspace.</strong>
+                  <p>
+                    Open PowerShell or a terminal in the repository folder
+                    containing <code>compose.yaml</code>. Run each line in
+                    order.
+                  </p>
+                  <pre
+                    tabindex="0"
+                  ><code>docker compose --env-file examples/desktop.env build
+docker compose --env-file examples/desktop.env run --rm console python3 cli.py storage init
+docker compose --env-file examples/desktop.env up --detach --wait</code></pre>
                 </li>
                 <li>
-                  Open a terminal in the checkout, in the folder containing
-                  <code>compose.yaml</code>.
+                  <strong>Create an upload credential.</strong>
+                  <p>
+                    Issue this token once. The second command checks that its
+                    name is <code>desktop-intake</code> and its role is
+                    <code>intake</code>.
+                  </p>
+                  <pre
+                    tabindex="0"
+                  ><code>docker compose --env-file examples/desktop.env exec -T console python3 cli.py identity issue desktop-intake --role intake --out /var/lib/ichnix/desktop-intake.token
+docker compose --env-file examples/desktop.env exec -T console python3 cli.py auth status --workspace-url http://127.0.0.1:8765 --token-file /var/lib/ichnix/desktop-intake.token</code></pre>
                 </li>
                 <li>
-                  Run the commands below in order. They build the image,
-                  initialize storage, start the workspace, issue your upload
-                  credential and check its role.
+                  <strong>Sign in.</strong>
+                  <p>
+                    Copy the token using the command for your shell below. Open
+                    <a href="http://127.0.0.1:8765/console"
+                      >your local console</a
+                    >, paste the token, then clear the clipboard. Follow
+                    <a href="#first-upload">your first upload</a> to add a
+                    report.
+                  </p>
                 </li>
               </ol>
-              <pre
-                tabindex="0"
-              ><code>docker compose --env-file examples/desktop.env build
-docker compose --env-file examples/desktop.env run --rm console python3 cli.py storage init
-docker compose --env-file examples/desktop.env up --detach --wait
-docker compose --env-file examples/desktop.env exec -T console python3 cli.py identity issue desktop-intake --role intake --out /var/lib/ichnix/desktop-intake.token
-docker compose --env-file examples/desktop.env exec -T console python3 cli.py auth status --workspace-url http://127.0.0.1:8765 --token-file /var/lib/ichnix/desktop-intake.token</code></pre>
-              <p>
-                The last command should return the name
-                <code>desktop-intake</code> and role <code>intake</code>. Issue
-                this credential once. To sign in at
-                <a href="http://127.0.0.1:8765/console">the local console</a>,
-                copy it to your clipboard with the command for your shell, paste
-                it into the token field, then clear the clipboard. Select a
-                mapped JSON file under
-                <a href="#first-upload">your first upload</a>.
-              </p>
               <details class="manual-subsection">
                 <summary>
                   Copy the intake token on your operating system
@@ -293,7 +332,7 @@ docker compose --env-file examples/desktop.env exec -T console python3 cli.py au
         bind:
           create_host_path: false</code></pre>
               <p>
-                For example, set <code>ICHNIX_CATALOG</code> to
+                Set <code>ICHNIX_CATALOG</code> to
                 <code>/run/ichnix-config/catalog.json</code> for HackerOne.
                 Include the override when running Compose commands. Recreate the
                 console after changing environment credentials. For a
@@ -312,21 +351,24 @@ docker compose --env-file examples/desktop.env exec -T console python3 cli.py au
 python3 scripts/install-hydra.py
 scripts/start-hydra.sh</code></pre>
               <p>
-                Leave the graph running. In a second terminal in the checkout,
-                start the console.
+                Leave HydraDB running. In a second terminal in the checkout,
+                configure the same state directory, initialize the private
+                stores and issue an intake token for the first upload.
               </p>
-              <pre tabindex="0"><code>scripts/console.sh</code></pre>
+              <pre
+                tabindex="0"
+              ><code>export ICHNIX_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ichnix"
+export ICHNIX_IDENTITY_DB="$ICHNIX_STATE_DIR/identities.sqlite3"
+export ICHNIX_HANDOFF_DB="$ICHNIX_STATE_DIR/handoffs.sqlite3"
+python3 cli.py storage init
+python3 cli.py identity issue first-intake --role intake --out "$ICHNIX_STATE_DIR/first-intake.token"
+scripts/console.sh</code></pre>
               <p>
-                Open <code>http://127.0.0.1:8765/console</code> and sign in
-                using the credential file named by the launcher. To issue
-                individual credentials, follow
-                <a href="#storage">storage setup</a> and
-                <a href="#worker-credentials">named identity setup</a>.
-              </p>
-              <p>
-                From a third terminal, run
-                <code>python3 cli.py check-workspace</code> to check the graph
-                connection and the local Pele renderer.
+                Open
+                <a href="http://127.0.0.1:8765/console">your local console</a>
+                and sign in with the contents of
+                <code>first-intake.token</code>. Keep this terminal running.
+                Reuse the same paths and credential on subsequent starts.
               </p>
             </details>
             <details class="manual-subsection" id="graph-settings">
@@ -346,121 +388,563 @@ scripts/start-hydra.sh</code></pre>
               </p>
             </details>
           </section>
-          <section id="vercel">
-            <h2>
-              <span class="chapter-no">03</span>Host a public preview on Vercel
-            </h2>
+          <section id="cli">
+            <h2><span class="chapter-no">03</span>Set up the CLI</h2>
+
             <p>
-              Vercel serves the website. A persistent host runs HydraDB, SQLite
-              and the read-only demo.
+              The command-line interface (CLI) lets you read and submit reports
+              from a terminal. If your organization already hosts Ichnix, you
+              need its workspace URL, a named token, the
+              <a href="#get-source">project files</a> and Python 3.12 or newer.
             </p>
-            <ol>
+            <h3>1. Open the CLI</h3>
+            <p>
+              In the folder containing <code>cli.py</code>, check that Python
+              can run the command below. On Windows, use <code>py -3</code> in
+              place of <code>python3</code>.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py --help</code></pre>
+            <h3>2. Connect your workspace</h3>
+            <p>
+              Replace the placeholder URL with the origin your administrator
+              supplied. Use a direct connection for a self-hosted workspace. If
+              your administrator gave you a Vercel organization relay, enable
+              hosted mode as shown for your shell below.
+            </p>
+            <details class="manual-subsection" id="windows-client">
+              <summary>Windows · PowerShell 7 or newer</summary>
+              <p>
+                Set the workspace origin, then enter the credential at the
+                masked prompt. For a Vercel workspace, also set
+                <code>$env:ICHNIX_WORKSPACE_HOSTED = '1'</code>. Use the Windows
+                Python launcher to check your role and list the available cases.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>$env:ICHNIX_WORKSPACE_URL = 'https://workspace.example.org'
+$env:ICHNIX_USER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Named workspace token' -AsSecureString)).Password
+try {
+  py -3 cli.py auth status --token-env ICHNIX_USER_TOKEN
+  py -3 cli.py human --token-env ICHNIX_USER_TOKEN cases
+} finally {
+  Remove-Item Env:ICHNIX_USER_TOKEN
+}</code></pre>
+              <p>
+                For unattended runs, have your secret manager inject the token
+                into the client process.
+              </p>
+            </details>
+            <details class="manual-subsection" id="posix-client">
+              <summary>macOS or Linux · terminal</summary>
+              <p>
+                Save the named token in a private file. Point the CLI at the
+                file, then check that the workspace recognizes your name and
+                role. For the Vercel relay, first run
+                <code>export ICHNIX_WORKSPACE_HOSTED=1</code>.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>export ICHNIX_WORKSPACE_URL=https://workspace.example.org
+export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
+chmod 600 "$ICHNIX_USER_TOKEN_FILE"
+python3 cli.py auth status
+python3 cli.py human cases</code></pre>
+            </details>
+            <h3>3. Read or update a case</h3>
+            <p>
+              Replace <code>CASE_ID</code> with an ID returned by
+              <code>human cases</code>. The commands below use the macOS or
+              Linux token file. For Windows, choose the PowerShell commands
+              below the list.
+            </p>
+            <ul>
               <li>
-                Import the repository into Vercel and select
-                <code>main</code> as the production branch. The included
-                <code>vercel.json</code> configures the build and functions.
-              </li>
-              <li>
-                On the persistent host, start the demo:
+                <strong>Any human role</strong>
+                <p>Read a case and its evidence.</p>
                 <pre
                   tabindex="0"
-                ><code>python3 cli.py demo --public-readonly --with-disclosure --port 18766</code></pre>
+                ><code>python3 cli.py human context CASE_ID</code></pre>
               </li>
               <li>
-                Expose the demo over HTTPS. Set
-                <code>ICHNIX_PUBLIC_ORIGIN</code> in Vercel to its origin,
-                without a path or credentials.
+                <strong>Intake</strong>
+                <p>
+                  Submit a <a href="#first-upload">six-field JSON report</a>.
+                </p>
+                <pre
+                  tabindex="0"
+                ><code>python3 cli.py human import-report report.json</code></pre>
               </li>
-            </ol>
-            <details class="manual-subsection" id="ai-layout">
-              <summary>Configure Workers AI layout selection</summary>
+              <li>
+                <strong>Review</strong>
+                <p>
+                  Record a decision. Replace <code>TEAM</code> with the owner
+                  under review. Reuse the request ID if you retry that same
+                  decision.
+                </p>
+                <pre
+                  tabindex="0"
+                ><code>python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code></pre>
+              </li>
+            </ul>
+            <details class="manual-subsection">
+              <summary>Run these commands in PowerShell</summary>
               <p>
-                In Vercel, set <code>ICHNIX_CF_ACCOUNT_ID</code>,
-                <code>ICHNIX_CF_AI_TOKEN</code> and a random
-                <code>ICHNIX_LAYOUT_SECRET</code> of at least 32 characters.
+                Choose the command for your role and insert it inside the
+                <code>try</code> block in the Windows connection instructions
+                above.
               </p>
-              <p>
-                On the private ingestion service, point
-                <code>ICHNIX_LAYOUT_URL</code> at the HTTPS Vercel
-                <code>/api/report-layout</code> endpoint. Set
-                <code>ICHNIX_LAYOUT_SECRET_FILE</code> to the private file
-                containing the same secret.
-              </p>
-              <p>
-                The model receives the source and topic categories and chooses a
-                display order. Report text stays in the workspace. If the
-                provider is unavailable, the local layout takes over.
-              </p>
-              <a
-                href="https://developers.cloudflare.com/workers-ai/features/json-mode/"
-                >Workers AI structured responses</a
-              >
+              <p>Read a case with a read, review or intake token:</p>
+              <pre
+                tabindex="0"
+              ><code>py -3 cli.py human --token-env ICHNIX_USER_TOKEN context CASE_ID</code></pre>
+              <p>Import a mapped report with an intake token:</p>
+              <pre
+                tabindex="0"
+              ><code>py -3 cli.py human --token-env ICHNIX_USER_TOKEN import-report report.json</code></pre>
+              <p>Accept the suggested owner with a review token:</p>
+              <pre
+                tabindex="0"
+              ><code>py -3 cli.py human --token-env ICHNIX_USER_TOKEN review CASE_ID TEAM --accept --request-id review-001</code></pre>
             </details>
-            <p>
-              <a href="https://vercel.com/docs/git">Vercel Git deployments</a>
-            </p>
           </section>
-          <section id="hosted-workspace">
-            <h2>
-              <span class="chapter-no">04</span>Connect the hosted organization
-              workspace
-            </h2>
+          <section id="providers">
+            <h2><span class="chapter-no">04</span>Connect a program</h2>
             <p>
-              Give your team a private sign-in at
-              <code>/workspace</code>. The public demo at
-              <a href="/console">/console</a> uses a separate origin.
+              For your first report, use a small JSON file and an intake
+              credential. Once the upload works, connect your platform using the
+              matching guide below.
             </p>
-            <details class="manual-subsection" id="workspace-origin">
-              <summary>Connect the private origin</summary>
+            <details class="manual-subsection" id="first-upload">
+              <summary>Upload your first report</summary>
               <ol>
                 <li>
-                  Set <code>ICHNIX_WORKSPACE_ORIGIN</code> in Vercel to the
-                  HTTPS root of the organization installation.
+                  Create a UTF-8 file named <code>report.json</code>. Use the
+                  six fields below, replacing each capitalized value with your
+                  report metadata.
                 </li>
                 <li>
-                  Set <code>ICHNIX_ORIGIN_SECRET</code> to the same random
-                  secret of at least 32 characters on Vercel and the origin.
-                  Require the relay’s <code>X-Ichnix-Origin-Secret</code> header
-                  on the origin.
+                  Open your private console and sign in with the
+                  <code>intake</code> credential from
+                  <a href="#containers">workspace setup</a>.
                 </li>
                 <li>
-                  Apply production values only to deployments trusted to access
-                  the organization.
+                  Drop the file in the upload area or use the file picker.
+                  Select <strong>Import report</strong>. Check that the case
+                  shows the same ID, component and deployed revision as the
+                  source report.
                 </li>
               </ol>
-            </details>
-            <details class="manual-subsection" id="workspace-roles">
-              <summary>Sign in, upload and connect a worker</summary>
-              <p>
-                Sign in with a named organization credential. The relay forwards
-                it to the organization API. Readers can open cases, reviewers
-                can record decisions, and intake credentials can upload one
-                report at a time.
+              <pre tabindex="0"><code>{
+  "id": "CASE_ID",
+  "title": "REPORT_TITLE",
+  "service": "SERVICE",
+  "component": "COMPONENT",
+  "revision": "DEPLOYED_REVISION",
+  "owner": "TEAM"
+}</code></pre>
+              <p class="manual-note">
+                <strong>Upload format.</strong> Supply exactly these six fields
+                in one JSON object, up to 1 MiB. Keep credentials, attachments
+                and report bodies on the originating platform.
               </p>
               <p>
-                For remote workers, use a named worker credential and the
-                <a href="#worker-mcp">hosted client settings</a>.
+                For scripted intake, use
+                <code>python3 cli.py human import-report report.json</code>
+                with the
+                <a href="#cli">workspace URL and credential configured</a>.
               </p>
             </details>
-            <details class="manual-subsection" id="workspace-hooks">
-              <summary>Receive signed platform events</summary>
+            <details class="manual-subsection" id="mapped-api">
+              <summary>
+                Import from an API client and map catalog entries
+              </summary>
               <p>
-                Register <code>/hooks/hackerone</code> or
-                <code>/hooks/bugcrowd</code> on the Vercel hostname.
-                <a href="#providers"
-                  >Configure the program, catalog and signing secrets</a
+                To send one mapped report directly to a private installation,
+                issue a named credential with
+                <code
+                  >python3 cli.py identity issue pipeline --role intake --out
+                  /private/pipeline.token</code
+                >. Send its bearer token from the intake process to
+                <code>POST /api/import/report</code> on the organization's HTTPS
+                origin. The JSON object must contain exactly <code>id</code>,
+                <code>title</code>, <code>service</code>, <code>revision</code>,
+                <code>component</code> and <code>owner</code>. Keep this role on
+                the private workspace.
+              </p>
+              <p>
+                The customer supplies a private catalog mapping report IDs or
+                scoped assets to a service, component, deployed revision and
+                owning team. Unmapped reports are skipped. A source report keeps
+                its provider identity. Attachments, payments and researcher
+                correspondence stay on the bounty platform.
+              </p>
+            </details>
+            <details class="manual-subsection" id="public-report">
+              <summary>Map a disclosed report</summary>
+              <p>
+                Save your catalog as <code>private/catalog.json</code>. Replace
+                <code>PROGRAM_HANDLE</code> and <code>REPORT_ID</code> with the
+                program handle and numeric ID of the disclosed report. Fill in
+                the deployment and team from your own inventory.
+              </p>
+              <pre tabindex="0"><code>{
+  "program": "PROGRAM_HANDLE",
+  "reports": {
+    "REPORT_ID": {
+      "service": "SERVICE",
+      "component": "COMPONENT",
+      "revision": "DEPLOYED_REVISION",
+      "owner": "TEAM"
+    }
+  }
+}</code></pre>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py import-disclosed --program PROGRAM_HANDLE \
+  --report-id REPORT_ID --catalog private/catalog.json</code></pre>
+            </details>
+            <details class="manual-subsection" id="hackerone">
+              <summary>HackerOne customer program</summary>
+              <p>
+                Set <code>HACKERONE_API_USER</code> and
+                <code>HACKERONE_API_TOKEN</code> through your secret manager.
+                Use a catalog with your program handle and report IDs or asset
+                identifiers. The importer accepts triaged, retesting and
+                resolved reports.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py sync --program YOUR_HANDLE \
+  --catalog private/catalog.json</code></pre>
+              <p>
+                For signed deliveries, set <code>ICHNIX_PROGRAM</code>,
+                <code>ICHNIX_CATALOG</code> and
+                <code>ICHNIX_WEBHOOK_SECRET</code> on the console. Register
+                <code>/hooks/hackerone</code> on its HTTPS origin.
+                <a href="https://api.hackerone.com/customer-reference/"
+                  >HackerOne customer API</a
                 >
-                on the private origin. The relay preserves the signed bytes for
-                verification.
+                ·
+                <a href="https://api.hackerone.com/webhooks/"
+                  >HackerOne webhook verification</a
+                >
               </p>
+            </details>
+            <details class="manual-subsection" id="bugcrowd">
+              <summary>Bugcrowd engagement</summary>
               <p>
-                Webhooks and mapped uploads accept up to 1 MiB. Review decisions
-                accept up to 16 KiB.
+                Set <code>BUGCROWD_API_TOKEN</code> to your read-only customer
+                credential in <code>token-id:token-secret</code> format. Set the
+                catalog’s <code>program</code> to the engagement code. Use
+                submission UUIDs in <code>reports</code> or target UUIDs in
+                <code>assets</code>. The importer accepts triaged, unresolved
+                and resolved submissions and skips duplicates.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py sync-bugcrowd --engagement YOUR_CODE \
+  --catalog private/bugcrowd.json</code></pre>
+              <p>
+                Set <code>ICHNIX_BUGCROWD_ENGAGEMENT</code>,
+                <code>ICHNIX_BUGCROWD_CATALOG</code> and
+                <code>ICHNIX_BUGCROWD_WEBHOOK_SECRET</code> on the console
+                alongside the API token. Register
+                <code>submission.created</code> and
+                <code>submission.updated</code> at <code>/hooks/bugcrowd</code>.
+                The receiver verifies the signature, then fetches current
+                submission metadata and checks its engagement.
+                <a href="https://docs.bugcrowd.com/api/getting-started/"
+                  >Bugcrowd API guide</a
+                >
+                ·
+                <a href="https://docs.bugcrowd.com/api/webhooks/"
+                  >Bugcrowd webhook verification</a
+                >
+              </p>
+              <p class="manual-note">
+                A private program requires credentials for your organization’s
+                own engagement. Confirm that a signed delivery creates the
+                expected case in your workspace before enabling routine intake.
               </p>
             </details>
           </section>
+          <section id="agents">
+            <h2>
+              <span class="chapter-no">05</span>Set up MCP for a coding agent
+            </h2>
+
+            <p>
+              The Model Context Protocol (MCP) lets a coding agent read case
+              evidence through tools supplied by Ichnix. The client starts
+              Ichnix as a subprocess and exchanges messages over standard input
+              and output.
+            </p>
+            <h3>1. Choose an access profile</h3>
+            <ul id="agent-profiles">
+              <li>
+                <strong>Remote worker</strong>
+                <p>
+                  Choose this for a teammate’s agent. Its named worker token
+                  gives it the case assigned by a time-limited lease.
+                </p>
+              </li>
+              <li>
+                <strong>Local reader</strong>
+                <p>
+                  Choose this for a trusted operator on the graph host. The
+                  reader can list cases and read context across that graph.
+                </p>
+              </li>
+            </ul>
+            <details class="manual-subsection" id="worker-credentials">
+              <summary>Administrator · issue a worker token</summary>
+              <p>
+                Issue the credential on the host running the private workspace,
+                using its existing identity registry. For the desktop Compose
+                setup, run this from the checkout:
+              </p>
+              <pre
+                tabindex="0"
+              ><code>docker compose --env-file examples/desktop.env exec -T console python3 cli.py identity issue coding-worker --role worker --out /var/lib/ichnix/coding-worker.token</code></pre>
+              <p>
+                For native Linux with the
+                <a href="#storage">storage environment configured</a>, run:
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py identity issue coding-worker --role worker --out "$ICHNIX_STATE_DIR/coding-worker.token"</code></pre>
+              <p>
+                Deliver the token to the worker through your organization's
+                secret manager. Give each worker its own name. To withdraw
+                access, run
+                <code>python3 cli.py identity revoke coding-worker</code>
+                against the same registry.
+              </p>
+            </details>
+            <h3>2. Register the server in your agent</h3>
+            <p>
+              On the computer that runs the agent, open the repository folder.
+              The configuration generator uses this checkout and your Python
+              interpreter. Choose the profile that matches the access you have.
+            </p>
+            <p>
+              The generator writes a new file. For an existing client
+              configuration, choose an unused output filename, then copy the
+              generated entry into the client configuration.
+            </p>
+            <details class="manual-subsection" id="worker-mcp">
+              <summary>
+                Remote worker · generate and load a client profile
+              </summary>
+              <p>
+                <strong>Windows with Codex.</strong> In PowerShell 7+, replace
+                the URL with your private workspace origin. Add
+                <code>--hosted</code> to the generator command if the URL uses
+                the Vercel organization relay.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>py -3 cli.py mcp-config --profile worker --token-env ICHNIX_WORKER_TOKEN --workspace-url https://workspace.example.org --format codex --out ichnix-mcp.toml</code></pre>
+              <p>
+                Merge the generated tables into your Codex user configuration,
+                <code>~/.codex/config.toml</code> by default. Start a fresh
+                Codex session from the shell holding the worker token:
+              </p>
+              <pre
+                tabindex="0"
+              ><code>$env:ICHNIX_WORKER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Worker token' -AsSecureString)).Password
+try {
+  codex
+} finally {
+  Remove-Item Env:ICHNIX_WORKER_TOKEN
+}</code></pre>
+              <p>
+                <strong>macOS or Linux with a JSON client.</strong> Save the
+                worker token in a private file and replace the URL, adding
+                <code>--hosted</code> for the Vercel relay.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>chmod 600 "$HOME/.config/ichnix/worker.token"
+python3 cli.py mcp-config --profile worker \
+  --workspace-url https://workspace.example.org \
+  --worker-token-file "$HOME/.config/ichnix/worker.token" \
+  --out ichnix-mcp.json</code></pre>
+              <p>
+                Merge the generated <code>mcpServers</code> entry into your
+                client’s MCP configuration, then restart the client. For Codex
+                on these systems, add <code>--format codex</code> and choose a
+                <code>.toml</code> output file instead.
+              </p>
+              <p>
+                When connected, the client lists <code>claim_review</code>,
+                <code>get_review_context</code> and <code>finish_review</code>.
+                If discovery fails, check the worker role, workspace origin and
+                relay setting. Remote origins require HTTPS. Direct loopback
+                connections can use HTTP.
+              </p>
+            </details>
+            <details class="manual-subsection" id="local-mcp">
+              <summary>Local reader · connect on the graph host</summary>
+              <p>
+                Run this in the same environment as the workspace operator. The
+                graph token file must exist and be readable only by its owner.
+                This command uses the workspace’s configured HydraDB URL and
+                token file.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py mcp-config --profile local --out ichnix-reader.json</code></pre>
+              <p>
+                Merge the generated entry into your JSON client’s MCP
+                configuration and restart the client. Ask it to call
+                <code>list_cases</code>, then <code>get_case_context</code> with
+                a returned case ID.
+              </p>
+            </details>
+            <h3>3. Give a worker its first review</h3>
+            <details class="manual-subsection" id="worker-lease">
+              <summary>Queue a case and verify the handoff</summary>
+              <ol>
+                <li>
+                  <strong>Queue a review on the workspace host.</strong>
+                  <p>
+                    Replace <code>CASE_ID</code> with an imported case. Save the
+                    job ID from the response.
+                  </p>
+                  <pre
+                    tabindex="0"
+                  ><code>python3 cli.py handoff enqueue CASE_ID owner-review</code></pre>
+                </li>
+                <li>
+                  <strong>Open the agent.</strong>
+                  <p>
+                    Ask it to call <code>claim_review</code>, read the assigned
+                    case with <code>get_review_context</code>, then call
+                    <code>finish_review</code> with its job ID. The worker can
+                    record <code>needs-owner-review</code>. A human reviewer
+                    makes the ownership decision.
+                  </p>
+                </li>
+                <li>
+                  <strong>Check completion on the host.</strong>
+                  <pre
+                    tabindex="0"
+                  ><code>python3 cli.py handoff status JOB_ID</code></pre>
+                </li>
+              </ol>
+              <p>
+                For Compose, prefix the host commands with
+                <code
+                  >docker compose --env-file examples/desktop.env exec -T
+                  console</code
+                >. Use <code>evidence-review</code> for cases with staging
+                observations. That worker can record
+                <code>evidence-reviewed</code> or <code>needs-evidence</code>.
+              </p>
+              <p>
+                To queue work automatically after intake and CI, set
+                <code>ICHNIX_AUTO_HANDOFFS=1</code> on the console, CLI and
+                intake processes. All three must share the same handoff store.
+              </p>
+            </details>
+            <details class="manual-subsection" id="markdown-context">
+              <summary>Give an agent a compact report README</summary>
+              <p>
+                Open a case in your private workspace and select
+                <strong>Download report README</strong> below the case heading.
+                A read, review or intake credential can download the six mapped
+                fields as <code>README.md</code>. Worker access stays scoped to
+                an active lease.
+              </p>
+              <p>
+                To export the same fields on the workspace host, use the case ID
+                shown in the console and choose a new file in an existing
+                private directory.
+              </p>
+              <pre tabindex="0"><code>mkdir -p -m 700 private
+python3 cli.py export-readme CASE_ID --out private/README.md</code></pre>
+              <ul>
+                <li>
+                  <strong>Local MCP reader.</strong> Call
+                  <code>get_case_context</code> with
+                  <code>{"case_id":"CASE_ID","format":"markdown"}</code>.
+                </li>
+                <li>
+                  <strong>Leased MCP worker.</strong> Call
+                  <code>get_review_context</code> with your claimed
+                  <code>job_id</code> and <code>format: "markdown"</code>. To
+                  submit a disposition, first read the full evidence context
+                  using the same tool without the format option.
+                </li>
+              </ul>
+
+              <p>
+                <strong>Starting from a document?</strong> On your Linux
+                workspace with the optional dependencies or inside the supplied
+                container, convert a local Office document or text-based PDF to
+                Markdown before reviewing it.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py document-readme source.docx --out private/source.md</code></pre>
+              <p>
+                The
+                <a href="https://github.com/firecrawl/anydoc">AnyDoc</a>
+                converter runs locally with OCR disabled. Input is limited to 8
+                MiB and output to 256 KiB. The resulting document can contain
+                the full original report. Review it before sharing it with an
+                agent. The browser uploader accepts the six-field JSON format.
+              </p>
+            </details>
+          </section>
+          <section id="ci">
+            <h2><span class="chapter-no">06</span>Capture CI evidence</h2>
+            <p>
+              Have your deployment pipeline export <code>environment</code> set
+              to <code>staging</code>, its service and revision, and a
+              <code>settings</code> object. In a separate policy, map each
+              service to the expected boolean, integer or string settings. See
+              <code>examples/staging.json</code> and
+              <code>examples/policy.json</code> in the checkout.
+            </p>
+            <p>
+              Give CI and intake private files with the same 32–1024 random
+              bytes. Set <code>ICHNIX_CI_HMAC_KEY_FILE</code> to the appropriate
+              file on each host. Sign the exact manifest bytes in CI, then
+              transfer the manifest and detached signature to the workspace.
+            </p>
+            <p>
+              Replace <code>CASE_ID</code> with the case for this deployment.
+              Sign in CI, then run the second command on the workspace host.
+            </p>
+            <pre tabindex="0"><code>python3 cli.py staging --sign \
+  --manifest private/staging.json --out private/staging.sig
+
+python3 cli.py staging CASE_ID \
+  --policy private/policy.json --manifest private/staging.json \
+  --signature private/staging.sig --run-id RUN_ID</code></pre>
+            <p>
+              Use your pipeline’s run identifier for <code>RUN_ID</code>. Reuse
+              that identifier to retry the same CI observation. Evidence
+              includes its revision, result, source digest and verification
+              method. Exit <code>0</code> means all configured values matched,
+              <code>1</code> means a value differed or was missing, and
+              <code>2</code> means intake could not complete. A missing setting
+              appears as inconclusive. Open the evidence trace to see checks
+              from the latest run. Checks from one manifest appear together,
+              grouped by result. Single observations and mixed sources appear in
+              recorded order.
+            </p>
+            <p class="manual-note">
+              A signed manifest attests to bytes provided by the holder of the
+              shared key. A review records an owner decision. The original
+              bounty finding requires independent verification by the security
+              team.
+            </p>
+          </section>
           <section id="storage">
-            <h2><span class="chapter-no">05</span>Configure storage</h2>
+            <h2><span class="chapter-no">07</span>Configure storage</h2>
             <p>
               For a new named deployment, set both database paths on the console
               host. HydraDB stores cases and evidence. SQLite stores hashed
@@ -469,7 +953,7 @@ scripts/start-hydra.sh</code></pre>
             </p>
             <pre
               tabindex="0"
-            ><code>export ICHNIX_STATE_DIR="$HOME/.local/state/ichnix"
+            ><code>export ICHNIX_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ichnix"
 export ICHNIX_IDENTITY_DB="$ICHNIX_STATE_DIR/identities.sqlite3"
 export ICHNIX_HANDOFF_DB="$ICHNIX_STATE_DIR/handoffs.sqlite3"
 python3 cli.py storage init
@@ -512,7 +996,7 @@ python3 cli.py check-workspace</code></pre>
                   Compose setup leaves archive settings outside the container.
                 </li>
                 <li>
-                  Import the <a href="#first-upload">example report</a>. In the
+                  <a href="#first-upload">Import a mapped report</a>. In the
                   bucket, look for
                   <code>reports/&lt;sha256&gt;/README.md</code>. Identical
                   mapped fields share one object. Changed fields produce a
@@ -579,546 +1063,151 @@ python3 cli.py check-workspace</code></pre>
                 open a known case, and check a queued handoff. A snapshot
                 restores access as of its capture time. Reapply later
                 revocations and rotations before admitting users or reconnecting
-                providers. The repository’s
-                <code>testing/restore-workspace.sh</code>
-                exercises this procedure with disposable records in CI.
+                providers.
               </p>
             </details>
           </section>
-          <section id="survey">
-            <h2><span class="chapter-no">06</span>Test with mock cases</h2>
-            <pre tabindex="0"><code>python3 -m unittest discover -s tests -v
-python3 cli.py survey
-python3 cli.py survey --out /tmp/new-survey.json</code></pre>
-            <details class="manual-subsection" id="survey-results">
-              <summary>What the survey covers</summary>
-              <p>
-                The offline survey runs four synthetic reports through HydraDB,
-                SQLite, HTTP, the CLI and both MCP profiles. Two ledger reports
-                share revision r7, and a third report covers an unrelated
-                component. In SURVEY-104, all three controls pass on ledger
-                revision r8. Replaying the signed r7 manifest against r8 is
-                rejected without adding evidence.
-              </p>
-              <p>
-                For a live agent check in a source checkout, run
-                <code>python3 testing/model_survey.py</code> with a signed-in
-                Codex CLI. The evidence inspector and owner router each read one
-                synthetic assignment and submit a disposition. The runner checks
-                the stored SQLite receipt and its corresponding HydraDB outcome.
-              </p>
-            </details>
-          </section>
-          <section id="acceptance">
-            <h2><span class="chapter-no">07</span>Run acceptance</h2>
-            <p>
-              After installing the local runtime, run a complete review in a
-              disposable workspace. This command needs internet access to
-              HackerOne and works without a provider account.
-            </p>
-            <pre tabindex="0"><code>python3 cli.py acceptance</code></pre>
-            <details class="manual-subsection" id="acceptance-source">
-              <summary>Read the acceptance receipt</summary>
-              <p>
-                <strong>Public source.</strong> The importer retrieves the
-                disclosed title and report ID from curl’s HackerOne program. The
-                public website representation can change independently of the
-                authenticated customer API.
-                <a href="https://hackerone.com/reports/2236133"
-                  >HackerOne disclosure #2236133</a
-                >
-                ·
-                <a href="https://curl.se/docs/CVE-2023-46219.html"
-                  >curl advisory</a
-                >
-              </p>
-              <p>
-                <strong>Local evidence.</strong> The run assigns a local service
-                and owner, observes three HTTP headers on its own Ichnix
-                instance, signs the staging manifest, checks the results, and
-                records a completed MCP handoff and reviewer decision. Its
-                receipt identifies the service under test, observation time,
-                manifest digest and outcome. Exit code <code>0</code> means
-                these checks passed. The run makes no measurement of curl’s
-                deployment.
-              </p>
-              <p>
-                The public preview serves a
-                <a href="/api/acceptance">filtered acceptance receipt</a>. On a
-                self-hosted workspace, use the command above to generate your
-                own receipt.
-              </p>
-            </details>
-          </section>
-          <section id="providers">
-            <h2><span class="chapter-no">08</span>Connect a program</h2>
-            <p>
-              For your first report, use a small JSON file and an intake
-              credential. Once the upload works, connect your platform using the
-              matching guide below.
-            </p>
-            <details class="manual-subsection" id="first-upload">
-              <summary>Upload your first report</summary>
-              <ol>
-                <li>
-                  Copy the example into a plain text file named
-                  <code>example-report.json</code>. Save it as UTF-8.
-                </li>
-                <li>
-                  Open your private console and sign in with the
-                  <code>intake</code> credential from
-                  <a href="#containers">workspace setup</a>.
-                </li>
-                <li>
-                  Drop the file in the upload area or use the file picker.
-                  Select <strong>Import report</strong>. Check that the case
-                  shows <code>EXAMPLE-101</code> and revision
-                  <code>build-1</code>.
-                </li>
-              </ol>
-              <pre tabindex="0"><code>{
-  "id": "EXAMPLE-101",
-  "title": "Archive retention review",
-  "service": "ledger",
-  "component": "archive",
-  "revision": "build-1",
-  "owner": "records"
-}</code></pre>
-              <p class="manual-note">
-                <strong>Upload format.</strong> Supply exactly these six fields
-                in one JSON object, up to 1 MiB. Keep credentials, attachments
-                and report bodies on the originating platform.
-              </p>
-              <p>
-                For scripted intake, use
-                <code
-                  >python3 cli.py human import-report example-report.json</code
-                >
-                with the
-                <a href="#agents">workspace URL and credential configured</a>.
-              </p>
-            </details>
-            <details class="manual-subsection" id="mapped-api">
-              <summary>
-                Import from an API client and map catalog entries
-              </summary>
-              <p>
-                To send one mapped report directly to a private installation,
-                issue a named credential with
-                <code
-                  >python3 cli.py identity issue pipeline --role intake --out
-                  /private/pipeline.token</code
-                >. Send its bearer token from the intake process to
-                <code>POST /api/import/report</code> on the organization's HTTPS
-                origin. The JSON object must contain exactly <code>id</code>,
-                <code>title</code>, <code>service</code>, <code>revision</code>,
-                <code>component</code> and <code>owner</code>. Keep this role on
-                the private workspace.
-              </p>
-              <p>
-                The customer supplies a private catalog mapping report IDs or
-                scoped assets to a service, component, deployed revision and
-                owning team. Unmapped reports are skipped. A source report keeps
-                its provider identity. Attachments, payments and researcher
-                correspondence stay on the bounty platform.
-              </p>
-            </details>
-            <details class="manual-subsection" id="public-report">
-              <summary>Map a disclosed report</summary>
-              <p>
-                Save this example as <code>private/catalog.json</code>. Its
-                service, component, revision and owner describe a local review
-                workspace.
-              </p>
-              <pre tabindex="0"><code>{
-  "program": "curl",
-  "reports": {
-    "2236133": {
-      "service": "local-acceptance-console",
-      "component": "local-http-response",
-      "revision": "local-acceptance-v1",
-      "owner": "acceptance-reviewer"
-    }
-  }
-}</code></pre>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py import-disclosed --program curl \
-  --report-id 2236133 --catalog private/catalog.json
-python3 cli.py context h1-curl-2236133</code></pre>
-            </details>
-            <details class="manual-subsection" id="hackerone">
-              <summary>HackerOne customer program</summary>
-              <p>
-                Set <code>HACKERONE_API_USER</code> and
-                <code>HACKERONE_API_TOKEN</code> through your secret manager.
-                Use a catalog with your program handle and report IDs or asset
-                identifiers. The importer accepts triaged, retesting and
-                resolved reports.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py sync --program YOUR_HANDLE \
-  --catalog private/catalog.json</code></pre>
-              <p>
-                For signed deliveries, set <code>ICHNIX_PROGRAM</code>,
-                <code>ICHNIX_CATALOG</code> and
-                <code>ICHNIX_WEBHOOK_SECRET</code> on the console. Register
-                <code>/hooks/hackerone</code> on its HTTPS origin.
-                <a href="https://api.hackerone.com/customer-reference/"
-                  >HackerOne customer API</a
-                >
-                ·
-                <a href="https://api.hackerone.com/webhooks/"
-                  >HackerOne webhook verification</a
-                >
-              </p>
-            </details>
-            <details class="manual-subsection" id="bugcrowd">
-              <summary>Bugcrowd engagement</summary>
-              <p>
-                Set <code>BUGCROWD_API_TOKEN</code> to your read-only customer
-                credential in <code>token-id:token-secret</code> format. Set the
-                catalog’s <code>program</code> to the engagement code. Use
-                submission UUIDs in <code>reports</code> or target UUIDs in
-                <code>assets</code>. The importer accepts triaged, unresolved
-                and resolved submissions and skips duplicates.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py sync-bugcrowd --engagement YOUR_CODE \
-  --catalog private/bugcrowd.json</code></pre>
-              <p>
-                Set <code>ICHNIX_BUGCROWD_ENGAGEMENT</code>,
-                <code>ICHNIX_BUGCROWD_CATALOG</code> and
-                <code>ICHNIX_BUGCROWD_WEBHOOK_SECRET</code> on the console
-                alongside the API token. Register
-                <code>submission.created</code> and
-                <code>submission.updated</code> at <code>/hooks/bugcrowd</code>.
-                The receiver verifies the signature, then fetches current
-                submission metadata and checks its engagement.
-                <a href="https://docs.bugcrowd.com/api/getting-started/"
-                  >Bugcrowd API guide</a
-                >
-                ·
-                <a href="https://docs.bugcrowd.com/api/webhooks/"
-                  >Bugcrowd webhook verification</a
-                >
-              </p>
-              <p class="manual-note">
-                Private program sync and signed webhook behavior have been
-                checked with provider-shaped fixtures. Live customer onboarding
-                requires credentials for the organization’s own program.
-              </p>
-            </details>
-          </section>
-          <section id="ci">
-            <h2><span class="chapter-no">09</span>Capture CI evidence</h2>
-            <p>
-              Have your deployment pipeline export <code>environment</code> set
-              to <code>staging</code>, its service and revision, and a
-              <code>settings</code> object. In a separate policy, map each
-              service to the expected boolean, integer or string settings. See
-              <code>examples/staging.json</code> and
-              <code>examples/policy.json</code> in the checkout.
-            </p>
-            <p>
-              Give CI and intake private files with the same 32–1024 random
-              bytes. Set <code>ICHNIX_CI_HMAC_KEY_FILE</code> to the appropriate
-              file on each host. Sign the exact manifest bytes in CI, then
-              transfer the manifest and detached signature to the workspace.
-            </p>
-            <pre tabindex="0"><code>python3 cli.py staging --sign \
-  --manifest private/staging.json --out private/staging.sig
-
-python3 cli.py staging h1-curl-2236133 \
-  --policy private/policy.json --manifest private/staging.json \
-  --signature private/staging.sig --run-id pipeline-104</code></pre>
-            <p>
-              Use the same run ID to retry the same CI observation. Evidence
-              includes its revision, result, source digest and verification
-              method. Exit <code>0</code> means all configured values matched,
-              <code>1</code> means a value differed or was missing, and
-              <code>2</code> means intake could not complete. A missing setting
-              appears as inconclusive. Open the evidence trace to see checks
-              from the latest run. Checks from one manifest appear together,
-              grouped by result. Single observations and mixed sources appear in
-              recorded order.
-            </p>
-            <details class="manual-subsection" id="evidence-example">
-              <summary>See the three possible results in the console</summary>
-              <figure class="manual-figure">
-                <img
-                  src="/report-review.webp"
-                  width="872"
-                  height="706"
-                  loading="lazy"
-                  decoding="async"
-                  alt="Synthetic case IX-104 shows retention_days failed, redaction_enabled passed and audit_enabled inconclusive."
-                />
-                <figcaption>
-                  The local demo’s IX-104 case. Open a manifest row in the
-                  console to inspect the observation behind its result.
-                </figcaption>
-              </figure>
-            </details>
-            <p class="manual-note">
-              A signed manifest attests to bytes provided by the holder of the
-              shared key. A review records an owner decision. The original
-              bounty finding requires independent verification by the security
-              team.
-            </p>
-          </section>
-          <section id="agents">
+          <section id="hosted-workspace">
             <h2>
-              <span class="chapter-no">10</span>Connect people and coding agents
+              <span class="chapter-no">08</span>Connect the hosted organization
+              workspace
             </h2>
             <p>
-              Run the remote CLI and stdio worker from a checkout with Python
-              3.12+ on Windows, macOS or Linux. The administrator supplies the
-              workspace URL and issues a named credential for your role. The
-              desktop client needs no local database or Docker engine.
+              Give your team a private sign-in at
+              <code>/workspace</code>. The public demo at
+              <a href="/console">/console</a> uses a separate origin.
             </p>
-            <details class="manual-subsection" id="markdown-context">
-              <summary>Give an agent a compact report README</summary>
-              <p>
-                Open a case in your private workspace and select
-                <strong>Download report README</strong> below the case heading.
-                A read, review or intake credential can download the six mapped
-                fields as <code>README.md</code>. Worker access stays scoped to
-                an active lease.
-              </p>
-              <p>
-                To export the same fields on the workspace host, use the case ID
-                shown in the console and choose a new file in an existing
-                private directory.
-              </p>
-              <pre tabindex="0"><code>mkdir -p -m 700 private
-python3 cli.py export-readme EXAMPLE-101 --out private/README.md</code></pre>
-              <ul>
+            <details class="manual-subsection" id="workspace-origin">
+              <summary>Connect the private origin</summary>
+              <ol>
                 <li>
-                  <strong>Local MCP reader.</strong> Call
-                  <code>get_case_context</code> with
-                  <code>{"case_id":"EXAMPLE-101","format":"markdown"}</code>.
+                  Set <code>ICHNIX_WORKSPACE_ORIGIN</code> in Vercel to the
+                  HTTPS root of the organization installation.
                 </li>
                 <li>
-                  <strong>Leased MCP worker.</strong> Call
-                  <code>get_review_context</code> with your claimed
-                  <code>job_id</code> and <code>format: "markdown"</code>. To
-                  submit a disposition, first read the full evidence context
-                  using the same tool without the format option.
+                  Set <code>ICHNIX_ORIGIN_SECRET</code> to the same random
+                  secret of at least 32 characters on Vercel and the origin.
+                  Require the relay’s <code>X-Ichnix-Origin-Secret</code> header
+                  on the origin.
                 </li>
-              </ul>
+                <li>
+                  Apply production values only to deployments trusted to access
+                  the organization.
+                </li>
+              </ol>
+            </details>
+            <details class="manual-subsection" id="workspace-roles">
+              <summary>Sign in, upload and connect a worker</summary>
               <p>
-                <a href="#context-size"
-                  >Compare the two response sizes on synthetic cases.</a
+                Sign in with a named organization credential. The relay forwards
+                it to the organization API. Readers can open cases, reviewers
+                can record decisions, and intake credentials can upload one
+                report at a time.
+              </p>
+              <p>
+                For remote workers, use a named worker credential and the
+                <a href="#worker-mcp">hosted client settings</a>.
+              </p>
+            </details>
+            <details class="manual-subsection" id="workspace-hooks">
+              <summary>Receive signed platform events</summary>
+              <p>
+                Register <code>/hooks/hackerone</code> or
+                <code>/hooks/bugcrowd</code> on the Vercel hostname.
+                <a href="#providers"
+                  >Configure the program, catalog and signing secrets</a
                 >
+                on the private origin. The relay preserves the signed bytes for
+                verification.
               </p>
               <p>
-                <strong>Starting from a document?</strong> On your Linux
-                workspace with the optional dependencies or inside the supplied
-                container, convert a local Office document or text-based PDF to
-                Markdown before reviewing it.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py document-readme source.docx --out private/source.md</code></pre>
-              <p>
-                The
-                <a href="https://github.com/firecrawl/anydoc">AnyDoc</a>
-                converter runs locally with OCR disabled. Input is limited to 8
-                MiB and output to 256 KiB. The resulting document can contain
-                the full original report. Review it before sharing it with an
-                agent. The browser uploader accepts the six-field JSON format.
+                Webhooks and mapped uploads accept up to 1 MiB. Review decisions
+                accept up to 16 KiB.
               </p>
             </details>
-            <details class="manual-subsection" id="windows-client">
-              <summary>Connect from PowerShell 7+</summary>
+          </section>
+          <section id="vercel">
+            <h2>
+              <span class="chapter-no">09</span>Host a public preview on Vercel
+            </h2>
+            <p>
+              Vercel serves the website. A persistent host runs HydraDB, SQLite
+              and the read-only demo.
+            </p>
+            <ol>
+              <li>
+                Import the repository into Vercel and select
+                <code>main</code> as the production branch. The included
+                <code>vercel.json</code> configures the build and functions.
+              </li>
+              <li>
+                On the persistent host, start the demo:
+                <pre
+                  tabindex="0"
+                ><code>python3 cli.py demo --public-readonly --port 18766</code></pre>
+              </li>
+              <li>
+                Expose the demo over HTTPS. Set
+                <code>ICHNIX_PUBLIC_ORIGIN</code> in Vercel to its origin,
+                without a path or credentials.
+              </li>
+            </ol>
+            <details class="manual-subsection" id="ai-layout">
+              <summary>Configure Workers AI layout selection</summary>
+
               <p>
-                Set the workspace origin, then enter the credential at the
-                masked prompt. The following commands use the Windows Python
-                launcher. On macOS or Linux, use <code>python3</code> in place
-                of <code>py -3</code>.
+                Enable this option to let Workers AI choose how to lay out a
+                report diagram. The model receives only the report’s source and
+                topic categories.
               </p>
-              <pre
-                tabindex="0"
-              ><code>$env:ICHNIX_WORKSPACE_URL = 'https://workspace.example.org'
-$env:ICHNIX_USER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Named workspace token' -AsSecureString)).Password
-try {
-  py -3 cli.py auth status --token-env ICHNIX_USER_TOKEN
-  py -3 cli.py human --token-env ICHNIX_USER_TOKEN cases
-} finally {
-  Remove-Item Env:ICHNIX_USER_TOKEN
-}</code></pre>
+              <ol>
+                <li>
+                  <strong>In Vercel</strong>
+                  <p>
+                    Set <code>ICHNIX_CF_ACCOUNT_ID</code> and
+                    <code>ICHNIX_CF_AI_TOKEN</code>. Generate a random shared
+                    secret of at least 32 characters and set it as
+                    <code>ICHNIX_LAYOUT_SECRET</code>.
+                  </p>
+                </li>
+                <li>
+                  <strong>On the private intake host</strong>
+                  <p>
+                    Set <code>ICHNIX_LAYOUT_URL</code> to your HTTPS Vercel URL
+                    ending in <code>/api/report-layout</code>. Store the same
+                    secret in a private file and point
+                    <code>ICHNIX_LAYOUT_SECRET_FILE</code> at it.
+                  </p>
+                </li>
+              </ol>
               <p>
-                For a named intake credential, use
-                <code
-                  >human --token-env ICHNIX_USER_TOKEN import-report
-                  mapped.json</code
-                >. For unattended runs, have the secret manager inject the
-                variable into the client process. Windows uses this environment
-                mode. The credential file option checks POSIX permissions on
-                macOS and Linux.
+                The workspace keeps the report text and chooses the layout
+                locally if the provider is unavailable.
               </p>
-            </details>
-            <details class="manual-subsection" id="posix-client">
-              <summary>Use a private token file on macOS or Linux</summary>
-              <pre
-                tabindex="0"
-              ><code>export ICHNIX_WORKSPACE_URL=https://workspace.example.org
-export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
-chmod 600 "$ICHNIX_USER_TOKEN_FILE"
-python3 cli.py auth status
-python3 cli.py human cases
-python3 cli.py human context CASE_ID
-python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code></pre>
+              <a
+                href="https://developers.cloudflare.com/workers-ai/features/json-mode/"
+                >Workers AI structured responses</a
+              >
             </details>
             <p>
-              For the Vercel organization relay, set the workspace URL to its
-              HTTPS origin and <code>ICHNIX_WORKSPACE_HOSTED=1</code>. In
-              PowerShell use <code>$env:ICHNIX_WORKSPACE_HOSTED = '1'</code>.
-              The status command returns the credential’s name and role.
+              <a href="https://vercel.com/docs/git">Vercel Git deployments</a>
             </p>
-            <details class="manual-subsection" id="agent-profiles">
-              <summary>Agent profiles</summary>
-              <p>
-                Named identities support four roles. A
-                <code>read</code> credential opens case context. A
-                <code>review</code> credential can also accept or reject an
-                owner. A <code>worker</code> credential can claim, read and
-                finish a leased review. An <code>intake</code> credential can
-                read cases and import one mapped report. Worker context omits
-                related report titles and reviewer history.
-              </p>
-            </details>
-            <details class="manual-subsection" id="worker-credentials">
-              <summary>Issue credentials on the console host</summary>
-              <pre tabindex="0"><code>state="$HOME/.local/state/ichnix"
-export ICHNIX_IDENTITY_DB="$state/identities.sqlite3"
-python3 cli.py identity issue analyst --role review \
-  --out "$state/analyst.token"
-python3 cli.py identity issue coding-worker --role worker \
-  --out "$state/coding-worker.token"
-python3 cli.py identity list
-python3 cli.py console --port 8765</code></pre>
-              <p>
-                Start the console in this environment with the port free.
-                Registry mode accepts named tokens and disables the shared
-                operator token. Each review records its actor and UTC timestamp.
-                To withdraw worker access, run
-                <code>python3 cli.py identity revoke coding-worker</code>. Run
-                <code>python3 cli.py identity history coding-worker</code>
-                on the host to see when that name was issued, revoked or
-                reissued and which operating-system UID made the change. Omit
-                the name for the full registry history. For older registries,
-                only the last retained credential per name can be reconstructed,
-                and its operator is unknown.
-              </p>
-            </details>
-            <details class="manual-subsection" id="worker-mcp">
-              <summary>Configure stdio on the worker machine</summary>
-              <p>
-                Generate a profile on the worker’s machine using its own
-                checkout path and Python interpreter. On Windows, generate the
-                Codex table with PowerShell and add the resulting table to your
-                Codex configuration.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>py -3 cli.py mcp-config --profile worker --token-env ICHNIX_WORKER_TOKEN --workspace-url https://workspace.example.org --format codex --out ichnix-mcp.toml</code></pre>
-              <p>
-                The profile names the inherited variable and can be generated
-                before the credential is available. Start Codex from a shell
-                with the worker token for that session, or inject it with a
-                secret manager. Exit the agent to end its session.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>$env:ICHNIX_WORKER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Worker token' -AsSecureString)).Password
-try {
-  codex
-} finally {
-  Remove-Item Env:ICHNIX_WORKER_TOKEN
-}</code></pre>
-              <p>
-                For a JSON stdio client, omit <code>--format codex</code> and
-                use <code>--out ichnix-mcp.json</code>. Configure the launcher
-                to forward <code>ICHNIX_WORKER_TOKEN</code> into the MCP
-                process. Codex profiles include that setting as
-                <code>env_vars</code>. Keep token values out of configuration
-                files and agent prompts.
-              </p>
-              <p>
-                On macOS and Linux, a private worker token file is also
-                supported.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py mcp-config --profile worker \
-  --workspace-url https://workspace.example.org \
-  --worker-token-file "$HOME/.config/ichnix/worker.token" \
-  --out ichnix-mcp.json</code></pre>
-              <p>
-                Initialization and tool discovery check the credential against
-                the workspace. Revoking it blocks subsequent requests. Remote
-                origins require HTTPS. Loopback HTTP works for a local direct
-                connection.
-              </p>
-            </details>
-            <details class="manual-subsection" id="worker-lease">
-              <summary>Queue one review</summary>
-              <p>
-                Manual handoffs are the default. To queue reviews automatically
-                after intake and CI, set <code>ICHNIX_AUTO_HANDOFFS=1</code> on
-                the console, CLI and intake processes and point all three at the
-                same private state directory.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py handoff enqueue h1-curl-2236133 owner-review
-python3 cli.py handoff status JOB_ID</code></pre>
-              <p>
-                Use <code>evidence-review</code> when the case already has
-                staging observations. Ask the agent to call
-                <code>claim_review</code>, pass the returned job ID to
-                <code>get_review_context</code>, inspect the material, then call
-                <code>finish_review</code>. For an evidence review, pass the
-                optional <code>disposition</code> value
-                <code>evidence-reviewed</code> or <code>needs-evidence</code>.
-                An owner review accepts <code>needs-owner-review</code>. The
-                graph records these outcomes against the reviewed snapshot. Only
-                reviewer decisions change owner rankings. Unfinished leases
-                expire and become available again. A completed handoff leaves
-                the owner decision to the reviewer.
-              </p>
-              <p>
-                For a trusted local operator,
-                <code
-                  >python3 cli.py mcp-config --profile local --hydra-token-file
-                  /private/hydra-token</code
-                >
-                generates a direct graph-reader profile. It offers
-                <code>list_cases</code> and <code>get_case_context</code>.
-                <a
-                  href="https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle"
-                  >MCP lifecycle and version negotiation</a
-                >
-              </p>
-            </details>
           </section>
           <section id="selfgraph">
             <h2>
-              <span class="chapter-no">11</span>Export evidence to SelfGraph
+              <span class="chapter-no">10</span>Export evidence to SelfGraph
             </h2>
             <p>
               Hand an agent the observed CI checks for one case revision. In the
-              public demo, select IX-108 and download its SelfGraph facts. For a
-              private workspace, run the exporter on the operator host. The
-              destination must be a new file in a private directory.
+              public console, open a case and select
+              <strong>Download SelfGraph facts</strong>. In a private workspace,
+              run the exporter on the operator host. Replace
+              <code>CASE_ID</code> with the identifier shown in the console.
+              Write the export to a new file in a private directory.
             </p>
             <pre
               tabindex="0"
-            ><code>python3 cli.py export-selfgraph IX-108 --out "$HOME/ix-108.facts.json"</code></pre>
+            ><code>python3 cli.py export-selfgraph CASE_ID --out "$HOME/case.facts.json"</code></pre>
             <p>
               The CLI receipt reports entity and relation counts. The file
               contains the case ID, service, component revision and recorded
@@ -1134,18 +1223,21 @@ python3 cli.py handoff status JOB_ID</code></pre>
               <p>
                 Install the optional SDK in a virtual environment on the
                 receiving machine. Point it at that organization's self-hosted
-                HydraDB Bolt endpoint and set <code>SELFGRAPH_AUTH</code>
-                through your secret manager. Use a dedicated destination
-                namespace for each source workspace. Configure TLS for remote
-                connections. The example uses the native loopback listener.
+                HydraDB Bolt endpoint and set
+                <code>SELFGRAPH_AUTH</code> through your secret manager. Use a
+                dedicated destination namespace for each source workspace.
+                Configure TLS for remote connections. The commands below use the
+                native loopback listener. Replace
+                <code>YOUR_NAMESPACE</code> with the destination namespace and
+                <code>CASE_ID</code> with the exported case identifier.
               </p>
               <pre tabindex="0"><code>python3 -m venv .venv
 .venv/bin/pip install selfgraph==0.2.0
 export SELFGRAPH_STORE=hydradb SELFGRAPH_URI=bolt://127.0.0.1:7687
-export SELFGRAPH_NAMESPACE=ichnix-ledger
-.venv/bin/selfgraph insert facts "$HOME/ix-108.facts.json"
+export SELFGRAPH_NAMESPACE=YOUR_NAMESPACE
+.venv/bin/selfgraph insert facts "$HOME/case.facts.json"
 .venv/bin/selfgraph readiness
-.venv/bin/selfgraph check-answerable "Is there a retention check for IX-108?" --term IX-108 --term retention_days</code></pre>
+.venv/bin/selfgraph check-answerable "Which observations belong to CASE_ID?" --term CASE_ID</code></pre>
               <p>
                 Answerability checks whether terms connect to recorded facts.
                 Inspect the observation's result to distinguish a pass, failure
@@ -1159,13 +1251,13 @@ export SELFGRAPH_NAMESPACE=ichnix-ledger
             </details>
           </section>
           <section id="graph">
-            <h2><span class="chapter-no">12</span>Understand the graph</h2>
+            <h2><span class="chapter-no">11</span>Understand the graph</h2>
             <p>
               HydraDB links a report to a service-specific snapshot, the exact
               component revision, its CI observations and owner reviews. When
               another case uses that component revision, a traversal retrieves
-              prior outcomes. This is the learning loop for Track 1, the
-              self-improving graph.
+              prior outcomes. Those earlier decisions and checks inform the next
+              review.
             </p>
             <dl class="manual-terms">
               <dt>Owner ranking</dt>
@@ -1199,126 +1291,8 @@ export SELFGRAPH_NAMESPACE=ichnix-ledger
               authentication material in your backup plan.
             </p>
           </section>
-          <section id="results">
-            <h2><span class="chapter-no">13</span>Read the measurements</h2>
-            <p class="manual-note">
-              <strong>What we tested.</strong> Signed webhook fixtures and
-              mapped uploads ran against disposable workspaces. The acceptance
-              run used a public HackerOne disclosure. An authenticated HackerOne
-              or Bugcrowd customer program has yet to be tested end to end.
-            </p>
-            <details class="manual-subsection" id="retrieval-metrics">
-              <summary>Retrieval on synthetic cases</summary>
-              <p>
-                Six held-out cases share three component revisions. Feeding
-                separate labeled cases to the same graph increases top-ranked
-                owner and CI-check accuracy from 0/6 to 2/6, 4/6 and 6/6. The
-                catalog owner alone gets 0/6. Pooling the same training feedback
-                across all components, with the same ranking code, scores 0/6,
-                2/6, 2/6 and 2/6 on both tasks. Only training cases receive
-                owner decisions and CI observations. This comparison measures
-                the value of component-scoped feedback on recurring workflows
-                within HydraDB.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
-            </details>
-            <details class="manual-subsection" id="context-size">
-              <summary>How much context the Markdown export uses</summary>
-              <p>
-                We imported the three synthetic cases in
-                <code>examples/cases.json</code> into an empty graph, then
-                called the local MCP reader once per format and case. The full
-                context returned 424 tokens in total. The six-field Markdown
-                returned 167, a 61% reduction, using the
-                <code>o200k_base</code> tokenizer on the response text.
-              </p>
-              <p>
-                This measurement covers report identification before evidence or
-                reviewer decisions are added. Use the full context to review the
-                evidence. Model instructions, tool schemas and inference time
-                were outside the measurement.
-              </p>
-            </details>
-            <details class="manual-subsection" id="pilot">
-              <summary>
-                How a product security team could evaluate a pilot
-              </summary>
-              <ol>
-                <li>
-                  Choose a program and record which team ultimately accepts each
-                  report. Keep a human reviewer responsible for assignments.
-                </li>
-                <li>
-                  For the same incoming reports, save the existing process’s
-                  first suggestion and Ichnix’s first suggestion before
-                  revealing the outcome.
-                </li>
-                <li>
-                  Compare accepted first choices and reassignments, including
-                  the counts for teams that receive fewer reports. A
-                  time-savings claim needs a timed workflow comparison.
-                </li>
-              </ol>
-            </details>
-            <details class="manual-subsection" id="agent-metrics">
-              <summary>Coding-agent compatibility</summary>
-              <p>
-                Two Codex CLI sessions used separate worker credentials. The
-                evidence inspector identified a failed retention control and
-                missing masking evidence. The owner router retrieved the records
-                team and the prior retention check. Each session claimed one job
-                and recorded its disposition in one attempt. Both SQLite
-                receipts matched their HydraDB outcomes.
-              </p>
-            </details>
-            <details class="manual-subsection" id="worker-throughput">
-              <summary>Worker throughput on one host</summary>
-              <p>
-                Each run processed the same 100 synthetic evidence reviews over
-                loopback using real stdio worker processes, the HTTP console and
-                HydraDB. Per-job time covers the claim, context read, fixture
-                check and completion. Worker startup is measured separately.
-              </p>
-              <table>
-                <caption>
-                  100 synthetic jobs per run on one two-vCPU host
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Workers</th>
-                    <th scope="col">Jobs / second</th>
-                    <th scope="col">95th percentile</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">1</th>
-                    <td>13.34</td>
-                    <td>0.087 s</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">100</th>
-                    <td>11.70</td>
-                    <td>8.315 s</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p>
-                On this host, the single worker finished the batch faster.
-                Starting 100 clients took 11.17 seconds. Starting one took 0.16
-                seconds. All 100 jobs in each run completed in one attempt. The
-                run excludes model inference, internet latency and live customer
-                reports.
-              </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py bench-workers --workers 100 --jobs 100</code></pre>
-            </details>
-          </section>
           <section id="distribution">
-            <h2><span class="chapter-no">14</span>License and distribution</h2>
+            <h2><span class="chapter-no">12</span>License and distribution</h2>
             <p>
               Ichnix application code is MIT licensed. The checkout includes its
               <code>LICENSE</code> and the notices in

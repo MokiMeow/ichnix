@@ -1,6 +1,6 @@
 const byId = (id) => document.getElementById(id);
 const desk = byId("desk");
-const detail = byId("detail");
+const detail = byId("case-content");
 const status = byId("status");
 const login = byId("connect");
 const orgWorkspace = ["/workspace", "/workspace/"].includes(location.pathname);
@@ -9,12 +9,13 @@ const hostedPreview =
 const apiBase = orgWorkspace ? "/org-api/" : "/api/";
 let token = "";
 let reportBody;
-const caseImages = new Set();
+const caseObjectUrls = new Set();
 let imageRequests = new AbortController();
 let selected;
 let generation = 0;
 let sessionVersion = 0;
 let publicDemo = false;
+const publishedCases = new Map();
 let currentPage = "";
 let canReview = false;
 let disclosedCase;
@@ -26,36 +27,27 @@ function element(tag, text, className) {
   return el;
 }
 
-const pendingActivity = new Map();
-
-function updateActivity() {
-  let label = "";
-  for (const [target, task] of pendingActivity) {
-    if (
-      target.isConnected &&
-      !target.closest("details:not([open])") &&
-      (target === detail || !target.closest("[inert]"))
-    )
-      label = task.label;
-  }
-  const caption = byId("activity-label");
-  byId("activity").hidden = !label;
-  if (caption.textContent !== label) caption.textContent = label;
+function startActivity(host, label) {
+  host.querySelector(":scope > .view-activity")?.remove();
+  const activity = element("span", undefined, "view-activity");
+  activity.setAttribute("role", "progressbar");
+  activity.setAttribute("aria-label", label);
+  activity.setAttribute("aria-live", "polite");
+  const mark = element("span", undefined, "thinking-mark");
+  mark.setAttribute("aria-hidden", "true");
+  const iconOnly = host.matches(".aside-title, #case-activity");
+  activity.append(
+    mark,
+    element("span", label, iconOnly ? "sr-only" : undefined),
+  );
+  host.append(activity);
+  return () => activity.remove();
 }
 
-function startActivity(target, label) {
-  const task = { label };
-  pendingActivity.delete(target);
-  pendingActivity.set(target, task);
-  updateActivity();
-  return () => {
-    if (pendingActivity.get(target) === task) pendingActivity.delete(target);
-    updateActivity();
-  };
-}
-
-function beginView(label) {
-  startActivity(detail, label);
+let finishViewActivity;
+function beginView(label, host) {
+  finishViewActivity?.();
+  finishViewActivity = startActivity(host, label);
   detail.setAttribute("aria-busy", "true");
   detail.inert = true;
   byId("retry").hidden = true;
@@ -66,10 +58,10 @@ function beginView(label) {
 
 function endView(view) {
   if (view !== generation) return;
-  pendingActivity.delete(detail);
+  finishViewActivity?.();
+  finishViewActivity = undefined;
   detail.removeAttribute("aria-busy");
   detail.inert = false;
-  updateActivity();
 }
 
 function showError(message, retry) {
@@ -82,12 +74,13 @@ function showError(message, retry) {
 function clearCaseImages() {
   imageRequests.abort();
   imageRequests = new AbortController();
-  for (const url of caseImages) URL.revokeObjectURL(url);
-  caseImages.clear();
+  for (const url of caseObjectUrls) URL.revokeObjectURL(url);
+  caseObjectUrls.clear();
 }
 
 async function loadCaseImage(container, caseId, path, className, alt, failure) {
   const { signal } = imageRequests;
+  container.replaceChildren();
   const finish = startActivity(
     container,
     path === "trace.svg" ? "Loading evidence trace" : "Loading review diagram",
@@ -101,7 +94,6 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
       loadCaseImage(container, caseId, path, className, alt, failure);
     container.replaceChildren(element("p", failure), retry);
   };
-  container.replaceChildren();
   try {
     const response = await request(
       "cases/" + encodeURIComponent(caseId) + "/" + path,
@@ -112,7 +104,7 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
     const blob = await response.blob();
     if (signal.aborted || !container.isConnected || selected !== caseId) return;
     const url = URL.createObjectURL(blob);
-    caseImages.add(url);
+    caseObjectUrls.add(url);
     const image = element("img", undefined, className);
     image.alt = alt;
     image.src = url;
@@ -120,7 +112,7 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
       "error",
       () => {
         URL.revokeObjectURL(url);
-        caseImages.delete(url);
+        caseObjectUrls.delete(url);
         retryImage();
       },
       { once: true },
@@ -141,7 +133,9 @@ function clearSession() {
   byId("token").value = "";
   byId("token").readOnly = false;
   byId("connect-submit").disabled = true;
-  pendingActivity.clear();
+  document
+    .querySelectorAll(".view-activity")
+    .forEach((activity) => activity.remove());
   endView(++generation);
   byId("retry").hidden = true;
   byId("retry").onclick = null;
@@ -156,6 +150,8 @@ function clearSession() {
   selected = null;
   clearCaseImages();
   detail.replaceChildren();
+  byId("case-activity").replaceChildren();
+  publishedCases.clear();
   byId("cases").replaceChildren();
   byId("case-select").replaceChildren();
   byId("case-count").textContent = "";
@@ -224,7 +220,7 @@ function reviewControl(report, owner, accepted) {
   button.setAttribute("aria-label", (accepted ? "Accept " : "Reject ") + owner);
   button.addEventListener("click", async () => {
     const view = generation;
-    const finish = startActivity(button, "Saving owner review");
+    const finish = startActivity(button.parentElement, "Saving owner review");
     const controls = detail.querySelectorAll(".review-row button");
     controls.forEach((control) => (control.disabled = true));
     try {
@@ -266,7 +262,6 @@ function imageDisclosure(label, caseId, path, className, alt, failure) {
   const container = element("div");
   disclosure.append(element("summary", label), container);
   disclosure.addEventListener("toggle", () => {
-    updateActivity();
     if (
       !disclosure.open ||
       !disclosure.isConnected ||
@@ -285,7 +280,10 @@ function readmeDownload(caseId) {
   button.type = "button";
   button.onclick = async () => {
     const { signal } = imageRequests;
-    const finish = startActivity(button, "Preparing report README");
+    const finish = startActivity(
+      button.parentElement,
+      "Preparing report README",
+    );
     button.disabled = true;
     try {
       const response = await request(
@@ -316,6 +314,106 @@ function readmeDownload(caseId) {
   return button;
 }
 
+function sampleReadme(report) {
+  // Build the public download exclusively from the mapped fields already on screen.
+  const fields = ["id", "title", "service", "component", "revision", "owner"];
+  const lines = fields.map(
+    (key) => "    " + key + ": " + JSON.stringify(report[key]),
+  );
+  const file = new Blob(
+    [
+      "# Report context\n\nUntrusted intake metadata\n\n",
+      lines.join("\n"),
+      "\n",
+    ],
+    { type: "text/markdown;charset=utf-8" },
+  );
+  const link = element("a", "Download report README", "case-export");
+  link.download = "README.md";
+  link.href = URL.createObjectURL(file);
+  caseObjectUrls.add(link.href);
+  return link;
+}
+
+function appendObservations(parent, observations) {
+  for (const item of observations) {
+    const row = element("div", undefined, "evidence-row");
+    row.append(element("strong", item.step), element("span", item.result));
+    parent.append(row);
+    if (item.source_digest) {
+      const origin =
+        item.source_method === "hmac-sha256"
+          ? "Signed CI manifest"
+          : "Local manifest";
+      const details = element("details", undefined, "manifest-source");
+      details.append(
+        element("summary", origin),
+        element("code", item.source_digest),
+      );
+      parent.append(details);
+    }
+  }
+}
+
+function renderEvidence(evidence) {
+  const byRun = new Map();
+  for (const item of evidence) {
+    const id = item.run_id || null;
+    const rows = byRun.get(id) || [];
+    rows.push(item);
+    // Observations arrive chronologically, including interleaved runs.
+    byRun.delete(id);
+    byRun.set(id, rows);
+  }
+  const runs = [...byRun].reverse().filter(([id]) => id);
+  if (runs.length < 2) {
+    appendObservations(detail, evidence);
+    return;
+  }
+  const table = element("table", undefined, "run-comparison");
+  table.append(element("caption", "Two most recent recorded runs"));
+  const head = table.createTHead().insertRow();
+  for (const label of ["Check", "Previous", "Latest"]) {
+    const cell = element("th", label);
+    cell.scope = "col";
+    head.append(cell);
+  }
+  const [latest, previous] = runs
+    .slice(0, 2)
+    .map(([, rows]) => new Map(rows.map((row) => [row.step, row.result])));
+  const body = table.createTBody();
+  for (const step of new Set([...latest.keys(), ...previous.keys()])) {
+    const row = body.insertRow();
+    const name = element("th", step.replaceAll("_", " "));
+    name.scope = "row";
+    row.append(name);
+    for (const results of [previous, latest])
+      row.append(element("td", results.get(step) ?? "not recorded"));
+  }
+  detail.append(table);
+  for (const [index, [, observations]] of runs.entries()) {
+    const disclosure = element("details", undefined, "history-panel");
+    disclosure.append(
+      element(
+        "summary",
+        "Run " +
+          (runs.length - index) +
+          " · " +
+          observations.length +
+          " observations",
+      ),
+    );
+    appendObservations(disclosure, observations);
+    detail.append(disclosure);
+  }
+  if (byRun.has(null)) {
+    const group = element("details", undefined, "history-panel");
+    group.append(element("summary", "Observations without a run ID"));
+    appendObservations(group, byRun.get(null));
+    detail.append(group);
+  }
+}
+
 function renderCase({
   report,
   recommendations,
@@ -329,7 +427,8 @@ function renderCase({
   const heading = element("header", undefined, "case-heading");
   const title = element("h2", report.title);
   title.tabIndex = -1;
-  heading.append(element("p", report.id, "case-id"), title);
+  byId("case-activity").replaceChildren(element("p", report.id, "case-id"));
+  heading.append(title);
   const metadata = element("dl", undefined, "case-scope");
   for (const [label, value] of [
     ["Service", report.service],
@@ -350,10 +449,35 @@ function renderCase({
     exportLink.href =
       apiBase + "cases/" + encodeURIComponent(report.id) + "/selfgraph.json";
     exportLink.download = report.id + "-selfgraph.json";
-    heading.append(exportLink);
+    const downloads = element("div", undefined, "case-downloads");
+    downloads.append(sampleReadme(report), exportLink);
+    heading.append(downloads);
   }
   if (!publicDemo) heading.append(readmeDownload(report.id));
   detail.replaceChildren(heading);
+  if (publicDemo && report.id === "IX-214") {
+    const guide = element("section", undefined, "case-guide");
+    guide.append(
+      element("h3", "How to read this example"),
+      element(
+        "p",
+        "Compare the recorded checks, inspect the ownership decision, then follow the outstanding evidence request. This walkthrough uses a synthetic report.",
+      ),
+    );
+    const jumps = element("nav", undefined, "case-jumps");
+    jumps.setAttribute("aria-label", "Example sections");
+    for (const [label, id] of [
+      ["Compare runs", "case-evidence"],
+      ["Owner review", "case-owners"],
+      ["Worker handoff", "case-handoffs"],
+    ]) {
+      const link = element("a", label);
+      link.href = "#" + id;
+      jumps.append(link);
+    }
+    guide.append(jumps);
+    detail.append(guide);
+  }
   detail.append(
     imageDisclosure(
       "Review workflow diagram",
@@ -371,12 +495,14 @@ function renderCase({
       source,
       element(
         "p",
-        "These signed HTTP observations came from the local Ichnix console during acceptance. The source report describes curl.",
+        "The source is a public curl report. The signed observations shown here measure the demo console’s HTTP headers.",
         "case-meta",
       ),
     );
   }
-  detail.append(element("h3", "Suggested owners"));
+  detail.append(
+    Object.assign(element("h3", "Suggested owners"), { id: "case-owners" }),
+  );
   for (const item of recommendations) {
     const row = element("div", undefined, "review-row");
     row.append(
@@ -435,7 +561,9 @@ function renderCase({
     }
   }
   if (worker_outcomes.length) {
-    detail.append(element("h3", "Worker handoffs"));
+    detail.append(
+      Object.assign(element("h3", "Worker handoffs"), { id: "case-handoffs" }),
+    );
     for (const item of worker_outcomes) {
       const row = element("div", undefined, "evidence-row");
       row.append(
@@ -473,29 +601,14 @@ function renderCase({
     history.append(list);
     detail.append(history);
   }
-  detail.append(element("h3", "Recorded evidence"));
+  detail.append(
+    Object.assign(element("h3", "Recorded evidence"), { id: "case-evidence" }),
+  );
   if (!evidence.length) {
     detail.append(element("p", "No checks recorded for this revision."));
     return;
   }
-  for (const item of evidence) {
-    const row = element("div", undefined, "evidence-row");
-    row.append(element("strong", item.step), element("span", item.result));
-    detail.append(row);
-    if (item.source_digest) {
-      const origin =
-        item.source_method === "hmac-sha256"
-          ? "Signed CI manifest"
-          : "Local manifest";
-      const details = element("details");
-      details.append(
-        element("summary", origin),
-        element("code", item.source_digest),
-      );
-      details.className = "manifest-source";
-      detail.append(details);
-    }
-  }
+  renderEvidence(evidence);
   const trace = imageDisclosure(
     "Observed evidence trace",
     report.id,
@@ -515,12 +628,20 @@ function renderCase({
 }
 
 async function readCase(caseId) {
+  if (publicDemo && publishedCases.has(caseId))
+    return publishedCases.get(caseId);
   const response = await request("cases/" + encodeURIComponent(caseId));
   return response.json();
 }
 
 function displayCase(context) {
   selected = context.report.id;
+  if (publicDemo) {
+    // Revisited public snapshots live only in this tab, until its next refresh.
+    if (!publishedCases.has(selected) && publishedCases.size >= 16)
+      publishedCases.delete(publishedCases.keys().next().value);
+    publishedCases.set(selected, context);
+  }
   byId("case-select").value = selected;
   for (const button of byId("cases").querySelectorAll("button")) {
     button.disabled = button.dataset.caseId === selected;
@@ -530,7 +651,7 @@ function displayCase(context) {
 }
 
 async function openCase(caseId, trigger) {
-  const view = beginView("Retrieving case " + caseId);
+  const view = beginView("Retrieving case " + caseId, byId("case-activity"));
   try {
     const context = await readCase(caseId);
     if (view !== generation) return;
@@ -548,7 +669,13 @@ async function openCase(caseId, trigger) {
 }
 
 async function refresh(query = currentPage, preferred = selected) {
-  const view = beginView("Retrieving cases");
+  const host = desk.hidden
+    ? login.hidden
+      ? byId("workspace-label").parentElement
+      : login
+    : byId("reload").parentElement;
+  publishedCases.clear();
+  const view = beginView("Retrieving cases", host);
   const upload = byId("report-upload");
   try {
     const [session, page] = await Promise.all([
@@ -633,6 +760,7 @@ async function refresh(query = currentPage, preferred = selected) {
     } else {
       selected = null;
       clearCaseImages();
+      byId("case-activity").replaceChildren();
       status.textContent = "";
       detail.textContent = "No cases yet.";
     }
@@ -653,8 +781,7 @@ function resetReport(message = "") {
   byId("report-drop").classList.remove("dragging");
   byId("report-file").disabled = false;
   byId("report-submit").disabled = true;
-  pendingActivity.delete(byId("report-file"));
-  updateActivity();
+  form.querySelector(":scope > .view-activity")?.remove();
   byId("report-clear").hidden = true;
   byId("report-clear").disabled = false;
   byId("report-name").textContent = "Drop a report here";
@@ -674,7 +801,7 @@ async function selectReport() {
   byId("report-browse").textContent = "Replace file";
   byId("report-clear").hidden = false;
   status.textContent = "";
-  const finish = startActivity(input, "Checking report");
+  const finish = startActivity(input.form, "Checking report");
   try {
     const body = await file.arrayBuffer();
     if (input.files[0] !== file) return;
@@ -740,6 +867,64 @@ async function uploadReport(event) {
       button.disabled = !reportBody;
     }
   }
+}
+
+function ownerCurve(points, pooled) {
+  const figure = element("figure", undefined, "owner-curve");
+  figure.append(element("figcaption", "First-choice owner accuracy"));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 340 130");
+  svg.setAttribute("aria-hidden", "true");
+  function draw(tag, attributes, text) {
+    const node = document.createElementNS(svg.namespaceURI, tag);
+    for (const [name, value] of Object.entries(attributes))
+      node.setAttribute(name, value);
+    if (text !== undefined) node.textContent = text;
+    svg.append(node);
+  }
+  const last = points[points.length - 1].training_cases || 1;
+  const x = (point) => 45 + 285 * (point.training_cases / last);
+  const y = (rate) => 102 - rate * 88;
+  for (const rate of [0, 0.5, 1]) {
+    draw("line", {
+      x1: 45,
+      x2: 330,
+      y1: y(rate),
+      y2: y(rate),
+      class: "curve-grid",
+    });
+    draw(
+      "text",
+      { x: 36, y: y(rate) + 4, "text-anchor": "end" },
+      rate * 100 + "%",
+    );
+  }
+  for (const point of points)
+    draw(
+      "text",
+      { x: x(point), y: 124, "text-anchor": "middle" },
+      point.training_cases,
+    );
+  for (const key of pooled
+    ? ["pooled_owner_top1", "owner_top1"]
+    : ["owner_top1"]) {
+    const line = points
+      .map((point) => x(point) + "," + y(point[key]))
+      .join(" ");
+    draw("polyline", { points: line, class: key });
+  }
+  for (const point of points)
+    draw("circle", {
+      cx: x(point),
+      cy: y(point.owner_top1),
+      r: 3,
+      class: "owner-dot",
+    });
+  const legend = element("div", undefined, "curve-key");
+  legend.append(element("span", "Same revision"));
+  if (pooled) legend.append(element("span", "Pooled feedback"));
+  figure.append(svg, element("small", "Reviewed training cases"), legend);
+  return figure;
 }
 
 function initializeConsole() {
@@ -836,7 +1021,6 @@ function initializeConsole() {
   );
   const evaluation = byId("evaluation");
   evaluation.addEventListener("toggle", async () => {
-    updateActivity();
     if (!publicDemo || !evaluation.open) return;
     const result = byId("evaluation-result");
     if (
@@ -844,9 +1028,9 @@ function initializeConsole() {
       result.getAttribute("aria-busy") === "true"
     )
       return;
+    result.replaceChildren();
     const finish = startActivity(result, "Loading learning curve");
     result.setAttribute("aria-busy", "true");
-    result.replaceChildren();
     try {
       const response = await request("evaluation");
       const { curve } = await response.json();
@@ -877,27 +1061,22 @@ function initializeConsole() {
         }
         return table;
       }
-      result.replaceChildren(
-        element(
-          "p",
-          "First choice correct across " +
-            curve[0].heldout_cases +
-            " held-out synthetic cases.",
-        ),
+      const pooled = curve.every(
+        (point) =>
+          Number.isFinite(point.pooled_owner_top1) &&
+          Number.isFinite(point.pooled_ci_check_top1),
+      );
+      const scores = element("details", undefined, "curve-scores");
+      scores.append(
+        element("summary", "View exact scores"),
         scoreTable(
           "Feedback from the same component revision",
           "owner_top1",
           "ci_check_top1",
         ),
       );
-      if (
-        curve.every(
-          (point) =>
-            Number.isFinite(point.pooled_owner_top1) &&
-            Number.isFinite(point.pooled_ci_check_top1),
-        )
-      ) {
-        result.append(
+      if (pooled) {
+        scores.append(
           scoreTable(
             "Same feedback pooled across components",
             "pooled_owner_top1",
@@ -905,13 +1084,28 @@ function initializeConsole() {
           ),
         );
       }
-      result.append(
+      scores.append(
         element(
           "p",
           "Fixed catalog owner accuracy: " +
             percent.format(curve[0].catalog_owner_top1),
         ),
       );
+      const explanation = element("div", undefined, "curve-description");
+      explanation.append(
+        element(
+          "p",
+          "How often does earlier feedback point to the right owner?",
+        ),
+        element(
+          "p",
+          "Each point uses the same " +
+            curve[0].heldout_cases +
+            " held-out synthetic cases. The graph ranks owners after learning from a growing set of reviewed cases.",
+        ),
+        scores,
+      );
+      result.replaceChildren(ownerCurve(curve, pooled), explanation);
     } catch {
       result.textContent = "Results unavailable. Close and reopen to retry.";
     } finally {
@@ -926,7 +1120,10 @@ function initializeConsole() {
       login.hidden = false;
       return;
     }
-    const view = beginView("Connecting to workspace");
+    const view = beginView(
+      "Connecting to workspace",
+      byId("workspace-label").parentElement,
+    );
     try {
       const response = await fetch(apiBase + "session", {
         cache: "no-store",
@@ -947,7 +1144,7 @@ function initializeConsole() {
         byId("workspace-label").textContent = disclosedCase
           ? "Read-only workspace · public disclosure and sample cases"
           : "Read-only demo · synthetic cases";
-        selected ??= disclosedCase;
+        selected ??= "IX-214";
         return refresh();
       }
       byId("workspace-label").textContent = "Private workspace";

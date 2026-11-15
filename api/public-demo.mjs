@@ -1,7 +1,7 @@
 import { isIP } from "node:net";
 import { json, readLimited } from "../hosting/http.mjs";
 
-const caseIDs = ["IX-104", "IX-108", "IX-113", "h1-curl-2236133"];
+const caseIDs = ["IX-104", "IX-108", "IX-113", "IX-214", "h1-curl-2236133"];
 const allowed = new Set([
   "session",
   "evaluation",

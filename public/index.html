@@ -77,159 +77,186 @@
         aria-labelledby="case-heading"
       >
         <div class="field-copy">
-          <h2 id="case-heading">One report, three checks.</h2>
+          <h2 id="case-heading">From report to reviewer</h2>
           <p>
-            The staging archive kept records for 60 days against a 30-day
-            policy. Inspect the checks, the deployed revision and the handoff.
+            A bounty report names the affected asset. A reviewer still needs to
+            know which version shipped, what CI observed and who owns the fix.
           </p>
         </div>
         <section class="specimen" aria-labelledby="sample-title">
-          <div class="specimen-title">
-            <span class="window-title" id="sample-title"
-              ><svg
-                class="ui-icon"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M6 3h8l4 4v14H6z" />
-                <path d="M14 3v5h4M9 12h6m-6 4h6" />
-              </svg>
-              Case inspector</span
-            ><span>Fixture · r7</span>
-          </div>
-          <div class="specimen-context">
-            <span class="case-label">SURVEY-101</span>
-            <p>Ledger archive retention review</p>
-          </div>
+          <h3 class="specimen-title" id="sample-title">
+            Example review workflow
+          </h3>
           <fieldset class="sample-tabs">
-            <legend class="sr-only">Inspect the sample case</legend>
+            <legend class="sr-only">Choose a stage of the review</legend>
             <label
               ><input
                 type="radio"
                 name="view"
-                value="evidence"
+                value="intake"
                 checked
-              />Evidence</label
+              />Intake</label
             >
             <label
               ><input
                 type="radio"
                 name="view"
-                value="revision"
-              />Revision</label
+                value="evidence"
+              />Evidence</label
             >
             <label
               ><input type="radio" name="view" value="handoff" />Handoff</label
             >
           </fieldset>
           <div class="sample-output" aria-live="polite">
-            <dl class="readout evidence-output">
-              <div>
-                <dt>Retention period</dt>
-                <dd class="fail">
-                  <svg
-                    class="ui-icon"
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <circle cx="12" cy="12" r="8.5" />
-                    <path d="m9.5 9.5 5 5m0-5-5 5" />
-                  </svg>
-                  failed
-                </dd>
-              </div>
-              <div>
-                <dt>Audit logging</dt>
-                <dd class="pass">
-                  <svg
-                    class="ui-icon"
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <circle cx="12" cy="12" r="8.5" />
-                    <path d="m8 12 2.5 2.5L16 9" />
-                  </svg>
-                  passed
-                </dd>
-              </div>
-              <div>
-                <dt>Identifier masking</dt>
-                <dd class="pending">
-                  <svg
-                    class="ui-icon"
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <circle cx="12" cy="12" r="8.5" />
-                    <path d="M8.5 12h7" />
-                  </svg>
-                  inconclusive
-                </dd>
-              </div>
-            </dl>
-            <dl class="readout revision-output">
-              <div>
-                <dt>Service</dt>
-                <dd>ledger</dd>
-              </div>
-              <div>
-                <dt>Component</dt>
-                <dd>archive</dd>
-              </div>
-              <div>
-                <dt>Revision</dt>
-                <dd>r7</dd>
-              </div>
-            </dl>
-            <dl class="readout handoff-output">
-              <div>
-                <dt>Assignment</dt>
-                <dd>evidence-review</dd>
-              </div>
-              <div>
-                <dt>Worker</dt>
-                <dd>survey-evidence</dd>
-              </div>
-              <div>
-                <dt>Disposition</dt>
-                <dd>needs-evidence</dd>
-              </div>
-            </dl>
+            <div class="readout intake-output">
+              <dl>
+                <div>
+                  <dt>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M4 14v5h16v-5M12 3v11m-4-4 4 4 4-4" /></svg
+                    >Report source
+                  </dt>
+                  <dd>HackerOne or Bugcrowd</dd>
+                </div>
+                <div>
+                  <dt>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path
+                        d="M6 6a2 2 0 1 0 0 .01M18 6a2 2 0 1 0 0 .01M6 18a2 2 0 1 0 0 .01M6 8v8m0-3c6 0 12 0 12-5"
+                      /></svg
+                    >Deployment
+                  </dt>
+                  <dd>Service, component and revision</dd>
+                </div>
+              </dl>
+              <p>
+                A signed webhook brings in a report. Your asset catalog
+                identifies the deployed component and its owning team.
+              </p>
+            </div>
+            <div class="readout evidence-output">
+              <dl>
+                <div>
+                  <dt>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path
+                        d="M5 3h10l4 4v14H5zM14 3v5h5m-11 6 2.5 2.5 4.5-5"
+                      /></svg
+                    >From CI
+                  </dt>
+                  <dd>Signed staging manifest</dd>
+                </div>
+                <div>
+                  <dt>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M3 12h4l2.5-6 4 12 2.5-6h5" /></svg
+                    >In the case
+                  </dt>
+                  <dd>Checks for this revision</dd>
+                </div>
+              </dl>
+              <p>
+                Inspect which settings matched the policy, which differed and
+                which were missing from the deployment record.
+              </p>
+            </div>
+            <div class="readout handoff-output">
+              <dl>
+                <div>
+                  <dt>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path
+                        d="M13.5 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0M4 19c0-3 2.5-5 6.5-5 1 0 2 .1 2.7.4m1.3 2.6 2 2 4-5"
+                      /></svg
+                    >Review decision
+                  </dt>
+                  <dd>Suggested owner and prior feedback</dd>
+                </div>
+                <div>
+                  <dt>
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="20"
+                      height="20"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="m8 6-5 6 5 6m8-12 5 6-5 6m-3-15-2 18" /></svg
+                    >Agent access
+                  </dt>
+                  <dd>One assigned review</dd>
+                </div>
+              </dl>
+              <p>
+                A reviewer can accept or reject an owner. An MCP worker can read
+                the evidence for its assigned case and record what still needs
+                attention.
+              </p>
+            </div>
           </div>
-          <a class="specimen-foot" href="/docs#survey"
-            >Run this sample locally <span aria-hidden="true">→</span></a
+          <a class="specimen-foot" href="/docs#walkthrough"
+            >Read the review guide <span aria-hidden="true">→</span></a
           >
         </section>
       </section>
@@ -242,13 +269,13 @@
             ><span aria-hidden="true">↗</span></a
           >
           <a href="/docs#providers"
-            ><span>08 / Product security</span
+            ><span>04 / Product security</span
             ><strong>Connect a bounty program</strong
             ><span aria-hidden="true">↗</span></a
           >
           <a href="/docs#agents"
-            ><span>10 / Security operations</span
-            ><strong>Hand a case to a reviewer</strong
+            ><span>05 / Security operations</span
+            ><strong>Connect a coding agent</strong
             ><span aria-hidden="true">↗</span></a
           >
         </div>

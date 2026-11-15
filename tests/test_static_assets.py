@@ -40,3 +40,24 @@ class StaticAssetTests(unittest.TestCase):
                 handler.headers["Accept"] = "text/html"
                 handler.dispatch(False)
                 send.assert_called_with(404, b"recovery links", "text/html; charset=utf-8")
+
+    def test_guide_and_its_dependencies_can_be_reused_without_caching_the_console(self):
+        with TemporaryDirectory() as directory:
+            public = Path(directory)
+            handler = object.__new__(Handler)
+            handler.headers = {}
+            with patch("ichnix.server.PUBLIC", public), patch.object(handler, "send") as send:
+                for name in ("docs.html", "docs.css", "styles.css", "manual.js", "nav.js"):
+                    (public / name).write_text("public guide")
+                    handler.path = "/docs" if name == "docs.html" else "/" + name
+                    handler.dispatch(False)
+                    self.assertEqual(send.call_args.kwargs["cache"], "public, max-age=60")
+                    tag = dict(send.call_args.args[3])["ETag"]
+                    handler.headers = {"If-None-Match": tag}
+                    handler.dispatch(False)
+                    self.assertEqual(send.call_args.args[0], 304)
+                    handler.headers = {}
+                (public / "console.html").write_text("console")
+                handler.path = "/console"
+                handler.dispatch(False)
+                self.assertEqual(send.call_args.kwargs["cache"], "no-store")

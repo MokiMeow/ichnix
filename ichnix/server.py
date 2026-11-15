@@ -22,7 +22,7 @@ PUBLIC = ROOT / "public"
 PUBLIC_ASSETS = {
     "index.html", "console.html", "docs.html", "app.js", "manual.js", "styles.css", "docs.css",
     "strata.webp", "strata-mobile.webp", "nav.js", "404.html", "missing.css", "missing-trace.webp",
-    "report-review.svg", "report-review.webp",
+    "report-review.svg",
     "evidence-graph.png",
     "fonts/IBMPlexMono-Regular.woff2", "fonts/InstrumentSans.woff2",
     "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
@@ -150,10 +150,14 @@ class Handler(BaseHTTPRequestHandler):
             if asset.resolve() != asset or not asset.is_file():
                 return self.send(404, {"error": "missing asset"})
             kind = STATIC_TYPES[asset.suffix]
-            if asset.suffix == ".html":
+            if name in {"docs.html", "styles.css", "docs.css", "nav.js", "manual.js"}:
+                cache = "public, max-age=60"
+            elif asset.suffix == ".html":
                 return self.send(200, asset.read_bytes(), kind, cache="no-store")
-            cache = ("public, max-age=86400" if asset.suffix in {".woff2", ".webp", ".png"}
-                     else "public, max-age=0, must-revalidate")
+            elif asset.suffix in {".woff2", ".webp", ".png"}:
+                cache = "public, max-age=86400"
+            else:
+                cache = "public, max-age=0, must-revalidate"
             stat = asset.stat()
             tag = f'W/"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
             validators = [("ETag", tag)]

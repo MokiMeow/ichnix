@@ -589,3 +589,34 @@ test("private Markdown is an authenticated, uncached attachment", async () => {
   );
   assert.equal(await result.text(), "# Report context");
 });
+
+test("the guided case is published through the read-only relay on a public origin", async () => {
+  process.env.ICHNIX_PUBLIC_ORIGIN = "https://demo.example.org";
+  const report = {
+    id: "IX-214",
+    title: "Audit retention after a staging configuration change",
+  };
+  globalThis.fetch = async (url) =>
+    Response.json(
+      url.pathname === "/api/session"
+        ? { public_demo: true }
+        : { report, private_field: "hidden" },
+    );
+  const url = "https://frontend.example.org/api/cases/IX-214";
+  const result = await demo.fetch(new Request(url));
+  assert.equal(result.status, 200);
+  assert.deepEqual((await result.json()).report, report);
+  assert.equal(
+    (await demo.fetch(new Request(url, { method: "POST" }))).status,
+    405,
+  );
+  assert.equal(
+    (
+      await demo.fetch(
+        new Request(url, { headers: { authorization: "Bearer private" } }),
+      )
+    ).status,
+    403,
+  );
+  assert.equal((await demo.fetch(new Request(url + "/reviews"))).status, 404);
+});

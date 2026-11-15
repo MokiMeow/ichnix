@@ -65,17 +65,6 @@
         </div>
         <button id="leave" class="cmd" hidden>Disconnect</button>
       </header>
-      <div
-        id="activity"
-        class="view-activity"
-        role="progressbar"
-        aria-live="polite"
-        aria-labelledby="activity-label"
-        hidden
-      >
-        <span class="thinking-mark" aria-hidden="true"></span>
-        <span id="activity-label"></span>
-      </div>
       <form id="connect" aria-label="Connect to workspace" hidden>
         <label for="token">Access token</label>
         <div class="input-row">
@@ -136,7 +125,22 @@
         </div>
       </form>
       <details id="evaluation" hidden>
-        <summary>Learning curve</summary>
+        <summary>
+          <svg
+            aria-hidden="true"
+            width="19"
+            height="19"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 4v16h18M6 15l4-4 3 2 7-8" />
+          </svg>
+          <span>Learning curve</span><small>Synthetic evaluation</small>
+        </summary>
         <div id="evaluation-result" aria-live="polite"></div>
       </details>
       <p id="status" role="status"></p>
@@ -146,7 +150,29 @@
         <aside>
           <div class="aside-title">
             <h2>Cases <span id="case-count"></span></h2>
-            <button id="reload" class="cmd">Refresh</button>
+            <button
+              id="reload"
+              class="cmd"
+              type="button"
+              aria-label="Refresh"
+              title="Refresh cases"
+            >
+              <svg
+                aria-hidden="true"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M20 5v5h-5M4 19v-5h5M4.8 9a7.6 7.6 0 0 1 12.8-3l2.2 3.4M4.2 14.6 6.4 18a7.6 7.6 0 0 0 12.8-3"
+                />
+              </svg>
+            </button>
           </div>
           <label class="case-picker" for="case-select">Selected case</label
           ><select id="case-select" class="case-picker"></select>
@@ -158,11 +184,10 @@
           </nav>
           <ul id="cases"></ul>
         </aside>
-        <article
-          id="detail"
-          aria-label="Case details"
-          aria-live="polite"
-        ></article>
+        <article id="detail" aria-label="Case details">
+          <div id="case-activity"></div>
+          <div id="case-content" aria-live="polite"></div>
+        </article>
       </div>
     </main>
   </body>

@@ -17,7 +17,7 @@ docker compose --env-file examples/desktop.env up --detach --wait
 docker compose --env-file examples/desktop.env exec -T console python3 cli.py identity issue desktop-intake --role intake --out /var/lib/ichnix/desktop-intake.token
 ```
 
-Open [the local console](http://127.0.0.1:8765/console). Follow the [sign-in instructions](https://ichnix.vercel.app/docs#containers), then [import your first example report](https://ichnix.vercel.app/docs#first-upload). Both services use Linux amd64. Apple silicon runs the pinned HydraDB build through emulation.
+Open [the local console](http://127.0.0.1:8765/console). Follow the [sign-in instructions](https://ichnix.vercel.app/docs#containers), then [import your first report](https://ichnix.vercel.app/docs#first-upload). Both services use Linux amd64. Apple silicon runs the pinned HydraDB build through emulation.
 
 **Native Ubuntu demo.** On Ubuntu 24.04 x86-64 with Python 3.12, Node 24, and pnpm 12, run:
 
@@ -35,4 +35,4 @@ HydraDB links reports that share a component revision. An accepted or rejected o
 
 <p align="center"><img src="docs/architecture.svg" width="440" alt="Report intake and staging checks feed HydraDB. Human reviewers and MCP workers retrieve evidence and record outcomes." /></p>
 
-[Report archives](https://ichnix.vercel.app/docs#report-archive) · [Agent Markdown](https://ichnix.vercel.app/docs#markdown-context) · [What we tested](https://ichnix.vercel.app/docs#results) · [Agent setup](https://ichnix.vercel.app/docs#agents) · [SelfGraph export](https://ichnix.vercel.app/docs#selfgraph) · [Security](SECURITY.md) · [MIT license](LICENSE) · [Third-party notices](licenses/Runtime-sources.txt)
+[Report archives](https://ichnix.vercel.app/docs#report-archive) · [Agent Markdown](https://ichnix.vercel.app/docs#markdown-context) · [CLI setup](https://ichnix.vercel.app/docs#cli) · [Agent setup](https://ichnix.vercel.app/docs#agents) · [SelfGraph export](https://ichnix.vercel.app/docs#selfgraph) · [Security](SECURITY.md) · [MIT license](LICENSE) · [Third-party notices](licenses/Runtime-sources.txt)

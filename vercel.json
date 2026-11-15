@@ -75,6 +75,10 @@
   ],
   "headers": [
     {
+      "source": "/:guide(docs|docs\\.html|styles\\.css|docs\\.css|nav\\.js|manual\\.js)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=60" }]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
