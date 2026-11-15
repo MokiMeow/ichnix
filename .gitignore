@@ -16,6 +16,7 @@ private/
 ichnix-mcp.json
 ichnix-mcp.toml
 ichnix-reader.json
+ichnix-reader.toml
 
 # Workspace state and private reports
 .local/
@@ -24,6 +25,7 @@ ichnix-reader.json
 data/
 artifacts/
 reports/
+*.facts.json
 *.sqlite*
 *.db
 *.db-wal
