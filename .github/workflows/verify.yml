@@ -1,5 +1,8 @@
 name: verify workspace
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 
@@ -20,6 +23,10 @@ jobs:
           docker build --file Containerfile --target test --tag ichnix:tests .
           docker run --rm --read-only --tmpfs /tmp ichnix:tests
           docker run --rm --read-only --network none --tmpfs /tmp ichnix:tests python3 cli.py survey
+      - name: Validate the optional report archive configuration
+        env:
+          ICHNIX_ARCHIVE_BUCKET: synthetic-ci-archive
+        run: docker compose --env-file examples/desktop.env -f compose.yaml -f examples/compose.archive.yaml config --quiet
       - name: Configure a disposable origin credential
         run: |
           origin_secret=$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')
@@ -112,6 +119,12 @@ jobs:
           node-version: 24.22.3
           package-manager-cache: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - name: Keep ignored workspace artifacts out of Git
+        run: |
+          if [ -n "$(git ls-files -ci --exclude-standard)" ]; then
+            echo "::error::A tracked file matches the repository ignore rules"
+            exit 1
+          fi
       - name: Install the pinned graph and renderer
         run: |
           python3 scripts/install-hydra.py

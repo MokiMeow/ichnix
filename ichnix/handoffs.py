@@ -157,7 +157,7 @@ class Handoffs:
             raise PermissionError("claim belongs to another worker or lease")
         return row
 
-    def case_context(self, graph, job_id, worker, token):
+    def case_context(self, graph, job_id, worker, token, *, metadata_only=False):
         with closing(self._connect()) as db:
             def active():
                 row = self._owned_lease(db, job_id, worker, token)
@@ -165,13 +165,16 @@ class Handoffs:
                     raise PermissionError("lease inactive")
                 return row
             job = active()
-            snapshot, context = graph.snapshot_context(job["case_id"], include_operator=False)
+            if metadata_only:
+                context = {"report": graph.case_metadata(job["case_id"])}
+            else:
+                snapshot, context = graph.snapshot_context(job["case_id"], include_operator=False)
             if any(context["report"][field] != job[field] for field in ("service", "component", "revision")):
                 raise PermissionError("case mapping changed")
             # Graph retrieval can outlive a short lease or overlap completion.
             db.execute("BEGIN IMMEDIATE")
             job = active()
-            if _job_identity(context, job["kind"])[0] == job_id:
+            if not metadata_only and _job_identity(context, job["kind"])[0] == job_id:
                 db.execute("INSERT OR REPLACE INTO job_reads VALUES (?, ?, ?)", (job_id, job["attempts"], snapshot))
             db.commit()
             return {key: context[key] for key in ("report", "evidence", "recommendations", "ranked_checks") if key in context}

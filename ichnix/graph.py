@@ -19,7 +19,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from ichnix.contracts import _case_id, _field
 from ichnix.handoffs import Handoffs, auto_handoffs_enabled
 from ichnix.storage import state_directory
-from ichnix import review_layout
+from ichnix import report_context, review_layout
 
 _review_lock = Lock()
 
@@ -143,6 +143,10 @@ class Graph:
         record = {f: _field(report, f, 240 if f == "title" else 160)
                   for f in ("id", "title", "service", "revision", "component", "owner")}
         rid = _key("case", _case_id(report["id"]))
+        if os.getenv("ICHNIX_ARCHIVE_BUCKET"):
+            report_context.archive_readme(report_context.report_readme(record).encode())
+        elif os.getenv("ICHNIX_ARCHIVE_ENDPOINT"):
+            raise RuntimeError("report archive endpoint requires a bucket")
         # Revision-specific lineage means repeat imports and changed mappings do
         # not require deleting earlier evidence. Publish current pointer last.
         sid = _key("snapshot", record["id"], record["service"], record["component"], record["revision"])
@@ -246,6 +250,13 @@ class Graph:
         if not rows:
             raise KeyError(case_id)
         return rows[0]
+
+    def case_metadata(self, case_id):
+        report = self._report(case_id)
+        return {field: report[field] for field in report_context.REPORT_FIELDS}
+
+    def case_readme(self, case_id):
+        return report_context.report_readme(self.case_metadata(case_id))
 
     def context(self, case_id):
         snapshot, context = self.snapshot_context(case_id)

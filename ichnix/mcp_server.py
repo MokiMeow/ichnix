@@ -14,9 +14,9 @@ TOOLS = [
     },
     {
         "name": "get_case_context",
-        "description": "Read one case context, or request its recorded evidence in SelfGraph facts format",
+        "description": "Read a case, its compact Markdown metadata, or its recorded SelfGraph facts",
         "inputSchema": {"type": "object", "properties": {"case_id": {"type": "string", "minLength": 1, "maxLength": 160},
-                                                   "format": {"type": "string", "enum": ["context", "selfgraph"]}},
+                                                   "format": {"type": "string", "enum": ["context", "selfgraph", "markdown"]}},
                         "required": ["case_id"], "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
     },
@@ -42,13 +42,16 @@ def _call(params, graph_factory, worker=None):
             if not isinstance(case_id, str) or not 0 < len(case_id.strip()) <= 160:
                 return _error(-32602, "invalid case id")
             fmt = args.get("format", "context")
-            if fmt not in ("context", "selfgraph"):
+            if fmt not in ("context", "selfgraph", "markdown"):
                 return _error(-32602, "invalid case format")
             graph = graph_factory()
+            if fmt == "markdown":
+                return {"result": {"content": [{"type": "text", "text": graph.case_readme(case_id)}]}}
             data = graph.selfgraph_facts(case_id) if fmt == "selfgraph" else graph.context(case_id)
         else:
             return _error(-32602, "unknown tool or invalid arguments")
-        return {"result": {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=True)}]}}
+        text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=True)
+        return {"result": {"content": [{"type": "text", "text": text}]}}
     except (KeyError, LookupError, ValueError, RuntimeError, OSError):
         detail = "review unavailable; verify the lease and workspace access" if worker is not None else "case or graph unavailable"
         return {"result": {"isError": True, "content": [{"type": "text", "text": detail}]}}

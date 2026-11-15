@@ -100,6 +100,7 @@ class WorkerTests(unittest.TestCase):
                     ("tools/list", {}),
                     ("tools/call", {"name": "get_review_context", "arguments": {"job_id": job["id"]}}),
                     ("tools/call", {"name": "claim_review"}),
+                    ("tools/call", {"name": "get_review_context", "arguments": {"job_id": job["id"], "format": "markdown"}}),
                     ("tools/call", {"name": "get_review_context", "arguments": {"job_id": job["id"]}}),
                     ("tools/call", {"name": "finish_review", "arguments": {"job_id": "b" * 64}}),
                     ("tools/call", {"name": "finish_review", "arguments": {"job_id": job["id"]}}),
@@ -123,7 +124,8 @@ class WorkerTests(unittest.TestCase):
             claimed = json.loads(result[4]["content"][0]["text"])
             self.assertEqual(claimed["id"], job["id"])
             self.assertNotIn("token", claimed)
-            self.assertEqual(json.loads(result[5]["content"][0]["text"])["report"], report)
-            self.assertTrue(result[6]["isError"])
-            self.assertEqual(json.loads(result[7]["content"][0]["text"])["state"], "complete")
-            self.assertIsNone(json.loads(result[8]["content"][0]["text"]))
+            self.assertEqual(result[5]["content"][0]["text"], graph.case_readme(report["id"]))
+            self.assertEqual(json.loads(result[6]["content"][0]["text"])["report"], report)
+            self.assertTrue(result[7]["isError"])
+            self.assertEqual(json.loads(result[8]["content"][0]["text"])["state"], "complete")
+            self.assertIsNone(json.loads(result[9]["content"][0]["text"]))

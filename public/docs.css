@@ -884,7 +884,7 @@ body:has(> .workspace) {
       rgb(20 21 22 / 80%) 65%,
       rgb(20 21 22 / 60%)
     ),
-    url("/strata.webp") center 60% / cover;
+    var(--strata-art) center 60% / cover;
 }
 
 .manual-index a[aria-current="location"] {
@@ -922,11 +922,10 @@ body:has(> .workspace) {
   @supports (interpolate-size: allow-keywords) and
     selector(details::details-content) {
     .manual-subsection,
-    .index-panel,
     .workspace details {
       interpolate-size: allow-keywords;
     }
-    :is(.manual-subsection, .index-panel, .workspace details)::details-content {
+    :is(.manual-subsection, .workspace details)::details-content {
       block-size: 0;
       overflow: clip;
       opacity: 0;
@@ -935,11 +934,7 @@ body:has(> .workspace) {
         opacity 140ms ease-out,
         content-visibility 170ms allow-discrete;
     }
-    :is(
-        .manual-subsection,
-        .index-panel,
-        .workspace details
-      )[open]::details-content {
+    :is(.manual-subsection, .workspace details)[open]::details-content {
       block-size: auto;
       opacity: 1;
     }
@@ -952,4 +947,25 @@ body:has(> .workspace) {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+}
+
+.manual-figure {
+  margin: 1rem 0;
+}
+.manual-figure img {
+  display: block;
+  width: min(100%, 31rem);
+  height: auto;
+  margin-inline: auto;
+}
+.manual-figure figcaption {
+  margin-block-start: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.manual-article .manual-note {
+  padding: 0.75rem 1rem;
+  border-inline-start-color: var(--accent);
+  background: var(--surface);
 }

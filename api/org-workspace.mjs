@@ -44,6 +44,7 @@ function validHandoff(action, data) {
     return false;
   return (
     keys.length === 1 ||
+    (action === "context" && keys.length === 2 && data.format === "markdown") ||
     (action === "finish" &&
       keys.length === 2 &&
       dispositions.includes(data.disposition))
@@ -121,7 +122,7 @@ export default {
       ? signatures[route]
       : null;
     const resource =
-      /^org-api\/(auth\/status|session|cases|case-page|import\/report|cases\/([A-Za-z0-9._:-]{1,160})(?:\/(diagram\.svg|trace\.svg|reviews))?)$/.exec(
+      /^org-api\/(auth\/status|session|cases|case-page|import\/report|cases\/([A-Za-z0-9._:-]{1,160})(?:\/(diagram\.svg|trace\.svg|readme\.md|reviews))?)$/.exec(
         route,
       );
     const handoff =
@@ -148,7 +149,14 @@ export default {
     if (request.method !== (write ? "POST" : "GET"))
       return json({ error: "method not allowed" }, 405);
     const svg = resource?.[3]?.endsWith(".svg");
-    const headers = { accept: svg ? "image/svg+xml" : "application/json" };
+    const markdown = resource?.[3] === "readme.md";
+    const headers = {
+      accept: svg
+        ? "image/svg+xml"
+        : markdown
+          ? "text/markdown"
+          : "application/json",
+    };
     if (signature) {
       const [name, pattern] = signature;
       const digest = request.headers.get(name) ?? "";
@@ -234,7 +242,19 @@ export default {
         headers.accept
       )
         throw new Error("unexpected response");
-      const payload = await readLimited(response, 1024 * 1024);
+      const payload = await readLimited(
+        response,
+        markdown ? 16384 : 1024 * 1024,
+      );
+      if (markdown)
+        return new Response(payload, {
+          headers: {
+            "content-type": "text/markdown; charset=utf-8",
+            "content-disposition": 'attachment; filename="README.md"',
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+          },
+        });
       if (!svg) return json(workspaceReply(path, action, JSON.parse(payload)));
       const outbound = {
         "content-type": "image/svg+xml",

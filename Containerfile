@@ -7,6 +7,8 @@ FROM ghcr.io/hydra-db/hydradb@sha256:ab71d651fefee13ebb23eb56d72316065bdca563ff7
 
 FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS workspace
 WORKDIR /app
+COPY extras/report-requirements.txt /tmp/report-requirements.txt
+RUN python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: --require-hashes -r /tmp/report-requirements.txt
 COPY --from=hydra /usr/local/bin/graph-node /usr/local/bin/
 COPY --from=hydra /usr/lib/x86_64-linux-gnu/libgraphblas.so.7.4.0 /opt/hydra/libgraphblas.so.7
 COPY --from=hydra /usr/lib/x86_64-linux-gnu/libcypher-parser.so.8.2.2 /opt/hydra/libcypher-parser.so.8

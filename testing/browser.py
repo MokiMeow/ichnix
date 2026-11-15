@@ -131,7 +131,29 @@ def public_checks(browser, origin, width, hosted=False):
             page.evaluate("document.fonts.ready")
             assert page.evaluate("document.documentElement.scrollWidth") == width
             expect(page.locator("footer")).to_have_count(1 if route == "/" else 0)
+            if width <= 720:
+                primary = page.get_by_role("navigation", name="Primary")
+                toggle = page.get_by_role("button", name="Navigation menu")
+                brand = page.locator(".mast .brand img").bounding_box()
+                assert abs(brand["x"] + brand["width"] / 2 - width / 2) <= 1
+                expect(primary).to_be_hidden()
+                toggle.click()
+                expect(primary).to_be_visible()
+                assert primary.get_by_role("link").first.bounding_box()["height"] >= 44
+                page.keyboard.press("Escape")
+                expect(toggle).to_be_focused()
+                expect(primary).to_be_hidden()
+                if route == "/":
+                    toggle.click()
+                    primary.get_by_role("button", name="Close menu").focus()
+                    page.keyboard.press("Tab")
+                    expect(primary).to_be_hidden()
+                    expect(page.get_by_role("link", name="Open review console")).to_be_focused()
             if route == "/":
+                page.keyboard.press("Alt+Shift+m")
+                expect(page.locator(".topnav a").first).to_be_focused()
+                if width <= 720:
+                    page.get_by_role("button", name="Close menu").click()
                 artwork = page.request.get(origin + "/strata.webp")
                 assert artwork.ok and artwork.headers["content-type"] == "image/webp"
                 inspector = page.locator(".specimen")
@@ -148,8 +170,8 @@ def public_checks(browser, origin, width, hosted=False):
                 index = page.locator(".index-panel")
                 if width <= 720:
                     expect(index).not_to_have_attribute("open", "")
-                    index.locator("summary").focus()
-                    page.keyboard.press("Enter")
+                    page.keyboard.press("/")
+                    expect(index.get_by_role("searchbox")).to_be_focused()
                 chapter_links = index.locator("a[href^='#']")
                 assert chapter_links.count() == page.locator(".manual-article > section").count()
                 for number, chapter in enumerate(chapter_links.all(), start=1):
@@ -305,15 +327,21 @@ def role_checks(browser, origin, tokens, width, hosted=False):
         preview = browser.new_page(viewport={"width": 320, "height": 700})
         try:
             preview.goto(origin)
+            preview.get_by_role("button", name="Navigation menu").click()
             expect(preview.get_by_role("link", name="Private sign-in")).to_be_visible()
             assert preview.evaluate("document.documentElement.scrollWidth") == 320
             preview.goto(origin + "/console")
             expect(preview.locator("#status")).to_contain_text("workspace is unavailable")
             expect(preview.get_by_role("button", name="Try again")).to_be_visible()
+            anonymous_org_requests = []
+            preview.on("request", lambda request: anonymous_org_requests.append(request.url)
+                       if urlsplit(request.url).path.startswith("/org-api/") else None)
             expect(preview.locator("#connect")).to_be_hidden()
+            preview.get_by_role("button", name="Navigation menu").click()
             preview.get_by_role("link", name="Private sign-in").click()
             expect(preview.locator("#connect")).to_be_visible()
             expect(preview.get_by_role("heading", name="Organization workspace")).to_be_visible()
+            assert not anonymous_org_requests
         finally:
             preview.close()
     for role, token in tokens.items():
@@ -389,6 +417,12 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.locator("#desk")).to_be_hidden()
                 continue
             if role == "read":
+                case = page.locator(".case-id").inner_text()
+                with page.expect_download() as ready:
+                    page.get_by_role("button", name="Download report README").click()
+                download = ready.value
+                assert download.suggested_filename == "README.md"
+                assert f'"{case}"' in Path(download.path()).read_text()
                 pager = page.get_by_role("navigation", name="Case pages")
                 expect(pager).to_be_visible()
                 expect(pager.get_by_role("button", name="Previous")).to_be_disabled()
@@ -512,6 +546,8 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.get_by_role("button", name="Import report")).to_be_disabled()
                 if hosted:
                     # The active navigation link must preserve the authenticated session.
+                    if width <= 720:
+                        page.get_by_role("button", name="Navigation menu").click()
                     page.get_by_role("link", name="Private workspace").click()
                     expect(page.locator("#report-drop")).to_be_visible()
                     # Use the native chooser on a narrow viewport.

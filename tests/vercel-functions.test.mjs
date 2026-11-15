@@ -533,3 +533,59 @@ test("hosted identities and leases use only the credentialed private origin", as
   assert.deepEqual(await denial.json(), { error: "request denied" });
   assert.equal(forwarded, 1);
 });
+
+test("the judge relay projects only published fields and checks the selected case", async () => {
+  process.env.ICHNIX_PUBLIC_ORIGIN = "https://demo.example.org";
+  let record = {
+    report: { id: "IX-108", title: "Sample", private_note: "private" },
+    evidence: [
+      { step: "retention", result: "passed", internal_detail: "private" },
+    ],
+    private_metadata: "private",
+  };
+  globalThis.fetch = async (url) =>
+    Response.json(
+      url.pathname === "/api/session" ? { public_demo: true } : record,
+    );
+  const request = () =>
+    demo.fetch(new Request("https://frontend.example.org/api/cases/IX-108"));
+  const response = await request();
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.deepEqual(data.report, { id: "IX-108", title: "Sample" });
+  assert.deepEqual(data.evidence, [{ step: "retention", result: "passed" }]);
+  assert.equal(Object.hasOwn(data, "private_metadata"), false);
+  record.related_reports = [{ id: "not-a-demo-case" }];
+  assert.equal((await request()).status, 503);
+  record = { report: { id: "IX-104" } };
+  assert.equal((await request()).status, 503);
+});
+
+test("private Markdown is an authenticated, uncached attachment", async () => {
+  const workspace = (await import("../api/org-workspace.mjs")).default;
+  process.env.ICHNIX_WORKSPACE_ORIGIN = "https://org.example.org";
+  process.env.ICHNIX_ORIGIN_SECRET = "x".repeat(32);
+  const url = "https://frontend.example.org/org-api/cases/QA-101/readme.md";
+  assert.equal((await workspace.fetch(new Request(url))).status, 401);
+  assert.equal(
+    (await demo.fetch(new Request(url.replace("/org-api/", "/api/")))).status,
+    404,
+  );
+  const headers = { authorization: "Bearer " + "y".repeat(32) };
+  globalThis.fetch = async (target, options) => {
+    assert.equal(target.pathname, "/api/cases/QA-101/readme.md");
+    assert.equal(options.headers.authorization, headers.authorization);
+    assert.equal(options.headers.accept, "text/markdown");
+    return new Response("# Report context", {
+      headers: { "content-type": "text/markdown; charset=utf-8" },
+    });
+  };
+  const result = await workspace.fetch(new Request(url, { headers }));
+  assert.equal(result.status, 200);
+  assert.equal(result.headers.get("cache-control"), "no-store");
+  assert.equal(
+    result.headers.get("content-disposition"),
+    'attachment; filename="README.md"',
+  );
+  assert.equal(await result.text(), "# Report context");
+});

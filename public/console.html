@@ -6,6 +6,7 @@
     <title>Review console · Ichnix</title>
     <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/nav.js"></script>
     <link rel="stylesheet" href="/docs.css" />
     <script type="module" src="/app.js"></script>
   </head>
@@ -14,19 +15,45 @@
     <header class="mast">
       <div class="mast-inner">
         <a class="brand" href="/" aria-label="Ichnix home"
-          ><img
-            src="/evidence-graph.png"
-            width="34"
-            height="34"
-            alt=""
-          />Ichnix</a
+          ><img src="/evidence-graph.png" width="34" height="34" alt="" /><span
+            >Ichnix</span
+          ></a
         >
-        <nav class="topnav" aria-label="Primary">
+        <button
+          type="button"
+          class="menu-toggle"
+          popovertarget="site-links"
+          aria-label="Navigation menu"
+          aria-keyshortcuts="Alt+Shift+M"
+          title="Navigation menu (Alt+Shift+M)"
+          hidden
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            aria-hidden="true"
+          >
+            <path d="M3 7h18M3 12h18M3 17h18" />
+          </svg>
+        </button>
+        <nav class="topnav" id="site-links" aria-label="Primary">
           <a href="/docs">Docs</a
           ><a href="/console" aria-current="page">Review console</a
           ><a id="private-signin" class="hosted-signin" href="/workspace"
             >Private sign-in</a
           >
+          <button
+            type="button"
+            class="menu-close"
+            popovertarget="site-links"
+            popovertargetaction="hide"
+          >
+            Close menu <span aria-hidden="true">×</span>
+          </button>
         </nav>
       </div>
     </header>

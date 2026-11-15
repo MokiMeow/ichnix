@@ -6,6 +6,7 @@
     <title>Operator manual · Ichnix</title>
     <link rel="icon" href="/evidence-graph.png?v=2" />
     <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/nav.js"></script>
     <link rel="stylesheet" href="/docs.css" />
     <script type="module" src="/manual.js"></script>
   </head>
@@ -14,16 +15,43 @@
     <header class="mast">
       <div class="mast-inner">
         <a class="brand" href="/" aria-label="Ichnix home"
-          ><img
-            src="/evidence-graph.png"
-            width="34"
-            height="34"
-            alt=""
-          />Ichnix</a
+          ><img src="/evidence-graph.png" width="34" height="34" alt="" /><span
+            >Ichnix</span
+          ></a
         >
-        <nav class="topnav" aria-label="Primary">
+        <button
+          type="button"
+          class="menu-toggle"
+          popovertarget="site-links"
+          aria-label="Navigation menu"
+          aria-keyshortcuts="Alt+Shift+M"
+          title="Navigation menu (Alt+Shift+M)"
+          hidden
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            aria-hidden="true"
+          >
+            <path d="M3 7h18M3 12h18M3 17h18" />
+          </svg>
+        </button>
+        <nav class="topnav" id="site-links" aria-label="Primary">
           <a href="/docs" aria-current="page">Docs</a
           ><a href="/console">Review console</a>
+          <a class="hosted-signin" href="/workspace">Private sign-in</a>
+          <button
+            type="button"
+            class="menu-close"
+            popovertarget="site-links"
+            popovertargetaction="hide"
+          >
+            Close menu <span aria-hidden="true">×</span>
+          </button>
         </nav>
       </div>
     </header>
@@ -63,7 +91,7 @@
                 workspace</a
               >
               <a href="#storage"
-                ><span class="chapter-no">05</span>Configure SQLite</a
+                ><span class="chapter-no">05</span>Configure storage</a
               >
               <a href="#survey"
                 ><span class="chapter-no">06</span>Test with mock cases</a
@@ -102,8 +130,11 @@
             <p class="loc">Docs <span aria-hidden="true">/</span> Operations</p>
             <h1>Operator manual</h1>
             <p>
-              Follow a report from intake to a recorded decision, or
-              <a href="#install">set up your own workspace</a>.
+              New to Ichnix?
+              <a href="/console">Explore the read-only console</a>
+              to see how a review works. To import a report of your own,
+              <a href="#containers">start a private workspace</a>, then
+              <a href="#first-upload">try your first upload</a>.
             </p>
           </header>
           <section id="walkthrough" aria-labelledby="walkthrough-title">
@@ -111,8 +142,9 @@
               <span class="chapter-no">01</span>Follow a finding
             </h2>
             <p>
-              Trace the synthetic ledger retention case from its scope in the
-              catalog to the worker’s decision.
+              A case brings a report, its deployment and its checks into one
+              review. Here’s how to read the synthetic ledger example on the
+              landing page.
             </p>
             <ol class="walkthrough-steps">
               <li>
@@ -133,82 +165,70 @@
                 reviewers can retrieve that outcome from the same snapshot.
               </li>
             </ol>
+            <details class="manual-subsection" id="report-flow">
+              <summary>
+                Diagram · how a report reaches a reviewer or agent
+              </summary>
+              <figure class="manual-figure">
+                <a
+                  href="/report-review.svg"
+                  aria-label="Open the full-size report workflow diagram"
+                >
+                  <img
+                    src="/report-review.svg"
+                    width="498"
+                    height="808"
+                    loading="lazy"
+                    decoding="async"
+                    alt="A signed webhook or authenticated upload creates a report snapshot. Its component revision links CI controls and previous owner decisions. Reviewers and leased MCP workers read that context and write outcomes to HydraDB."
+                  />
+                </a>
+                <figcaption>
+                  Reports and CI checks meet at the deployed component revision.
+                  Open the diagram for a larger view.
+                </figcaption>
+              </figure>
+            </details>
             <p>
               <a href="#survey">Run the sample locally</a> ·
-              <a href="/console">Open the review console</a>
+              <a href="/console">Explore the public cases</a>
             </p>
           </section>
           <section id="install">
             <h2><span class="chapter-no">02</span>Self-host a workspace</h2>
             <p>
-              Use one installation per organization. For Windows or macOS,
-              follow the <a href="#containers">Docker Desktop setup</a> below.
-              On Ubuntu 24.04 x86-64 with Python 3.12, Node 24 and pnpm 12, you
-              can run the workspace natively. The installer verifies a pinned
-              HydraDB distribution.
+              Start with one workspace for your organization. Docker Compose
+              runs both the console and HydraDB on your computer. You can use it
+              with Windows, macOS or Linux.
             </p>
-            <pre tabindex="0"><code>pnpm install --frozen-lockfile
-python3 scripts/install-hydra.py
-scripts/start-hydra.sh</code></pre>
-            <p>
-              Leave the graph running. In a second terminal, start the console.
-              Open <code>http://127.0.0.1:8765/console</code> and enter the
-              token from the private file printed by the launcher.
-            </p>
-            <pre tabindex="0"><code>scripts/console.sh</code></pre>
-            <p>
-              In another terminal, check graph access and the local Pele trace
-              renderer.
-            </p>
-            <pre tabindex="0"><code>python3 cli.py check-workspace</code></pre>
-            <details class="manual-subsection" id="graph-settings">
-              <summary>
-                Use an existing graph or change the state directory
-              </summary>
-              <p>
-                The default state directory is
-                <code>~/.local/state/ichnix</code>. Set
-                <code>ICHNIX_STATE_DIR</code> consistently to move it. For an
-                existing graph, configure <code>ICHNIX_HYDRA_URL</code>,
-                <code>ICHNIX_HYDRA_TOKEN_FILE</code>,
-                <code>ICHNIX_HYDRA_NAMESPACE</code>,
-                <code>ICHNIX_HYDRA_GRAPH</code> and
-                <code>ICHNIX_HYDRA_CELL</code>. Use authenticated HTTPS for
-                remote connections.
-              </p>
-            </details>
             <details class="manual-subsection" id="containers">
               <summary>
                 Docker Desktop on Windows and macOS, or Linux Compose
               </summary>
-              <p>
-                Start Docker Desktop for
-                <a
-                  href="https://docs.docker.com/desktop/setup/install/windows-install/"
-                  >Windows</a
-                >
-                with WSL 2 and Linux containers, or install the
-                <a
-                  href="https://docs.docker.com/desktop/setup/install/mac-install/"
-                  >Mac edition</a
-                >
-                for your chip. Intel Macs run the pinned Linux amd64 image
-                directly in the Linux VM. On Apple silicon, the same image runs
-                under emulation. For faster builds, Docker Desktop offers
-                <a
-                  href="https://docs.docker.com/desktop/settings-and-maintenance/settings/"
-                  >Rosetta acceleration</a
-                >
-                with the Apple Virtualization framework. A Linux Docker Engine
-                with Compose v2 can use the same commands.
-              </p>
-              <p>
-                From a fresh checkout, use PowerShell or a Mac or Linux shell.
-                The desktop preset selects private identity and handoff
-                databases in the console volume. The initialization command
-                starts the graph and prepares the databases before the console
-                starts.
-              </p>
+              <ol>
+                <li>
+                  Install and start
+                  <a
+                    href="https://docs.docker.com/desktop/setup/install/windows-install/"
+                    >Docker Desktop for Windows</a
+                  >
+                  with WSL 2 and Linux containers,
+                  <a
+                    href="https://docs.docker.com/desktop/setup/install/mac-install/"
+                    >Docker Desktop for Mac</a
+                  >, or Docker Engine with Compose v2 on Linux. Apple silicon
+                  runs the Linux amd64 image under emulation.
+                </li>
+                <li>
+                  Open a terminal in the checkout, in the folder containing
+                  <code>compose.yaml</code>.
+                </li>
+                <li>
+                  Run the commands below in order. They build the image,
+                  initialize storage, start the workspace, issue your upload
+                  credential and check its role.
+                </li>
+              </ol>
               <pre
                 tabindex="0"
               ><code>docker compose --env-file examples/desktop.env build
@@ -223,16 +243,26 @@ docker compose --env-file examples/desktop.env exec -T console python3 cli.py au
                 <a href="http://127.0.0.1:8765/console">the local console</a>,
                 copy it to your clipboard with the command for your shell, paste
                 it into the token field, then clear the clipboard. Select a
-                mapped JSON file under <a href="#providers">report intake</a>.
+                mapped JSON file under
+                <a href="#first-upload">your first upload</a>.
               </p>
-              <p>PowerShell on Windows</p>
-              <pre
-                tabindex="0"
-              ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | Set-Clipboard</code></pre>
-              <p>Terminal on macOS</p>
-              <pre
-                tabindex="0"
-              ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | pbcopy</code></pre>
+              <details class="manual-subsection">
+                <summary>
+                  Copy the intake token on your operating system
+                </summary>
+                <p>PowerShell on Windows</p>
+                <pre
+                  tabindex="0"
+                ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | Set-Clipboard</code></pre>
+                <p>Terminal on macOS</p>
+                <pre
+                  tabindex="0"
+                ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | pbcopy</code></pre>
+                <p>Linux on Wayland with <code>wl-copy</code> installed</p>
+                <pre
+                  tabindex="0"
+                ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | wl-copy</code></pre>
+              </details>
               <p>
                 To stop the workspace and retain its named volumes, run
                 <code>docker compose --env-file examples/desktop.env down</code
@@ -242,6 +272,9 @@ docker compose --env-file examples/desktop.env exec -T console python3 cli.py au
                 existing installation, preserve its
                 <a href="#storage-compose">original storage paths</a>.
               </p>
+            </details>
+            <details class="manual-subsection" id="compose-secrets">
+              <summary>Mount a private provider catalog in Compose</summary>
               <p>
                 For a private program, export its connector settings from your
                 secret manager before starting Compose. Catalog and signing-key
@@ -267,6 +300,49 @@ docker compose --env-file examples/desktop.env exec -T console python3 cli.py au
                 relay-protected workspace, set <code>ICHNIX_ORIGIN_SECRET</code>
                 before exposing the origin and verify a direct request without
                 the header returns HTTP 403.
+              </p>
+            </details>
+            <details class="manual-subsection" id="native-ubuntu">
+              <summary>Native Ubuntu 24.04 on x86-64</summary>
+              <p>
+                Install Python 3.12, Node 24 and pnpm 12. In the checkout,
+                install the pinned dependencies and start HydraDB.
+              </p>
+              <pre tabindex="0"><code>pnpm install --frozen-lockfile
+python3 scripts/install-hydra.py
+scripts/start-hydra.sh</code></pre>
+              <p>
+                Leave the graph running. In a second terminal in the checkout,
+                start the console.
+              </p>
+              <pre tabindex="0"><code>scripts/console.sh</code></pre>
+              <p>
+                Open <code>http://127.0.0.1:8765/console</code> and sign in
+                using the credential file named by the launcher. To issue
+                individual credentials, follow
+                <a href="#storage">storage setup</a> and
+                <a href="#worker-credentials">named identity setup</a>.
+              </p>
+              <p>
+                From a third terminal, run
+                <code>python3 cli.py check-workspace</code> to check the graph
+                connection and the local Pele renderer.
+              </p>
+            </details>
+            <details class="manual-subsection" id="graph-settings">
+              <summary>
+                Use an existing graph or change the state directory
+              </summary>
+              <p>
+                The default state directory is
+                <code>~/.local/state/ichnix</code>. Set
+                <code>ICHNIX_STATE_DIR</code> consistently to move it. For an
+                existing graph, configure <code>ICHNIX_HYDRA_URL</code>,
+                <code>ICHNIX_HYDRA_TOKEN_FILE</code>,
+                <code>ICHNIX_HYDRA_NAMESPACE</code>,
+                <code>ICHNIX_HYDRA_GRAPH</code> and
+                <code>ICHNIX_HYDRA_CELL</code>. Use authenticated HTTPS for
+                remote connections.
               </p>
             </details>
           </section>
@@ -384,7 +460,7 @@ docker compose --env-file examples/desktop.env exec -T console python3 cli.py au
             </details>
           </section>
           <section id="storage">
-            <h2><span class="chapter-no">05</span>Configure SQLite</h2>
+            <h2><span class="chapter-no">05</span>Configure storage</h2>
             <p>
               For a new named deployment, set both database paths on the console
               host. HydraDB stores cases and evidence. SQLite stores hashed
@@ -399,6 +475,76 @@ export ICHNIX_HANDOFF_DB="$ICHNIX_STATE_DIR/handoffs.sqlite3"
 python3 cli.py storage init
 python3 cli.py storage check
 python3 cli.py check-workspace</code></pre>
+            <details class="manual-subsection" id="report-archive">
+              <summary>
+                Optional · archive mapped reports to Amazon S3 or Cloudflare R2
+              </summary>
+              <p>
+                Use an object store when your organization needs a separate copy
+                of the six mapped report fields. HydraDB still holds the case
+                history and SQLite still holds identities and leases.
+              </p>
+              <ol>
+                <li>
+                  Create a private bucket for this workspace. Set its retention
+                  policy and grant the console permission to put objects under
+                  <code>reports/</code>.
+                </li>
+                <li>
+                  On the private console host, set
+                  <code>ICHNIX_ARCHIVE_BUCKET</code> to the bucket name. For
+                  Amazon S3, set <code>AWS_DEFAULT_REGION</code> to the bucket
+                  region. For R2, use <code>auto</code> and set
+                  <code>ICHNIX_ARCHIVE_ENDPOINT</code> to the S3 API endpoint
+                  shown in the R2 dashboard.
+                </li>
+                <li>
+                  Supply credentials through a workload role supported by the
+                  SDK, or inject <code>AWS_ACCESS_KEY_ID</code> and
+                  <code>AWS_SECRET_ACCESS_KEY</code> from your secret manager.
+                  Include <code>AWS_SESSION_TOKEN</code> for temporary
+                  credentials. For Docker, export these settings in the shell
+                  that launches Compose, then enable the archive override:
+                  <pre
+                    tabindex="0"
+                  ><code>docker compose -f compose.yaml -f examples/compose.archive.yaml --env-file examples/desktop.env up -d --wait</code></pre>
+                  Use the same files when recreating that service. The base
+                  Compose setup leaves archive settings outside the container.
+                </li>
+                <li>
+                  Import the <a href="#first-upload">example report</a>. In the
+                  bucket, look for
+                  <code>reports/&lt;sha256&gt;/README.md</code>. Identical
+                  mapped fields share one object. Changed fields produce a
+                  different digest.
+                </li>
+              </ol>
+              <p class="manual-note">
+                A configured archive receives its copy before HydraDB publishes
+                the case. If intake fails, restore archive and graph access and
+                retry the same report. An object can already exist when the
+                graph write needs a retry.
+              </p>
+              <p>
+                The Docker image includes the optional dependencies. For native
+                Ubuntu, use a virtual environment and install
+                <code
+                  >python3 -m pip install --only-binary=:all: --require-hashes
+                  -r extras/report-requirements.txt</code
+                >
+                before starting the console.
+              </p>
+              <p>
+                <a
+                  href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html"
+                  >Amazon S3 documentation</a
+                >
+                ·
+                <a href="https://developers.cloudflare.com/r2/api/s3/api/"
+                  >R2 S3 compatibility</a
+                >
+              </p>
+            </details>
             <details class="manual-subsection" id="storage-compose">
               <summary>Existing deployments and Compose</summary>
               <p>
@@ -507,17 +653,51 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
           <section id="providers">
             <h2><span class="chapter-no">08</span>Connect a program</h2>
             <p>
-              Sign in with an intake credential and drop one mapped JSON file in
-              the upload area, or browse for it. Check the filename and any
-              validation message. Choose <strong>Remove file</strong> to start
-              over or <strong>Import report</strong> to open the saved case.
+              For your first report, use a small JSON file and an intake
+              credential. Once the upload works, connect your platform using the
+              matching guide below.
             </p>
-            <p>
-              Use UTF-8 JSON up to 1 MiB. Extra fields, duplicate keys, report
-              bodies and attachments are rejected. The command-line equivalent
-              is <code>python3 cli.py human import-report report.json</code>
-              with the workspace URL and intake token file configured.
-            </p>
+            <details class="manual-subsection" id="first-upload">
+              <summary>Upload your first report</summary>
+              <ol>
+                <li>
+                  Copy the example into a plain text file named
+                  <code>example-report.json</code>. Save it as UTF-8.
+                </li>
+                <li>
+                  Open your private console and sign in with the
+                  <code>intake</code> credential from
+                  <a href="#containers">workspace setup</a>.
+                </li>
+                <li>
+                  Drop the file in the upload area or use the file picker.
+                  Select <strong>Import report</strong>. Check that the case
+                  shows <code>EXAMPLE-101</code> and revision
+                  <code>build-1</code>.
+                </li>
+              </ol>
+              <pre tabindex="0"><code>{
+  "id": "EXAMPLE-101",
+  "title": "Archive retention review",
+  "service": "ledger",
+  "component": "archive",
+  "revision": "build-1",
+  "owner": "records"
+}</code></pre>
+              <p class="manual-note">
+                <strong>Upload format.</strong> Supply exactly these six fields
+                in one JSON object, up to 1 MiB. Keep credentials, attachments
+                and report bodies on the originating platform.
+              </p>
+              <p>
+                For scripted intake, use
+                <code
+                  >python3 cli.py human import-report example-report.json</code
+                >
+                with the
+                <a href="#agents">workspace URL and credential configured</a>.
+              </p>
+            </details>
             <details class="manual-subsection" id="mapped-api">
               <summary>
                 Import from an API client and map catalog entries
@@ -665,6 +845,23 @@ python3 cli.py staging h1-curl-2236133 \
               grouped by result. Single observations and mixed sources appear in
               recorded order.
             </p>
+            <details class="manual-subsection" id="evidence-example">
+              <summary>See the three possible results in the console</summary>
+              <figure class="manual-figure">
+                <img
+                  src="/report-review.webp"
+                  width="872"
+                  height="706"
+                  loading="lazy"
+                  decoding="async"
+                  alt="Synthetic case IX-104 shows retention_days failed, redaction_enabled passed and audit_enabled inconclusive."
+                />
+                <figcaption>
+                  The local demo’s IX-104 case. Open a manifest row in the
+                  console to inspect the observation behind its result.
+                </figcaption>
+              </figure>
+            </details>
             <p class="manual-note">
               A signed manifest attests to bytes provided by the holder of the
               shared key. A review records an owner decision. The original
@@ -682,6 +879,59 @@ python3 cli.py staging h1-curl-2236133 \
               workspace URL and issues a named credential for your role. The
               desktop client needs no local database or Docker engine.
             </p>
+            <details class="manual-subsection" id="markdown-context">
+              <summary>Give an agent a compact report README</summary>
+              <p>
+                Open a case in your private workspace and select
+                <strong>Download report README</strong> below the case heading.
+                A read, review or intake credential can download the six mapped
+                fields as <code>README.md</code>. Worker access stays scoped to
+                an active lease.
+              </p>
+              <p>
+                To export the same fields on the workspace host, use the case ID
+                shown in the console and choose a new file in an existing
+                private directory.
+              </p>
+              <pre tabindex="0"><code>mkdir -p -m 700 private
+python3 cli.py export-readme EXAMPLE-101 --out private/README.md</code></pre>
+              <ul>
+                <li>
+                  <strong>Local MCP reader.</strong> Call
+                  <code>get_case_context</code> with
+                  <code>{"case_id":"EXAMPLE-101","format":"markdown"}</code>.
+                </li>
+                <li>
+                  <strong>Leased MCP worker.</strong> Call
+                  <code>get_review_context</code> with your claimed
+                  <code>job_id</code> and <code>format: "markdown"</code>. To
+                  submit a disposition, first read the full evidence context
+                  using the same tool without the format option.
+                </li>
+              </ul>
+              <p>
+                <a href="#context-size"
+                  >Compare the two response sizes on synthetic cases.</a
+                >
+              </p>
+              <p>
+                <strong>Starting from a document?</strong> On your Linux
+                workspace with the optional dependencies or inside the supplied
+                container, convert a local Office document or text-based PDF to
+                Markdown before reviewing it.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py document-readme source.docx --out private/source.md</code></pre>
+              <p>
+                The
+                <a href="https://github.com/firecrawl/anydoc">AnyDoc</a>
+                converter runs locally with OCR disabled. Input is limited to 8
+                MiB and output to 256 KiB. The resulting document can contain
+                the full original report. Review it before sharing it with an
+                agent. The browser uploader accepts the six-field JSON format.
+              </p>
+            </details>
             <details class="manual-subsection" id="windows-client">
               <summary>Connect from PowerShell 7+</summary>
               <p>
@@ -951,6 +1201,12 @@ export SELFGRAPH_NAMESPACE=ichnix-ledger
           </section>
           <section id="results">
             <h2><span class="chapter-no">13</span>Read the measurements</h2>
+            <p class="manual-note">
+              <strong>What we tested.</strong> Signed webhook fixtures and
+              mapped uploads ran against disposable workspaces. The acceptance
+              run used a public HackerOne disclosure. An authenticated HackerOne
+              or Bugcrowd customer program has yet to be tested end to end.
+            </p>
             <details class="manual-subsection" id="retrieval-metrics">
               <summary>Retrieval on synthetic cases</summary>
               <p>
@@ -968,20 +1224,43 @@ export SELFGRAPH_NAMESPACE=ichnix-ledger
                 tabindex="0"
               ><code>python3 cli.py evaluate --clients 16 --requests 128</code></pre>
             </details>
+            <details class="manual-subsection" id="context-size">
+              <summary>How much context the Markdown export uses</summary>
+              <p>
+                We imported the three synthetic cases in
+                <code>examples/cases.json</code> into an empty graph, then
+                called the local MCP reader once per format and case. The full
+                context returned 424 tokens in total. The six-field Markdown
+                returned 167, a 61% reduction, using the
+                <code>o200k_base</code> tokenizer on the response text.
+              </p>
+              <p>
+                This measurement covers report identification before evidence or
+                reviewer decisions are added. Use the full context to review the
+                evidence. Model instructions, tool schemas and inference time
+                were outside the measurement.
+              </p>
+            </details>
             <details class="manual-subsection" id="pilot">
               <summary>
                 How a product security team could evaluate a pilot
               </summary>
-              <p>
-                The proposed buyer is the product security lead who runs a
-                bounty program across several engineering teams. Start with one
-                program and track the share of reports the first assigned team
-                accepts, reassignments per report, and median time from triage
-                to owner acceptance. Compare with the team's existing process on
-                comparable reports. The synthetic benchmark measures routing
-                accuracy. A customer pilot would establish time savings and
-                willingness to pay.
-              </p>
+              <ol>
+                <li>
+                  Choose a program and record which team ultimately accepts each
+                  report. Keep a human reviewer responsible for assignments.
+                </li>
+                <li>
+                  For the same incoming reports, save the existing process’s
+                  first suggestion and Ichnix’s first suggestion before
+                  revealing the outcome.
+                </li>
+                <li>
+                  Compare accepted first choices and reassignments, including
+                  the counts for teams that receive fewer reports. A
+                  time-savings claim needs a timed workflow comparison.
+                </li>
+              </ol>
             </details>
             <details class="manual-subsection" id="agent-metrics">
               <summary>Coding-agent compatibility</summary>

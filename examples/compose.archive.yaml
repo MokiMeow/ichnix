@@ -1,0 +1,9 @@
+services:
+  console:
+    environment:
+      ICHNIX_ARCHIVE_BUCKET: ${ICHNIX_ARCHIVE_BUCKET:?set the private archive bucket name}
+      ICHNIX_ARCHIVE_ENDPOINT:
+      AWS_DEFAULT_REGION:
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_SESSION_TOKEN:

@@ -10,6 +10,7 @@ import time
 from urllib.parse import urlsplit
 
 from ichnix.contracts import DISPOSITIONS
+from ichnix.report_context import report_readme
 
 
 JOB_FIELDS = ("id", "kind", "case_id", "service", "component", "revision", "state", "expires")
@@ -27,8 +28,8 @@ def _tool(name, description, properties, required=(), read_only=False):
 TOOLS = [
     _tool("claim_review", "Lease the next queued evidence or owner review. Returns null when the queue is empty.",
           {"lease_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}}),
-    _tool("get_review_context", "Read the case and evidence covered by this session's active review.",
-          {"job_id": JOB_ID}, ["job_id"], read_only=True),
+    _tool("get_review_context", "Read the leased case and evidence, or preview just the mapped metadata as Markdown.",
+          {"job_id": JOB_ID, "format": {"type": "string", "enum": ["context", "markdown"]}}, ["job_id"], read_only=True),
     _tool("finish_review", "Complete this lease. After reading its context, optionally record a disposition.",
           {"job_id": JOB_ID, "disposition": {"type": "string",
                                            "enum": [d for values in DISPOSITIONS.values() for d in values]}},
@@ -170,7 +171,7 @@ class Worker(WorkspaceClient):
             self.lease = job
             return public
 
-        allowed = ({"job_id"}, {"job_id", "disposition"}) if name == "finish_review" else ({"job_id"},)
+        allowed = ({"job_id"}, {"job_id", "disposition"}) if name == "finish_review" else ({"job_id"}, {"job_id", "format"})
         if name not in ("get_review_context", "finish_review") or set(args) not in allowed:
             raise ValueError("unknown tool or invalid arguments")
         lease = self.lease
@@ -179,6 +180,11 @@ class Worker(WorkspaceClient):
         if not lease or lease["id"] != args["job_id"]:
             raise PermissionError("this session does not hold that lease")
         payload = {"token": lease["token"]}
+        if "format" in args:
+            if args["format"] not in ("context", "markdown"):
+                raise ValueError("invalid case format")
+            if args["format"] == "markdown":
+                payload["format"] = "markdown"
         if "disposition" in args:
             if args["disposition"] not in DISPOSITIONS[lease["kind"]]:
                 raise ValueError("invalid disposition for this review")
@@ -205,7 +211,7 @@ class Worker(WorkspaceClient):
             self.completed = lease
             self.lease = None
         self._check_private(data, lease["token"])
-        return data
+        return report_readme(data["report"]) if "format" in payload else data
 
     def _check_private(self, payload, lease_token):
         serialized = json.dumps(payload)

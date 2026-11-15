@@ -24,3 +24,32 @@ writeFileSync(
   new URL("../docs/architecture.svg", import.meta.url),
   withWorkspaceColors(svg) + "\n",
 );
+
+const review = `flowchart TB
+  U["Mapped upload"] -->|Intake token| S["Private intake"]
+  P["Program webhook"] -->|Signature + catalog| S
+  S --> R["Report snapshot"]
+  R --> V["Component revision"]
+  C["Signed staging manifest"] -->|Service + revision| V
+  V --> E["Recorded controls"]
+  E --> H["Review context"]
+  V -->|Prior owner decisions| H
+  H --> O["Reviewer"]
+  H --> W["Leased MCP worker"]
+  O -->|Owner decision| D["HydraDB review history"]
+  W -->|Disposition| D`;
+
+const workflow = render(review, {
+  idPrefix: "ichnix-review",
+  fontSize: 15,
+  padding: 12,
+  links: false,
+  images: false,
+  limit: 4000,
+  outputLimit: 40000,
+  maxEdges: 16,
+});
+writeFileSync(
+  new URL("../public/report-review.svg", import.meta.url),
+  withWorkspaceColors(workflow.svg) + "\n",
+);

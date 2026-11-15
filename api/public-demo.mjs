@@ -33,6 +33,104 @@ function onlyKeys(value, keys) {
   );
 }
 
+const reportFields = [
+  "id",
+  "title",
+  "service",
+  "revision",
+  "component",
+  "owner",
+];
+const caseLists = {
+  recommendations: ["owner", "score", "reason"],
+  evidence: [
+    "step",
+    "result",
+    "revision",
+    "run_id",
+    "source_digest",
+    "source_method",
+  ],
+  ranked_checks: ["step", "score", "observations", "reason"],
+  review_history: ["owner", "accepted", "actor", "at"],
+  related_reports: ["id", "title", "score", "reason"],
+  worker_outcomes: ["job_id", "kind", "worker", "disposition", "at"],
+};
+
+function publicFields(value, fields) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("invalid demo record");
+  const record = {};
+  for (const field of fields) {
+    if (!Object.hasOwn(value, field)) continue;
+    if (
+      value[field] !== null &&
+      !["number", "string", "boolean"].includes(typeof value[field])
+    )
+      throw new Error("invalid demo field");
+    record[field] = value[field];
+  }
+  return record;
+}
+
+function publicRecord(path, data) {
+  if (path === "cases") {
+    if (!Array.isArray(data) || data.some((row) => !caseIDs.includes(row?.id)))
+      throw new Error("unexpected demo case");
+    return data.map((row) => publicFields(row, reportFields));
+  }
+  if (path === "acceptance") {
+    if (data?.case_id !== "h1-curl-2236133")
+      throw new Error("unexpected demo receipt");
+    return {
+      ...publicFields(data, [
+        "source",
+        "case_id",
+        "scope",
+        "observed_at",
+        "manifest_sha256",
+        "source_method",
+        "handoff_state",
+        "review_recorded",
+      ]),
+      observations: publicFields(data.observations, [
+        "cache_control",
+        "content_type_options",
+        "referrer_policy",
+      ]),
+    };
+  }
+  if (path === "evaluation") {
+    return {
+      ...publicFields(data, ["dataset", "fixed_catalog_owner_top1"]),
+      curve: data.curve.map((row) =>
+        publicFields(row, [
+          "training_cases",
+          "heldout_cases",
+          "owner_top1",
+          "ci_check_top1",
+          "pooled_owner_top1",
+          "pooled_ci_check_top1",
+          "catalog_owner_top1",
+        ]),
+      ),
+    };
+  }
+  if (data?.report?.id !== path.slice("cases/".length))
+    throw new Error("unexpected demo context");
+  const result = { report: publicFields(data.report, reportFields) };
+  for (const [name, fields] of Object.entries(caseLists)) {
+    const rows = data[name] ?? [];
+    if (
+      name === "related_reports" &&
+      rows.some((row) => !caseIDs.includes(row?.id))
+    )
+      throw new Error("unexpected related case");
+    result[name] = rows.map((row) => publicFields(row, fields));
+  }
+  return result;
+}
+
 function publicFacts(facts, id) {
   if (
     !onlyKeys(facts, ["entities", "relations"]) ||
@@ -139,13 +237,7 @@ async function GET(request) {
       const result = JSON.parse(body);
       if (path.endsWith("/selfgraph.json"))
         return publicFacts(result, path.split("/")[1]);
-      if (
-        path === "cases" &&
-        (!Array.isArray(result) ||
-          result.some((row) => !caseIDs.includes(row?.id)))
-      )
-        throw new Error("unexpected demo case");
-      return json(result);
+      return json(publicRecord(path, result));
     }
     return new Response(body, {
       headers: {

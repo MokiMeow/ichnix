@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rename,
   rm,
   writeFile,
@@ -20,6 +21,13 @@ const assets = [
   "docs.css",
   "evidence-graph.png",
   "strata.webp",
+  "404.html",
+  "missing.css",
+  "missing-trace.webp",
+  "nav.js",
+  "strata-mobile.webp",
+  "report-review.svg",
+  "report-review.webp",
   "fonts/IBMPlexMono-LICENSE.txt",
   "fonts/IBMPlexMono-Regular.woff2",
   "fonts/InstrumentSans-LICENSE.txt",
@@ -32,7 +40,7 @@ try {
   for (const file of assets) {
     const src = join(project, "public", file);
     const dst = join(staging, file);
-    if (!(await lstat(src)).isFile())
+    if ((await realpath(src)) !== src || !(await lstat(src)).isFile())
       throw new Error("Expected regular public asset: " + file);
     await mkdir(dirname(dst), { recursive: true });
     if (file.endsWith(".html")) {

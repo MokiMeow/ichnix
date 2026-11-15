@@ -12,7 +12,7 @@ python3 scripts/install-hydra.py
 python3 -m unittest discover -s tests -v
 ```
 
-Python application code uses the standard library. The tests start disposable HydraDB nodes and local SQLite stores. Provider tests use fixtures. Neither provider accounts nor model credentials are required for this suite.
+The Python core uses the standard library. For native tests of report storage and document conversion, install the optional dependencies into your virtual environment with `python3 -m pip install --only-binary=:all: --require-hashes -r extras/report-requirements.txt`. The Docker image includes these dependencies. The tests start disposable HydraDB nodes and local SQLite stores. Provider tests use fixtures. Neither provider accounts nor model credentials are required for this suite.
 
 ## Work on the right boundary
 
@@ -44,11 +44,11 @@ python3.12 -m venv .venv
 
 ## Update the architecture diagram
 
-Edit the Mermaid flowchart in [the renderer](scripts/render-architecture.mjs). Regenerate the checked-in [architecture SVG](docs/architecture.svg) using the pinned Pele dependency:
+Edit the Mermaid flowchart in [the renderer](scripts/render-architecture.mjs). Regenerate the checked-in [architecture SVG](docs/architecture.svg) and the [operator workflow](public/report-review.svg) using the pinned Pele dependency:
 
 ```sh
 node scripts/render-architecture.mjs
-git diff -- docs/architecture.svg
+git diff -- docs/architecture.svg public/report-review.svg
 ```
 
 Open the SVG in a browser and check labels, arrows and direction. Commit the renderer and regenerated output together when changing the topology. The [case trace renderer](ichnix/trace.mjs) chooses a control matrix, sequence or empty evidence view from the recorded CI observations. Its separate workflow diagram shows scope and the latest owner decision.
@@ -56,6 +56,8 @@ Open the SVG in a browser and check labels, arrows and direction. Commit the ren
 ## Submit a change
 
 Open a focused pull request describing the previous behavior, the user-visible change and how you checked it. Include a regression test when it captures a failure that could recur. Use synthetic data in screenshots, examples and logs. Keep credentials, private report identifiers, customer manifests, generated receipts and machine-specific paths out of submissions.
+
+Use the [pull request template](.github/pull_request_template.md) and describe any unverified integrations. The [default branch ruleset](.github/rulesets/main.json) requires a pull request, resolved review threads and passing workspace and browser checks on an up-to-date branch.
 
 For suspected security issues, follow the [private reporting policy](SECURITY.md). Contributions to the Ichnix application use its [MIT license](LICENSE). See the [runtime notices](licenses/Runtime-sources.txt) for separately distributed components.
 

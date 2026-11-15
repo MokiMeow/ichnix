@@ -65,7 +65,7 @@
       "destination": "/api/org-workspace?route=org-api/cases/:id"
     },
     {
-      "source": "/org-api/cases/:id/:view(diagram\\.svg|trace\\.svg|reviews)",
+      "source": "/org-api/cases/:id/:view(diagram\\.svg|trace\\.svg|readme\\.md|reviews)",
       "destination": "/api/org-workspace?route=org-api/cases/:id/:view"
     },
     {
@@ -87,7 +87,11 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'"
+          "value": "default-src 'self'; form-action 'self'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
         }
       ]
     }

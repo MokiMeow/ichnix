@@ -30,3 +30,10 @@ Font licenses are in /app/public/fonts. The Python base image retains its
 Debian package notices under /usr/share/doc and Python's LICENSE.txt under
 /usr/local/lib/python3.12. Standard license texts referenced by Debian and
 Ubuntu packaging are in /usr/share/common-licenses in the image.
+
+Firecrawl AnyDoc 0.2.4
+  AnyDoc-MIT.txt
+  https://github.com/firecrawl/anydoc/tree/42bf1c5ecdde9eb0d96d6bd75a9e6698cf93b14c
+
+The Python report dependencies are pinned in extras/report-requirements.txt.
+Their wheel metadata and included notices remain in site-packages.

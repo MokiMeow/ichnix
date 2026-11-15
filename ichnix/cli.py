@@ -5,9 +5,9 @@ import json
 import os
 from pathlib import Path
 import sys
-from tempfile import NamedTemporaryFile
 
 from ichnix import connectors
+from ichnix.report_context import convert_document, private_export
 from ichnix.mcp_server import serve
 
 
@@ -66,6 +66,12 @@ def parser():
     export = commands.add_parser("export-selfgraph", help="export the current snapshot and its observed CI facts for SelfGraph")
     export.add_argument("case_id")
     export.add_argument("--out", required=True, type=Path, help="create a new private JSON file")
+    readme = commands.add_parser("export-readme", help="export six mapped case fields as private Markdown")
+    readme.add_argument("case_id")
+    document = commands.add_parser("document-readme", help="convert a local office document to private Markdown on Linux")
+    document.add_argument("file", type=Path)
+    for output in (readme, document):
+        output.add_argument("--out", required=True, type=Path, help="create a new private Markdown file")
     load = commands.add_parser("import", help="import local metadata JSON as an object or array")
     load.add_argument("file")
     sync = commands.add_parser("sync", help="import reviewed HackerOne report metadata")
@@ -211,14 +217,11 @@ def run(args, graph):
         return graph.context(args.case_id)
     if args.command == "export-selfgraph":
         facts = graph.selfgraph_facts(args.case_id)
-        # Publish a complete 0600 file without overwriting an existing export or following its symlink.
-        with NamedTemporaryFile(mode="w", dir=args.out.parent, encoding="utf-8") as tmp:
-            json.dump(facts, tmp, ensure_ascii=True)
-            tmp.write("\n")
-            tmp.flush()
-            os.fsync(tmp.fileno())
-            os.link(tmp.name, args.out)
+        private_export(args.out, (json.dumps(facts, ensure_ascii=True) + "\n").encode())
         return {"format": "selfgraph-facts", "entities": len(facts["entities"]), "relations": len(facts["relations"])}
+    if args.command == "export-readme":
+        private_export(args.out, graph.case_readme(args.case_id).encode())
+        return {"format": "markdown"}
     if args.command == "review":
         return graph.record_review(args.case_id, args.owner, args.accept)
     if args.command == "sync":
@@ -247,6 +250,10 @@ def main():
         os.execv(sys.executable, [sys.executable, str(ROOT / target), *sys.argv[2:]])
     args = parser().parse_args()
     try:
+        if args.command == "document-readme":
+            private_export(args.out, convert_document(args.file))
+            print("wrote private Markdown document")
+            return 0
         if args.command == "auth":
             from ichnix.worker_client import WorkspaceClient
             client = WorkspaceClient(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),

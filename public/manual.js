@@ -36,6 +36,23 @@ function filterChapters() {
       : "No matching chapters.";
 }
 query.addEventListener("input", filterChapters);
+query.setAttribute("aria-keyshortcuts", "/");
+query.title = "Find a chapter (/)";
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key !== "/" ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.isComposing ||
+    event.defaultPrevented ||
+    event.target.closest("input, textarea, select, [contenteditable]")
+  )
+    return;
+  event.preventDefault();
+  index.open = true;
+  query.focus();
+});
 
 let active = -1;
 let frame;

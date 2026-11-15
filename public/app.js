@@ -280,6 +280,42 @@ function imageDisclosure(label, caseId, path, className, alt, failure) {
   return disclosure;
 }
 
+function readmeDownload(caseId) {
+  const button = element("button", "Download report README", "cmd");
+  button.type = "button";
+  button.onclick = async () => {
+    const { signal } = imageRequests;
+    const finish = startActivity(button, "Preparing report README");
+    button.disabled = true;
+    try {
+      const response = await request(
+        "cases/" + encodeURIComponent(caseId) + "/readme.md",
+        { signal },
+      );
+      if (
+        response.headers.get("content-type")?.split(";")[0] !== "text/markdown"
+      )
+        throw new Error("The workspace returned an unexpected file type.");
+      const file = await response.blob();
+      if (signal.aborted || !button.isConnected || selected !== caseId) return;
+      const link = element("a");
+      const url = URL.createObjectURL(file);
+      link.href = url;
+      link.download = "README.md";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      if (!signal.aborted && button.isConnected) showError(error.message);
+    } finally {
+      button.disabled = false;
+      finish();
+    }
+  };
+  return button;
+}
+
 function renderCase({
   report,
   recommendations,
@@ -316,6 +352,7 @@ function renderCase({
     exportLink.download = report.id + "-selfgraph.json";
     heading.append(exportLink);
   }
+  if (!publicDemo) heading.append(readmeDownload(report.id));
   detail.replaceChildren(heading);
   detail.append(
     imageDisclosure(
@@ -884,6 +921,11 @@ function initializeConsole() {
   });
 
   async function initializeWorkspace() {
+    // The dedicated organization route always needs a named credential.
+    if (orgWorkspace) {
+      login.hidden = false;
+      return;
+    }
     const view = beginView("Connecting to workspace");
     try {
       const response = await fetch(apiBase + "session", {
@@ -898,8 +940,7 @@ function initializeConsole() {
       }
       const session = response.ok ? await response.json() : {};
       if (view !== generation) return;
-      publicDemo =
-        !orgWorkspace && (hostedPreview || session.public_demo === true);
+      publicDemo = hostedPreview || session.public_demo === true;
       disclosedCase = publicDemo ? session.disclosed_case : null;
       evaluation.hidden = !publicDemo;
       if (publicDemo) {
@@ -909,9 +950,7 @@ function initializeConsole() {
         selected ??= disclosedCase;
         return refresh();
       }
-      byId("workspace-label").textContent = orgWorkspace
-        ? ""
-        : "Private workspace";
+      byId("workspace-label").textContent = "Private workspace";
       login.hidden = false;
     } catch {
       if (view !== generation) return;
