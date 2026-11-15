@@ -7,6 +7,7 @@
 !ichnix/__init__.py
 !ichnix/cli.py
 !ichnix/connectors.py
+!ichnix/contracts.py
 !ichnix/credentials.py
 !ichnix/demo.py
 !ichnix/eval_graph.py

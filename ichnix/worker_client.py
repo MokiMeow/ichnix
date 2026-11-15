@@ -9,7 +9,7 @@ import stat
 import time
 from urllib.parse import urlsplit
 
-from ichnix.handoffs import DISPOSITIONS
+from ichnix.contracts import DISPOSITIONS
 
 
 JOB_FIELDS = ("id", "kind", "case_id", "service", "component", "revision", "state", "expires")
@@ -36,13 +36,15 @@ TOOLS = [
 ]
 
 
-def workspace_origin(value):
+def workspace_origin(value, *, hosted=False):
     if not isinstance(value, str) or not value.isascii() or re.search(r"[\s\\\x00-\x1f\x7f]", value):
         raise ValueError("workspace origin required")
     parts = urlsplit(value)
     if (parts.scheme not in ("http", "https") or not parts.hostname or parts.username is not None
             or parts.password is not None or parts.path not in ("", "/") or parts.query or parts.fragment):
         raise ValueError("invalid workspace origin")
+    if hosted and parts.scheme != "https":
+        raise ValueError("hosted workspace requires HTTPS")
     if parts.scheme == "http" and parts.hostname != "localhost":
         try:
             loopback = ip_address(parts.hostname).is_loopback
@@ -53,7 +55,16 @@ def workspace_origin(value):
     return parts
 
 
-def _credential(path):
+def _credential(path, token_env):
+    if token_env is not None:
+        if path or token_env not in ("ICHNIX_WORKER_TOKEN", "ICHNIX_USER_TOKEN"):
+            raise ValueError("expected one named credential source")
+        secret = os.getenv(token_env, "")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{32,512}", secret):
+            raise ValueError("missing or invalid environment credential")
+        return secret
+    if os.name == "nt":
+        raise ValueError("Windows desktop clients require an inherited token environment variable")
     if not path:
         raise ValueError("workspace token file required")
     fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
@@ -68,14 +79,12 @@ def _credential(path):
 
 
 class WorkspaceClient:
-    def __init__(self, url, token_file, *, hosted=False):
-        origin = workspace_origin(url)
-        if hosted and origin.scheme != "https":
-            raise ValueError("hosted workspace requires HTTPS")
+    def __init__(self, url, token_file=None, *, hosted=False, token_env=None):
+        origin = workspace_origin(url, hosted=hosted)
         self.hosted = hosted
         self.connection = HTTPSConnection if origin.scheme == "https" else HTTPConnection
         self.host, self.port = origin.hostname, origin.port
-        self.bearer = _credential(token_file)
+        self.bearer = _credential(token_file, token_env)
 
     def request(self, method, path, body=None, *, request_id=None):
         # http.client never follows redirects or sends credentials through environment proxies.
@@ -121,8 +130,8 @@ class WorkspaceClient:
 
 
 class Worker(WorkspaceClient):
-    def __init__(self, url, token_file, *, hosted=False):
-        super().__init__(url, token_file, hosted=hosted)
+    def __init__(self, url, token_file=None, *, hosted=False, token_env=None):
+        super().__init__(url, token_file, hosted=hosted, token_env=token_env)
         self.lease = None
         self.completed = None
 

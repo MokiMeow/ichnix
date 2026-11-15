@@ -1,0 +1,87 @@
+name: Desktop compatibility
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/desktop.yml"
+      - ".gitattributes"
+      - ".dockerignore"
+      - "Containerfile"
+      - "compose.yaml"
+      - "examples/desktop.env"
+      - "ichnix/**"
+      - "public/**"
+      - "scripts/**"
+      - "testing/desktop*.py"
+      - "testing/browser-requirements.txt"
+      - "tests/test_desktop_client.py"
+      - "cli.py"
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - name: Exercise the native CLI and stdio worker
+        run: python tests/test_desktop_client.py DesktopClientTests.test_remote_cli_and_worker_profile -v
+      - name: Install browser test dependencies
+        run: python -m pip install -r testing/browser-requirements.txt
+      - name: Install WebKit
+        if: runner.os == 'macOS'
+        run: python -m playwright install webkit
+      - name: Exercise sign-in and report upload
+        run: python testing/desktop_browser.py
+
+      - name: Prepare Ubuntu on WSL 2
+        if: runner.os == 'Windows'
+        uses: Vampire/setup-wsl@3b46b44374d5d0ae94654c45d114a3ed7a0e07a8
+        with:
+          distribution: Ubuntu-24.04
+          wsl-version: 2
+          use-cache: false
+          set-as-default: true
+      - name: Start a Linux container engine in WSL
+        if: runner.os == 'Windows'
+        shell: wsl-bash -u root {0}
+        run: |
+          set -eu
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-v2 docker-buildx netcat-openbsd
+          service docker start
+          docker info > /dev/null
+      - name: Start a Linux container engine on macOS
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install colima docker docker-compose docker-buildx
+          mkdir -p "$HOME/.docker/cli-plugins"
+          for plugin in docker-compose docker-buildx; do
+            ln -sf "$(brew --prefix "$plugin")/bin/$plugin" "$HOME/.docker/cli-plugins/$plugin"
+          done
+          driver=vz
+          if [ "$(uname -m)" = arm64 ]; then
+            brew install qemu lima-additional-guestagents
+            driver=qemu
+          fi
+          colima start --vm-type "$driver" --arch x86_64 --mount none --memory 3 --cpu 2 --disk 15
+          docker info > /dev/null
+      - name: Verify local self-hosting through WSL
+        if: runner.os == 'Windows'
+        run: python testing/desktop_compose.py --wsl
+      - name: Verify local self-hosting through Colima
+        if: runner.os == 'macOS'
+        run: python testing/desktop_compose.py

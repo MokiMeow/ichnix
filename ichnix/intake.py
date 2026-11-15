@@ -3,7 +3,7 @@ import json
 import os
 import stat
 
-from ichnix.graph import _case_id, _field
+from ichnix.contracts import _case_id, _field
 
 MAX_REPORT_BYTES = 1024 * 1024
 FIELDS = {"id", "title", "service", "component", "revision", "owner"}
@@ -33,7 +33,7 @@ def parse_mapped_report(raw):
 
 
 def read_mapped_report(path):
-    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
     with os.fdopen(fd, "rb") as stream:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise ValueError("expected a regular report file")

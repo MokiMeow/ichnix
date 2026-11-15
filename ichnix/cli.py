@@ -35,6 +35,28 @@ def _load(path):
     return json.loads(raw)
 
 
+def credential_options(parser, *, worker=False, introspect=False):
+    group = parser.add_mutually_exclusive_group()
+    variable = "ICHNIX_WORKER_TOKEN" if worker else "ICHNIX_USER_TOKEN"
+    allowed = ("ICHNIX_USER_TOKEN", "ICHNIX_WORKER_TOKEN") if introspect else (variable,)
+    group.add_argument("--worker-token-file" if worker else "--token-file",
+                       help="private credential file on POSIX (" + variable + "_FILE)")
+
+    def env_name(value):
+        if value not in allowed:
+            raise argparse.ArgumentTypeError("expected an environment variable name: " + " or ".join(allowed))
+        return value
+
+    group.add_argument("--token-env", type=env_name, metavar="NAME",
+                       help="read the credential from the launcher environment (" + " or ".join(allowed) + ")")
+
+
+def credential_file(option, token_env, *defaults):
+    if token_env:
+        return None
+    return option or next((os.environ[key] for key in defaults if os.getenv(key)), None)
+
+
 def parser():
     root = argparse.ArgumentParser(prog="ichnix", description=__doc__)
     commands = root.add_subparsers(dest="command", required=True)
@@ -59,10 +81,10 @@ def parser():
     auth = commands.add_parser("auth", help="check workspace credentials")
     auth_status = auth.add_subparsers(dest="action", required=True).add_parser("status", help="show authenticated name and role")
     auth_status.add_argument("--workspace-url", help="private workspace origin (ICHNIX_WORKSPACE_URL)")
-    auth_status.add_argument("--token-file", help="credential file (ICHNIX_USER_TOKEN_FILE or ICHNIX_WORKER_TOKEN_FILE)")
+    credential_options(auth_status, introspect=True)
     human = commands.add_parser("human", help="read, review or import through the private HTTP console")
     human.add_argument("--workspace-url", help="private workspace origin (ICHNIX_WORKSPACE_URL)")
-    human.add_argument("--token-file", help="named workspace credential (ICHNIX_USER_TOKEN_FILE)")
+    credential_options(human)
     remote = human.add_subparsers(dest="action", required=True)
     remote.add_parser("cases", help="list the reports available to this identity")
     remote.add_parser("context", help="read a case and its evidence").add_argument("case_id")
@@ -79,13 +101,13 @@ def parser():
     mcp = commands.add_parser("mcp", help="serve local read-only or remote worker tools over stdio")
     mcp.add_argument("--worker", action="store_true", help="claim and complete leased reviews through a private workspace")
     mcp.add_argument("--workspace-url", help="workspace origin (ICHNIX_WORKSPACE_URL)")
-    mcp.add_argument("--worker-token-file", help="private credential file (ICHNIX_WORKER_TOKEN_FILE)")
+    credential_options(mcp, worker=True)
     config = commands.add_parser("mcp-config", help="generate a stdio client configuration for this installation")
     config.add_argument("--profile", required=True, choices=["worker", "local"])
     config.add_argument("--format", choices=["json", "codex"], default="json",
                         help="mcpServers JSON or Codex TOML configuration")
     config.add_argument("--workspace-url", help="private workspace origin for the worker profile")
-    config.add_argument("--worker-token-file", help="named worker credential file")
+    credential_options(config, worker=True)
     config.add_argument("--hydra-url", help="HydraDB origin for the local profile")
     config.add_argument("--hydra-token-file", help="HydraDB credential file for the local profile")
     config.add_argument("--out", type=Path, help="write a new configuration file instead of standard output")
@@ -105,24 +127,28 @@ def hosted_mode(args):
 
 def mcp_config(args):
     from ichnix.worker_client import Worker, workspace_origin
-    from ichnix.storage import state_directory
     command = [str(ROOT / "cli.py"), "mcp"]
     if args.profile == "worker":
         if args.hydra_url or args.hydra_token_file:
             raise ValueError("worker profiles take workspace options")
         origin = args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL")
-        source = args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE")
-        if not source:
-            raise ValueError("worker credential file required")
-        token_file = Path(source).expanduser().resolve(strict=True)
         hosted = hosted_mode(args)
-        Worker(origin, token_file, hosted=hosted)
-        env = {"ICHNIX_WORKSPACE_URL": origin, "ICHNIX_WORKER_TOKEN_FILE": str(token_file),
-               "ICHNIX_WORKSPACE_HOSTED": "1" if hosted else "0"}
+        workspace_origin(origin, hosted=hosted)
+        env = {"ICHNIX_WORKSPACE_URL": origin, "ICHNIX_WORKSPACE_HOSTED": "1" if hosted else "0"}
         command.append("--worker")
+        if args.token_env:
+            command.extend(["--token-env", args.token_env])
+        else:
+            source = args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE")
+            if not source:
+                raise ValueError("worker credential source required")
+            token_file = Path(source).expanduser().resolve(strict=True)
+            Worker(origin, token_file, hosted=hosted)
+            env["ICHNIX_WORKER_TOKEN_FILE"] = str(token_file)
     else:
-        if args.hosted or args.workspace_url or args.worker_token_file:
+        if args.hosted or args.workspace_url or args.worker_token_file or args.token_env:
             raise ValueError("local profiles take HydraDB options")
+        from ichnix.storage import state_directory
         source = args.hydra_token_file or os.getenv("ICHNIX_HYDRA_TOKEN_FILE") or state_directory() / "hydra-token"
         token_file = Path(source).expanduser().resolve(strict=True)
         if not token_file.is_file() or token_file.stat().st_mode & 0o077 or not 0 < token_file.stat().st_size <= 4096:
@@ -139,7 +165,10 @@ def mcp_config(args):
     name = "ichnix-" + args.profile
     if args.format == "codex":
         lines = [f"[mcp_servers.{name}]", "command = " + json.dumps(entry["command"], ensure_ascii=False),
-                 "args = " + json.dumps(command, ensure_ascii=False), "", f"[mcp_servers.{name}.env]"]
+                 "args = " + json.dumps(command, ensure_ascii=False)]
+        if args.token_env:
+            lines.append("env_vars = " + json.dumps([args.token_env]))
+        lines.extend(["", f"[mcp_servers.{name}.env]"])
         lines.extend(key + " = " + json.dumps(value, ensure_ascii=False) for key, value in env.items())
         rendered = "\n".join(lines)
     else:
@@ -147,17 +176,18 @@ def mcp_config(args):
     if args.out is None:
         print(rendered)
     else:
-        with os.fdopen(os.open(args.out, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600), "w") as output:
+        with os.fdopen(os.open(args.out, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600), "w", encoding="utf-8") as output:
             print(rendered, file=output)
         print("wrote stdio client configuration")
 
 
 def human_request(args):
     from uuid import uuid4
-    from ichnix.graph import _case_id
+    from ichnix.contracts import _case_id
     from ichnix.worker_client import WorkspaceClient
     client = WorkspaceClient(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
-                             args.token_file or os.getenv("ICHNIX_USER_TOKEN_FILE"), hosted=hosted_mode(args))
+                             credential_file(args.token_file, args.token_env, "ICHNIX_USER_TOKEN_FILE"),
+                             hosted=hosted_mode(args), token_env=args.token_env)
     if args.action == "import-report":
         from ichnix.intake import read_mapped_report
         return client.request("POST", "/api/import/report", read_mapped_report(args.file))
@@ -220,8 +250,8 @@ def main():
         if args.command == "auth":
             from ichnix.worker_client import WorkspaceClient
             client = WorkspaceClient(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
-                                     args.token_file or os.getenv("ICHNIX_USER_TOKEN_FILE") or os.getenv("ICHNIX_WORKER_TOKEN_FILE"),
-                                     hosted=hosted_mode(args))
+                                     credential_file(args.token_file, args.token_env, "ICHNIX_USER_TOKEN_FILE", "ICHNIX_WORKER_TOKEN_FILE"),
+                                     hosted=hosted_mode(args), token_env=args.token_env)
             print(json.dumps(client.auth_status(), indent=2))
             return 0
         if args.command == "human":
@@ -233,12 +263,13 @@ def main():
         if args.command == "mcp" and args.worker:
             from ichnix.worker_client import Worker
             worker = Worker(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
-                            args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE"), hosted=hosted_mode(args))
+                            credential_file(args.worker_token_file, args.token_env, "ICHNIX_WORKER_TOKEN_FILE"),
+                            hosted=hosted_mode(args), token_env=args.token_env)
             serve(worker=worker)
             return 0
         from ichnix.graph import Graph
         if args.command == "mcp":
-            if args.hosted or args.workspace_url or args.worker_token_file:
+            if args.hosted or args.workspace_url or args.worker_token_file or args.token_env:
                 raise ValueError("workspace options require --worker")
             serve(Graph)
             return 0

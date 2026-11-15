@@ -8,7 +8,18 @@ Ichnix helps product security teams triage bug bounty reports. Each case connect
 
 ## Try it locally
 
-On Ubuntu 24.04 x86-64 with Python 3.12, Node 24, and pnpm 12, run:
+**Windows and macOS.** Start Docker Desktop in Linux container mode. From a fresh checkout, run these commands in PowerShell or a Mac terminal to start a private workspace:
+
+```sh
+docker compose --env-file examples/desktop.env build
+docker compose --env-file examples/desktop.env run --rm console python3 cli.py storage init
+docker compose --env-file examples/desktop.env up --detach --wait
+docker compose --env-file examples/desktop.env exec -T console python3 cli.py identity issue desktop-intake --role intake --out /var/lib/ichnix/desktop-intake.token
+```
+
+Open [the local console](http://127.0.0.1:8765/console). The [desktop setup instructions](https://ichnix.vercel.app/docs#containers) show how to paste the intake credential and import a report. Both services use Linux amd64. Apple silicon runs the pinned HydraDB build through emulation.
+
+**Native Ubuntu demo.** On Ubuntu 24.04 x86-64 with Python 3.12, Node 24, and pnpm 12, run:
 
 ```sh
 pnpm install --frozen-lockfile

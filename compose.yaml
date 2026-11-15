@@ -1,10 +1,6 @@
 x-workspace: &workspace
   image: ichnix:local
   platform: linux/amd64
-  build:
-    context: .
-    dockerfile: Containerfile
-    target: app
   restart: unless-stopped
   read_only: true
   cap_drop: [ALL]
@@ -16,6 +12,10 @@ x-workspace: &workspace
 services:
   graph:
     <<: *workspace
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: app
     command: ["scripts/start-hydra.sh"]
     ports: ["127.0.0.1:${ICHNIX_PORT:-8765}:8765"]
     volumes:
@@ -29,16 +29,19 @@ services:
           "-c",
           "from urllib.request import urlopen; urlopen('http://127.0.0.1:9090/readyz', timeout=2).close()",
         ]
-      interval: 3s
-      timeout: 3s
+      interval: 5s
+      start_period: 30s
+      timeout: 15s
       retries: 20
     stop_grace_period: 1m
   console:
     <<: *workspace
+    pull_policy: never
     healthcheck:
       test: ["CMD", "python3", "scripts/check-workspace.py", "--console-ready"]
-      interval: 3s
-      timeout: 3s
+      interval: 5s
+      start_period: 30s
+      timeout: 15s
       retries: 20
     environment:
       ICHNIX_HYDRA_TOKEN_FILE: /run/ichnix-auth/hydra-token

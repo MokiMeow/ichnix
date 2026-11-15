@@ -16,6 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from ichnix.contracts import _case_id, _field
 from ichnix.handoffs import Handoffs, auto_handoffs_enabled
 from ichnix.storage import state_directory
 from ichnix import review_layout
@@ -31,22 +32,6 @@ class _NoRedirect(HTTPRedirectHandler):
 def _key(kind, *parts):
     payload = json.dumps([kind, *parts], ensure_ascii=False).encode()
     return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big") >> 1
-
-
-def _field(obj, name, limit=160):
-    value = obj.get(name)
-    if not isinstance(value, str) or not value.strip() or len(value) > limit:
-        raise ValueError(f"invalid {name}")
-    value.encode("utf-8")  # Reject unpaired surrogates before any graph mutation.
-    if any(ord(c) < 32 or ord(c) == 127 for c in value):
-        raise ValueError(f"invalid {name}")
-    return value.strip()
-
-
-def _case_id(value):
-    if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9._:-]{1,160}", value):
-        raise ValueError("invalid case id")
-    return value
 
 
 def _title_vector(title):

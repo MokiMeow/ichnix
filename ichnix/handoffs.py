@@ -11,6 +11,7 @@ import secrets
 import sqlite3
 import time
 
+from ichnix.contracts import DISPOSITIONS
 from ichnix.storage import connect_private, state_directory, verify_tables
 
 LEASE_TABLES = {
@@ -20,8 +21,6 @@ LEASE_TABLES = {
     "outcomes": ("job_id", "snapshot", "disposition", "at"),
 }
 
-DISPOSITIONS = {"owner-review": ("needs-owner-review",),
-                "evidence-review": ("evidence-reviewed", "needs-evidence")}
 KINDS = tuple(DISPOSITIONS)
 PUBLIC = "id, case_id, service, component, revision, kind, state, worker, expires, attempts"
 

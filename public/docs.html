@@ -141,9 +141,11 @@
           <section id="install">
             <h2><span class="chapter-no">02</span>Self-host a workspace</h2>
             <p>
-              Use one installation per organization. Run the following from your
-              checkout on Ubuntu 24.04 x86-64 with Python 3.12, Node 24 and pnpm
-              12. The installer verifies a pinned HydraDB distribution.
+              Use one installation per organization. For Windows or macOS,
+              follow the <a href="#containers">Docker Desktop setup</a> below.
+              On Ubuntu 24.04 x86-64 with Python 3.12, Node 24 and pnpm 12, you
+              can run the workspace natively. The installer verifies a pinned
+              HydraDB distribution.
             </p>
             <pre tabindex="0"><code>pnpm install --frozen-lockfile
 python3 scripts/install-hydra.py
@@ -176,16 +178,69 @@ scripts/start-hydra.sh</code></pre>
               </p>
             </details>
             <details class="manual-subsection" id="containers">
-              <summary>Container deployment</summary>
-              <pre tabindex="0"><code>docker compose up --build --detach --wait
-docker compose ps</code></pre>
+              <summary>
+                Docker Desktop on Windows and macOS, or Linux Compose
+              </summary>
               <p>
-                Compose targets Linux amd64. It binds the console to loopback
-                and keeps graph data, authentication material and console state
-                in named volumes. Put an HTTPS reverse proxy in front of the
-                console for remote staff. For a disposable, read-only sample
-                workspace, use
-                <code>python3 cli.py demo --public-readonly</code>.
+                Start Docker Desktop for
+                <a
+                  href="https://docs.docker.com/desktop/setup/install/windows-install/"
+                  >Windows</a
+                >
+                with WSL 2 and Linux containers, or install the
+                <a
+                  href="https://docs.docker.com/desktop/setup/install/mac-install/"
+                  >Mac edition</a
+                >
+                for your chip. Intel Macs run the pinned Linux amd64 image
+                directly in the Linux VM. On Apple silicon, the same image runs
+                under emulation. For faster builds, Docker Desktop offers
+                <a
+                  href="https://docs.docker.com/desktop/settings-and-maintenance/settings/"
+                  >Rosetta acceleration</a
+                >
+                with the Apple Virtualization framework. A Linux Docker Engine
+                with Compose v2 can use the same commands.
+              </p>
+              <p>
+                From a fresh checkout, use PowerShell or a Mac or Linux shell.
+                The desktop preset selects private identity and handoff
+                databases in the console volume. The initialization command
+                starts the graph and prepares the databases before the console
+                starts.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>docker compose --env-file examples/desktop.env build
+docker compose --env-file examples/desktop.env run --rm console python3 cli.py storage init
+docker compose --env-file examples/desktop.env up --detach --wait
+docker compose --env-file examples/desktop.env exec -T console python3 cli.py identity issue desktop-intake --role intake --out /var/lib/ichnix/desktop-intake.token
+docker compose --env-file examples/desktop.env exec -T console python3 cli.py auth status --workspace-url http://127.0.0.1:8765 --token-file /var/lib/ichnix/desktop-intake.token</code></pre>
+              <p>
+                The last command should return the name
+                <code>desktop-intake</code> and role <code>intake</code>. Issue
+                this credential once. To sign in at
+                <a href="http://127.0.0.1:8765/console">the local console</a>,
+                copy it to your clipboard with the command for your shell, paste
+                it into the token field, then clear the clipboard. Select a
+                mapped JSON file under <a href="#providers">report intake</a>.
+              </p>
+              <p>PowerShell on Windows</p>
+              <pre
+                tabindex="0"
+              ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | Set-Clipboard</code></pre>
+              <p>Terminal on macOS</p>
+              <pre
+                tabindex="0"
+              ><code>docker compose --env-file examples/desktop.env exec -T console cat /var/lib/ichnix/desktop-intake.token | pbcopy</code></pre>
+              <p>
+                To stop the workspace and retain its named volumes, run
+                <code>docker compose --env-file examples/desktop.env down</code
+                >. Start it again with the same
+                <code>up --detach --wait</code> command. The console binds to
+                loopback. Remote teams need a private HTTPS endpoint. For an
+                existing installation, preserve its
+                <a href="#storage-compose">original storage paths</a>.
               </p>
               <p>
                 For a private program, export its connector settings from your
@@ -619,26 +674,57 @@ python3 cli.py staging h1-curl-2236133 \
               <span class="chapter-no">10</span>Connect people and coding agents
             </h2>
             <p>
-              Human readers and reviewers can use the web console or the
-              HTTP-backed CLI. Save their named token in a private file. The
-              human CLI uses the console API and works without a graph
-              credential.
+              Run the remote CLI and stdio worker from a checkout with Python
+              3.12+ on Windows, macOS or Linux. The administrator supplies the
+              workspace URL and issues a named credential for your role. The
+              desktop client needs no local database or Docker engine.
             </p>
-            <pre
-              tabindex="0"
-            ><code>export ICHNIX_WORKSPACE_URL=https://workspace.example.org
+            <details class="manual-subsection" id="windows-client">
+              <summary>Connect from PowerShell 7+</summary>
+              <p>
+                Set the workspace origin, then enter the credential at the
+                masked prompt. The following commands use the Windows Python
+                launcher. On macOS or Linux, use <code>python3</code> in place
+                of <code>py -3</code>.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>$env:ICHNIX_WORKSPACE_URL = 'https://workspace.example.org'
+$env:ICHNIX_USER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Named workspace token' -AsSecureString)).Password
+try {
+  py -3 cli.py auth status --token-env ICHNIX_USER_TOKEN
+  py -3 cli.py human --token-env ICHNIX_USER_TOKEN cases
+} finally {
+  Remove-Item Env:ICHNIX_USER_TOKEN
+}</code></pre>
+              <p>
+                For a named intake credential, use
+                <code
+                  >human --token-env ICHNIX_USER_TOKEN import-report
+                  mapped.json</code
+                >. For unattended runs, have the secret manager inject the
+                variable into the client process. Windows uses this environment
+                mode. The credential file option checks POSIX permissions on
+                macOS and Linux.
+              </p>
+            </details>
+            <details class="manual-subsection" id="posix-client">
+              <summary>Use a private token file on macOS or Linux</summary>
+              <pre
+                tabindex="0"
+              ><code>export ICHNIX_WORKSPACE_URL=https://workspace.example.org
 export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
+chmod 600 "$ICHNIX_USER_TOKEN_FILE"
 python3 cli.py auth status
 python3 cli.py human cases
 python3 cli.py human context CASE_ID
 python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code></pre>
+            </details>
             <p>
               For the Vercel organization relay, set the workspace URL to its
-              HTTPS origin and <code>ICHNIX_WORKSPACE_HOSTED=1</code>. This
-              routes CLI and worker requests through <code>/org-api</code>.
-              Direct self-hosted clients use <code>/api</code>. The status
-              command returns the identity name and role. To check a worker,
-              pass <code>--token-file</code> with its private credential file.
+              HTTPS origin and <code>ICHNIX_WORKSPACE_HOSTED=1</code>. In
+              PowerShell use <code>$env:ICHNIX_WORKSPACE_HOSTED = '1'</code>.
+              The status command returns the credential’s name and role.
             </p>
             <details class="manual-subsection" id="agent-profiles">
               <summary>Agent profiles</summary>
@@ -679,26 +765,51 @@ python3 cli.py console --port 8765</code></pre>
             <details class="manual-subsection" id="worker-mcp">
               <summary>Configure stdio on the worker machine</summary>
               <p>
-                Transfer only that worker’s credential through your secret
-                manager. Place it in a private file readable by the worker. From
-                the worker’s checkout, generate a client configuration with
-                absolute paths valid on that machine.
+                Generate a profile on the worker’s machine using its own
+                checkout path and Python interpreter. On Windows, generate the
+                Codex table with PowerShell and add the resulting table to your
+                Codex configuration.
               </p>
-              <pre tabindex="0"><code>mkdir -p -m 700 .local
-python3 cli.py mcp-config --profile worker \
-  --workspace-url https://ichnix.example.org \
-  --worker-token-file "$HOME/.config/ichnix/worker.token" \
-  --out .local/ichnix-mcp.json</code></pre>
+              <pre
+                tabindex="0"
+              ><code>py -3 cli.py mcp-config --profile worker --token-env ICHNIX_WORKER_TOKEN --workspace-url https://workspace.example.org --format codex --out ichnix-mcp.toml</code></pre>
               <p>
-                Use the generated <code>mcpServers</code> entry in a compatible
-                JSON stdio client. For Codex, use
-                <code>--format codex --out ichnix-mcp.toml</code> and add that
-                table to the client configuration. Worker initialization and
-                tool discovery verify the credential with the private workspace.
-                Revoking the worker removes access on subsequent requests. The
-                profile references a credential file. Its contents and each
-                lease secret stay outside the model context. Remote origins
-                require HTTPS. Loopback HTTP works for a local session.
+                The profile names the inherited variable and can be generated
+                before the credential is available. Start Codex from a shell
+                with the worker token for that session, or inject it with a
+                secret manager. Exit the agent to end its session.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>$env:ICHNIX_WORKER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Worker token' -AsSecureString)).Password
+try {
+  codex
+} finally {
+  Remove-Item Env:ICHNIX_WORKER_TOKEN
+}</code></pre>
+              <p>
+                For a JSON stdio client, omit <code>--format codex</code> and
+                use <code>--out ichnix-mcp.json</code>. Configure the launcher
+                to forward <code>ICHNIX_WORKER_TOKEN</code> into the MCP
+                process. Codex profiles include that setting as
+                <code>env_vars</code>. Keep token values out of configuration
+                files and agent prompts.
+              </p>
+              <p>
+                On macOS and Linux, a private worker token file is also
+                supported.
+              </p>
+              <pre
+                tabindex="0"
+              ><code>python3 cli.py mcp-config --profile worker \
+  --workspace-url https://workspace.example.org \
+  --worker-token-file "$HOME/.config/ichnix/worker.token" \
+  --out ichnix-mcp.json</code></pre>
+              <p>
+                Initialization and tool discovery check the credential against
+                the workspace. Revoking it blocks subsequent requests. Remote
+                origins require HTTPS. Loopback HTTP works for a local direct
+                connection.
               </p>
             </details>
             <details class="manual-subsection" id="worker-lease">

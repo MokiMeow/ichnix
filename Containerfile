@@ -24,7 +24,8 @@ COPY scripts/ ./scripts/
 COPY examples/ ./examples/
 COPY testing/ ./testing/
 COPY public/ ./public/
-RUN install -d -m 0700 -o 10001 -g 10001 /var/lib/ichnix /run/ichnix-auth
+RUN chmod 0755 scripts/console.sh scripts/start-hydra.sh \
+    && install -d -m 0700 -o 10001 -g 10001 /var/lib/ichnix /run/ichnix-auth
 ENV ICHNIX_STATE_DIR=/var/lib/ichnix LD_LIBRARY_PATH=/opt/hydra PYTHONDONTWRITEBYTECODE=1
 USER 10001:10001
 EXPOSE 8765
