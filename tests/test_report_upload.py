@@ -30,14 +30,15 @@ class ReportUploadTests(unittest.TestCase):
             stack.callback(thread.join)
             stack.callback(server.shutdown)
 
-            def request(role, route, data=None):
+            def request(role, route, data=None, extra_headers=None):
                 conn = HTTPConnection("127.0.0.1", server.server_port, timeout=10)
                 try:
                     headers = {"Content-Type": "application/json"}
                     if role:
                         headers["Authorization"] = "Bearer " + tokens[role]
+                    headers.update(extra_headers or {})
                     conn.request("GET" if data is None else "POST", route,
-                                 None if data is None else json.dumps(data), headers)
+                                 data if data is None or isinstance(data, bytes) else json.dumps(data), headers)
                     response = conn.getresponse()
                     return response.status, json.load(response)
                 finally:
@@ -50,6 +51,12 @@ class ReportUploadTests(unittest.TestCase):
                 self.assertIn(request(role, route, record)[0], (401, 403))
             for invalid in ([record], {**record, "body": "private text"}, {"id": "incomplete"}):
                 self.assertEqual(request("intake", route, invalid)[0], 400)
+            ambiguous = json.dumps(record).replace('"id":', '"id": "another", "id":').encode()
+            raw = json.dumps(record).encode()
+            for invalid in (ambiguous, b"[" * 1500, dict(record, id=".."), dict(record, title="\ud800")):
+                self.assertEqual(request("intake", route, invalid)[0], 400)
+            self.assertEqual(request("intake", route, raw, {"Content-Encoding": "gzip"})[0], 415)
+            self.assertEqual(request("intake", route, raw, {"Content-Length": str(1024 * 1024 + 1)})[0], 413)
             self.assertEqual(graph.cases(), [])
             self.assertTrue(request("intake", "/api/session")[1]["can_import"])
             self.assertFalse(request("review", "/api/session")[1]["can_import"])

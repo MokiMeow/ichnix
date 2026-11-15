@@ -74,6 +74,7 @@
 }
 .manual-intro,
 .workspace-intro {
+  position: relative;
   border-bottom: 1px solid var(--line);
   padding-bottom: 1.6rem;
 }
@@ -206,12 +207,50 @@
   padding-block: 2.2rem 3rem;
 }
 .workspace-intro {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
 }
+/* Reserve the feedback line so a fast response never moves the controls. */
+.pending-line {
+  position: absolute;
+  inset: auto 0 -0.6rem;
+  height: 2px;
+  pointer-events: none;
+  background: var(--line);
+}
+.pending-line::before {
+  content: "";
+  display: block;
+  width: 4rem;
+  max-width: 30%;
+  height: 100%;
+  background: var(--accent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pending-line {
+    animation: pending-appear 150ms 180ms backwards;
+  }
+  @keyframes pending-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+.case-diagram [aria-busy="true"],
+#evaluation-result[aria-busy="true"],
+#detail div[aria-busy="true"] {
+  min-height: 2.75rem;
+  background: linear-gradient(var(--line), var(--line)) left center /
+    min(8rem, 40%) 2px no-repeat;
+}
 #workspace-label {
+  min-height: 1.5em;
   margin: 0;
   color: var(--muted);
 }
@@ -240,6 +279,24 @@
 .cmd:disabled {
   opacity: 0.5;
   cursor: default;
+}
+#report-drop {
+  display: grid;
+  gap: 0.6rem;
+  width: min(100%, 36rem);
+  margin-block: 0.6rem;
+  padding: 1rem;
+  border: 1px dashed var(--muted);
+  cursor: pointer;
+}
+#report-drop input {
+  max-width: 100%;
+  min-width: 0;
+}
+#report-drop:focus-within,
+#report-drop.dragging {
+  border-color: var(--accent);
+  background: var(--surface);
 }
 #connect {
   margin-top: 2rem;
@@ -510,6 +567,7 @@
     padding-block: 1.5rem;
   }
   .workspace-intro {
+    position: relative;
     align-items: flex-start;
   }
   #desk aside {
@@ -614,4 +672,10 @@
   align-items: center;
   min-height: 44px;
   font-size: 0.875rem;
+}
+
+@media (max-width: 24rem) {
+  .workspace-intro {
+    flex-wrap: wrap;
+  }
 }

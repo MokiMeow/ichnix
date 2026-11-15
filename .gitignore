@@ -42,3 +42,9 @@ test-results/
 dist/
 .dist-build-*/
 .env*
+
+# Private workspace configuration and local QA artifacts
+.local/
+ichnix-mcp.json
+ichnix-mcp.toml
+*.mov

@@ -75,7 +75,7 @@ def named_workspace(hosted=False):
                 thread.join()
 
 
-def public_checks(browser, origin, width):
+def public_checks(browser, origin, width, hosted=False):
     page = browser.new_page(viewport={"width": width, "height": 850}, reduced_motion="reduce")
     errors, external, exports = [], [], []
     page.on("request", lambda req: exports.append(req.url) if req.url.endswith("/selfgraph.json") else None)
@@ -83,8 +83,32 @@ def public_checks(browser, origin, width):
     page.on("request", lambda req: external.append(urlsplit(req.url).netloc)
             if req.url.startswith(("http:", "https:")) and urlsplit(req.url).netloc != urlsplit(origin).netloc else None)
     try:
-        for route in ("/", "/docs", "/console"):
+        # Built Vercel shell uses the same relative API over a dedicated demo origin.
+        if hosted:
+            page.route(origin + "/console", lambda route: route.fulfill(
+                path=ROOT / "dist/console.html", content_type="text/html"))
+        for route in (("/console",) if hosted else ("/", "/docs", "/console")):
+            if route == "/console":
+                held_session = []
+                page.route("**/api/session", lambda job: held_session.append(job))
             page.goto(origin + route)
+            if route == "/console":
+                expect(page.get_by_role("progressbar", name="Connecting to workspace")).to_be_visible()
+                expect(page.locator("#status")).to_be_empty()
+                for _ in range(100):
+                    if held_session:
+                        break
+                    page.wait_for_timeout(20)
+                assert held_session
+                if width == 820:
+                    held_session[0].fulfill(status=503)
+                    expect(page.locator("#status")).to_contain_text("workspace is unavailable")
+                    expect(page.locator("#connect")).to_be_hidden()
+                    page.unroute("**/api/session")
+                    page.get_by_role("button", name="Try again").click()
+                else:
+                    held_session[0].continue_()
+                    page.unroute("**/api/session")
             page.evaluate("document.fonts.ready")
             assert page.evaluate("document.documentElement.scrollWidth") == width
             if route == "/":
@@ -174,15 +198,16 @@ def public_checks(browser, origin, width):
         page.close()
 
 
-def role_checks(browser, origin, tokens, hosted=False):
-    if hosted:
+def role_checks(browser, origin, tokens, width, hosted=False):
+    if hosted and width == 390:
         preview = browser.new_page(viewport={"width": 320, "height": 700})
         try:
             preview.goto(origin)
             expect(preview.get_by_role("link", name="Private sign-in")).to_be_visible()
             assert preview.evaluate("document.documentElement.scrollWidth") == 320
             preview.goto(origin + "/console")
-            expect(preview.locator("#status")).to_contain_text("could not complete")
+            expect(preview.locator("#status")).to_contain_text("workspace is unavailable")
+            expect(preview.get_by_role("button", name="Try again")).to_be_visible()
             expect(preview.locator("#connect")).to_be_hidden()
             preview.get_by_role("link", name="Private sign-in").click()
             expect(preview.locator("#connect")).to_be_visible()
@@ -190,7 +215,7 @@ def role_checks(browser, origin, tokens, hosted=False):
         finally:
             preview.close()
     for role, token in tokens.items():
-        page = browser.new_page()
+        page = browser.new_page(viewport={"width": width, "height": 850}, reduced_motion="reduce")
         leaked = []
         requests = []
         forbidden = []
@@ -226,7 +251,6 @@ def role_checks(browser, origin, tokens, hosted=False):
                 expect(page.locator("#desk")).to_be_hidden()
                 continue
             if role == "read":
-                page.set_viewport_size({"width": 390 if hosted else 1440, "height": 850})
                 pager = page.get_by_role("navigation", name="Case pages")
                 expect(pager).to_be_visible()
                 expect(pager.get_by_role("button", name="Previous")).to_be_disabled()
@@ -254,8 +278,18 @@ def role_checks(browser, origin, tokens, hosted=False):
                 pager.get_by_role("button", name="Previous").click()
                 expect(page.locator(".case-id")).to_have_text("IX-104")
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-                page.set_viewport_size({"width": 1280, "height": 850})
-            page.locator('#cases button[data-case-id="IX-108"]').click()
+            if role == "read":
+                route = "**/" + ("org-api" if hosted else "api") + "/cases/IX-108"
+                page.route(route, lambda request: request.fulfill(status=503))
+            if width <= 720:
+                page.locator("#case-select").select_option("IX-108")
+            else:
+                page.locator('#cases button[data-case-id="IX-108"]').click()
+            if role == "read":
+                expect(page.locator("#status")).to_contain_text("could not complete")
+                expect(page.locator(".case-id")).to_have_text("IX-104")
+                page.unroute(route)
+                page.get_by_role("button", name="Try again").click()
             expect(page.locator(".case-id")).to_have_text("IX-108")
             page.get_by_text("Review workflow diagram", exact=True).click()
             expect(page.locator(".review-diagram")).to_be_visible()
@@ -264,12 +298,65 @@ def role_checks(browser, origin, tokens, hosted=False):
             buttons = page.locator("#detail .review-row button")
             if role == "intake":
                 expect(buttons).to_have_count(0)
-                report = {"id": "ZZZ-BROWSER-INTAKE", "title": "Review uploaded policy",
+                report = {"id": "A-BROWSER-INTAKE", "title": "Review uploaded policy",
                           "service": "ledger", "component": "audit", "revision": "r9", "owner": "platform"}
-                page.locator("#report-file").set_input_files({"name": "mapped-case.json", "mimeType": "application/json",
+
+                def drop(names, *, target="#report-drop", folder=False, size=None):
+                    return page.locator(target).evaluate("""(el, [names, report, folder, size]) => {
+                        const transfer = new DataTransfer();
+                        for (const name of names) transfer.items.add(new File([
+                            size === null ? JSON.stringify(report) : new Uint8Array(size)
+                        ], name, {type: "application/json"}));
+                        const entry = DataTransferItem.prototype.webkitGetAsEntry;
+                        try {
+                            if (folder) DataTransferItem.prototype.webkitGetAsEntry = () => ({isDirectory:true});
+                            return el.dispatchEvent(new DragEvent("drop", {
+                                bubbles:true, cancelable:true, dataTransfer:transfer
+                            }));
+                        } finally {
+                            DataTransferItem.prototype.webkitGetAsEntry = entry;
+                        }
+                    }""", [names, report, folder, size])
+
+                expect(page.get_by_role("button", name="Import report")).to_be_disabled()
+                assert drop(["skip.json"], target=".workspace-intro") is False
+                assert page.locator("#report-file").evaluate("el => el.files.length") == 0
+                drop(["oversize.json"], size=1024 * 1024 + 1)
+                expect(page.locator("#status")).to_contain_text("1 MiB")
+                assert page.locator("#report-file").evaluate("el => el.files.length") == 0
+                drop(["folder"], folder=True)
+                expect(page.locator("#status")).to_have_text("Choose a file instead of a folder.")
+                assert page.locator("#report-file").evaluate("el => el.files.length") == 0
+                expect(page.locator("#report-drop")).to_be_visible(timeout=1500)
+                page.locator("#report-file").set_input_files({"name": "old.json", "mimeType": "application/json",
                                                                "buffer": json.dumps(report).encode()})
+                drop(["one.json", "two.json"])
+                expect(page.locator("#status")).to_contain_text("one file")
+                assert page.locator("#report-file").evaluate("el => el.files.length") == 0
+                page.locator("#report-file").set_input_files({"name": "invalid-utf8.json", "mimeType": "application/json",
+                    "buffer": json.dumps(report).encode().replace(b"Review uploaded policy", b"Review \xff policy")})
                 page.get_by_role("button", name="Import report").click()
-                expect(page.locator(".case-id")).to_have_text("ZZZ-BROWSER-INTAKE")
+                expect(page.locator("#status")).to_have_text("Choose a valid UTF-8 JSON file.")
+                if hosted:
+                    # Use the native chooser on a narrow viewport.
+                    page.locator("#report-file").set_input_files({"name": "mapped-case.json", "mimeType": "application/json",
+                                                                 "buffer": json.dumps(report).encode("utf-8-sig")})
+                else:
+                    drop(["mapped-case.json"])
+                    assert page.locator("#report-file").evaluate("el => el.files[0].name") == "mapped-case.json"
+                route = "**/" + ("org-api" if hosted else "api") + "/import/report"
+                submissions = []
+                page.route(route, lambda request: submissions.append(request))
+                with page.expect_request(route):
+                    page.get_by_role("button", name="Import report").click()
+                expect(page.get_by_role("button", name="Import report")).to_be_disabled()
+                page.locator("#report-upload").evaluate("form => form.requestSubmit()")
+                assert len(submissions) == 1
+                if hosted:
+                    assert submissions[0].request.post_data_buffer == json.dumps(report).encode("utf-8-sig")
+                submissions[0].continue_()
+                page.unroute(route)
+                expect(page.locator(".case-id")).to_have_text("A-BROWSER-INTAKE")
                 expect(page.locator("#detail h2")).to_have_text(report["title"])
             elif role == "read":
                 expect(page.locator("#report-upload")).to_be_hidden()
@@ -285,7 +372,44 @@ def role_checks(browser, origin, tokens, hosted=False):
                 expect(page.locator(".review-history")).to_contain_text("browser-review")
                 page.keyboard.press("Space")
                 expect(page.locator(".review-history")).to_be_hidden()
-            page.get_by_role("button", name="Disconnect").click()
+            if width == 820:
+                family = "org-api" if hosted else "api"
+                if role == "intake":
+                    path = f"**/{family}/import/report"
+                    page.route(path, lambda route: route.fulfill(status=403))
+                    page.locator("#report-file").set_input_files({"name": "again.json", "mimeType": "application/json",
+                                                                 "buffer": json.dumps(report).encode()})
+                    page.get_by_role("button", name="Import report").click()
+                elif role == "review":
+                    path = f"**/{family}/cases/IX-108/reviews"
+                    page.route(path, lambda route: route.fulfill(status=401))
+                    buttons.first.click()
+                else:
+                    path = f"**/{family}/cases/IX-113/diagram.svg"
+                    holds = []
+                    page.route(path, lambda route: holds.append(route))
+                    page.locator('#cases button[data-case-id="IX-113"]').click()
+                    with page.expect_request(path):
+                        page.get_by_text("Review workflow diagram", exact=True).click()
+                    # A late denial from an old login must not disconnect a newer login with the same token.
+                    page.get_by_role("button", name="Disconnect").click()
+                    page.get_by_label("Access token").fill(token)
+                    page.get_by_role("button", name="Connect", exact=True).click()
+                    expect(page.locator(".case-id")).to_have_text("IX-104")
+                    with page.expect_response(path):
+                        holds[0].fulfill(status=401)
+                    expect(page.get_by_role("button", name="Disconnect")).to_be_visible()
+                    page.unroute(path)
+                    path = f"**/{family}/cases/IX-104/diagram.svg"
+                    page.route(path, lambda route: route.fulfill(status=401))
+                    page.get_by_text("Review workflow diagram", exact=True).click()
+                expect(page.locator("#status")).to_contain_text("Access denied")
+                expect(page.locator("#desk")).to_be_hidden()
+                expect(page.locator("#activity")).not_to_have_attribute("aria-label", "Retrieving case IX-108")
+                assert page.locator("#retry").evaluate("el => el.onclick === null")
+                assert page.locator("#case-pager button").evaluate_all("els => els.every(e => !e.value && e.disabled)")
+            else:
+                page.get_by_role("button", name="Disconnect").click()
             expect(page.locator("#detail")).to_be_empty()
             expect(page.get_by_label("Access token")).to_have_value("")
         finally:
@@ -302,12 +426,15 @@ def main():
         ("ICHNIX_", "HACKERONE_", "BUGCROWD_", "CLOUDFLARE_"))}
     with patch.dict(os.environ, clean, clear=True), sync_playwright() as playwright:
         with playwright.chromium.launch(executable_path=chrome) as browser:
+            subprocess.run(["node", str(ROOT / "hosting/build-static.mjs")], cwd=ROOT, check=True)
             with sample_workspace() as origin:
-                for width in (390, 1440):
-                    public_checks(browser, origin, width)
+                for width in (390, 820, 1440):
+                    for hosted in (False, True):
+                        public_checks(browser, origin, width, hosted=hosted)
             for hosted in (False, True):
-                with named_workspace(hosted=hosted) as (origin, tokens):
-                    role_checks(browser, origin, tokens, hosted=hosted)
+                for width in (390, 820, 1440):
+                    with named_workspace(hosted=hosted) as (origin, tokens):
+                        role_checks(browser, origin, tokens, width=width, hosted=hosted)
     print("Chromium passed public and named role flows on native and hosted workspace routes")
 
 

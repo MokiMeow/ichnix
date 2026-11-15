@@ -13,9 +13,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
 
-from ichnix.credentials import identify
+from ichnix.credentials import identify, principal
 from ichnix.graph import Graph
 from ichnix.handoffs import Handoffs
+from ichnix.intake import MAX_REPORT_BYTES, parse_mapped_report
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
@@ -25,7 +26,10 @@ PUBLIC_ASSETS = {
     "fonts/IBMPlexMono-Regular.ttf", "fonts/InstrumentSans.ttf",
     "fonts/IBMPlexMono-LICENSE.txt", "fonts/InstrumentSans-LICENSE.txt",
 }
-MAX_BODY = 1024 * 1024
+
+
+class BodyTooLarge(ValueError):
+    pass
 
 
 def diagram_svg(data):
@@ -80,9 +84,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def body(self):
-        size = int(self.headers.get("Content-Length", "-1"))
-        if size < 0 or size > MAX_BODY:
-            raise ValueError("body length")
+        lengths = self.headers.get_all("Content-Length", [])
+        if ("Transfer-Encoding" in self.headers or len(lengths) != 1
+                or not re.fullmatch(r"[0-9]+", lengths[0], re.ASCII)):
+            raise ValueError("expected one body length")
+        size = int(lengths[0])
+        if size > MAX_REPORT_BYTES:
+            raise BodyTooLarge
         body = self.rfile.read(size)
         if len(body) != size:
             raise ValueError("incomplete request")
@@ -131,14 +139,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/import/report" and write:
             if not identify(self.headers.get("Authorization", ""), intake=True):
                 return self.send(403, {"error": "named intake credential required"})
-            if self.headers.get_content_type() != "application/json":
+            if self.headers.get_content_type() != "application/json" or "Content-Encoding" in self.headers:
                 return self.send(415, {"error": "expected application/json"})
-            report = json.loads(self.body())
-            if not isinstance(report, dict) or report.keys() != {"id", "title", "service", "revision", "component", "owner"}:
-                return self.send(400, {"error": "expected one mapped report with six metadata fields"})
+            report = parse_mapped_report(self.body())
             Graph().import_report(report)
             return self.send(200, {"id": report["id"]})
 
+        if path == "/api/auth/status" and not write:
+            identity = principal(self.headers.get("Authorization", ""))
+            if identity is None:
+                return self.send(401, {"error": "valid access token required"})
+            return self.send(200, identity)
         if path == "/api/session" and not write:
             if not self.authorized():
                 return self.send(401, {"error": "valid access token required"})
@@ -213,6 +224,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send(403, {"error": "forbidden"})
         except KeyError:
             self.send(404, {"error": "record unavailable"})
+        except BodyTooLarge:
+            self.send(413, {"error": "request too large"})
         except (ValueError, TypeError):
             self.send(400, {"error": "invalid input"})
         except (BrokenPipeError, ConnectionResetError):

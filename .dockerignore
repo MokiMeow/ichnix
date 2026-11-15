@@ -11,6 +11,7 @@
 !ichnix/demo.py
 !ichnix/eval_graph.py
 !ichnix/graph.py
+!ichnix/intake.py
 !ichnix/handoff_cli.py
 !ichnix/handoffs.py
 !ichnix/mcp_server.py

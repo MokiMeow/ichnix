@@ -56,12 +56,17 @@ def parser():
     bc = commands.add_parser("sync-bugcrowd", help="import reviewed Bugcrowd submissions")
     bc.add_argument("--engagement", required=True, help="customer engagement code")
     bc.add_argument("--catalog", required=True, help="inventory JSON keyed by submission or target UUID")
-    human = commands.add_parser("human", help="read or review through the private HTTP console with a named credential")
+    auth = commands.add_parser("auth", help="check workspace credentials")
+    auth_status = auth.add_subparsers(dest="action", required=True).add_parser("status", help="show authenticated name and role")
+    auth_status.add_argument("--workspace-url", help="private workspace origin (ICHNIX_WORKSPACE_URL)")
+    auth_status.add_argument("--token-file", help="credential file (ICHNIX_USER_TOKEN_FILE or ICHNIX_WORKER_TOKEN_FILE)")
+    human = commands.add_parser("human", help="read, review or import through the private HTTP console")
     human.add_argument("--workspace-url", help="private workspace origin (ICHNIX_WORKSPACE_URL)")
-    human.add_argument("--token-file", help="reader or reviewer credential (ICHNIX_USER_TOKEN_FILE)")
+    human.add_argument("--token-file", help="named workspace credential (ICHNIX_USER_TOKEN_FILE)")
     remote = human.add_subparsers(dest="action", required=True)
     remote.add_parser("cases", help="list the reports available to this identity")
     remote.add_parser("context", help="read a case and its evidence").add_argument("case_id")
+    remote.add_parser("import-report", help="upload one mapped report with an intake credential").add_argument("file", type=Path)
     remote_review = remote.add_parser("review", help="record a named owner decision")
     remote_review.add_argument("--request-id", help="stable idempotency key when retrying a decision")
     review = commands.add_parser("review", help="review a suggested remediation owner")
@@ -84,9 +89,18 @@ def parser():
     config.add_argument("--hydra-url", help="HydraDB origin for the local profile")
     config.add_argument("--hydra-token-file", help="HydraDB credential file for the local profile")
     config.add_argument("--out", type=Path, help="write a new configuration file instead of standard output")
+    for remote_command in (auth_status, human, mcp, config):
+        remote_command.add_argument("--hosted", action="store_true", help="use the HTTPS organization relay (ICHNIX_WORKSPACE_HOSTED=1)")
     for name, (_, help_text) in OPERATOR_COMMANDS.items():
         commands.add_parser(name, help=help_text)
     return root
+
+
+def hosted_mode(args):
+    value = os.getenv("ICHNIX_WORKSPACE_HOSTED", "0")
+    if value not in ("0", "1"):
+        raise ValueError("ICHNIX_WORKSPACE_HOSTED must be 0 or 1")
+    return args.hosted or value == "1"
 
 
 def mcp_config(args):
@@ -101,11 +115,13 @@ def mcp_config(args):
         if not source:
             raise ValueError("worker credential file required")
         token_file = Path(source).expanduser().resolve(strict=True)
-        Worker(origin, token_file)
-        env = {"ICHNIX_WORKSPACE_URL": origin, "ICHNIX_WORKER_TOKEN_FILE": str(token_file)}
+        hosted = hosted_mode(args)
+        Worker(origin, token_file, hosted=hosted)
+        env = {"ICHNIX_WORKSPACE_URL": origin, "ICHNIX_WORKER_TOKEN_FILE": str(token_file),
+               "ICHNIX_WORKSPACE_HOSTED": "1" if hosted else "0"}
         command.append("--worker")
     else:
-        if args.workspace_url or args.worker_token_file:
+        if args.hosted or args.workspace_url or args.worker_token_file:
             raise ValueError("local profiles take HydraDB options")
         source = args.hydra_token_file or os.getenv("ICHNIX_HYDRA_TOKEN_FILE") or state_directory() / "hydra-token"
         token_file = Path(source).expanduser().resolve(strict=True)
@@ -141,7 +157,10 @@ def human_request(args):
     from ichnix.graph import _case_id
     from ichnix.worker_client import WorkspaceClient
     client = WorkspaceClient(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
-                             args.token_file or os.getenv("ICHNIX_USER_TOKEN_FILE"))
+                             args.token_file or os.getenv("ICHNIX_USER_TOKEN_FILE"), hosted=hosted_mode(args))
+    if args.action == "import-report":
+        from ichnix.intake import read_mapped_report
+        return client.request("POST", "/api/import/report", read_mapped_report(args.file))
     route = "/api/cases"
     if args.action == "cases":
         return client.request("GET", route)
@@ -198,6 +217,13 @@ def main():
         os.execv(sys.executable, [sys.executable, str(ROOT / target), *sys.argv[2:]])
     args = parser().parse_args()
     try:
+        if args.command == "auth":
+            from ichnix.worker_client import WorkspaceClient
+            client = WorkspaceClient(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
+                                     args.token_file or os.getenv("ICHNIX_USER_TOKEN_FILE") or os.getenv("ICHNIX_WORKER_TOKEN_FILE"),
+                                     hosted=hosted_mode(args))
+            print(json.dumps(client.auth_status(), indent=2))
+            return 0
         if args.command == "human":
             print(json.dumps(human_request(args), ensure_ascii=True, indent=2))
             return 0
@@ -207,12 +233,12 @@ def main():
         if args.command == "mcp" and args.worker:
             from ichnix.worker_client import Worker
             worker = Worker(args.workspace_url or os.getenv("ICHNIX_WORKSPACE_URL"),
-                            args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE"))
+                            args.worker_token_file or os.getenv("ICHNIX_WORKER_TOKEN_FILE"), hosted=hosted_mode(args))
             serve(worker=worker)
             return 0
         from ichnix.graph import Graph
         if args.command == "mcp":
-            if args.workspace_url or args.worker_token_file:
+            if args.hosted or args.workspace_url or args.worker_token_file:
                 raise ValueError("workspace options require --worker")
             serve(Graph)
             return 0

@@ -14,7 +14,7 @@ from ichnix.credentials import issue
 from ichnix.eval_graph import isolated_graph
 from ichnix.handoffs import Handoffs
 from ichnix.server import ConsoleServer, Handler
-from ichnix.worker_client import Worker
+from ichnix.worker_client import Worker, WorkspaceClient
 
 
 class WorkerTests(unittest.TestCase):
@@ -55,6 +55,30 @@ class WorkerTests(unittest.TestCase):
             finally:
                 server.shutdown()
                 thread.join()
+
+    def test_hosted_mode_requires_tls_and_uses_only_org_routes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            token = Path(tmp) / "token"
+            token.touch(mode=0o600)
+            token.write_text(secrets.token_urlsafe(40))
+            with self.assertRaises(ValueError):
+                Worker("http://127.0.0.1", token, hosted=True)
+            with patch("ichnix.worker_client.HTTPSConnection") as connect:
+                client = WorkspaceClient("https://workspace.example", token, hosted=True)
+                response = connect.return_value.getresponse.return_value
+                response.headers.get_content_type.return_value = "application/json"
+                response.status = 200
+                response.read.return_value = b'{"name":"fixture-worker","role":"worker"}'
+                self.assertEqual(client.auth_status()["role"], "worker")
+                connect.return_value.request.assert_called_once_with("GET", "/org-api/auth/status", None,
+                                                                     {"Authorization": "Bearer " + client.bearer})
+                with self.assertRaises(ValueError):
+                    client.request("GET", "//other.example")
+                response.status = 307
+                with self.assertRaises(RuntimeError):
+                    client.request("POST", "/api/handoffs/claim", {})
+                self.assertEqual(connect.return_value.request.call_count, 2)
+                self.assertEqual(connect.return_value.request.call_args.args[:2], ("POST", "/org-api/handoffs/claim"))
 
     def test_remote_stdio_claim_context_and_finish(self):
         with isolated_graph() as graph, tempfile.TemporaryDirectory() as tmp:

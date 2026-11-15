@@ -54,6 +54,14 @@ def _call(params, graph_factory, worker=None):
         return {"result": {"isError": True, "content": [{"type": "text", "text": detail}]}}
 
 
+def _verified(worker):
+    try:
+        worker.verify()
+        return True
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+
 def _dispatch(message, stage, graph_factory, worker=None):
     if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
         return stage, _error(-32600, "invalid request")
@@ -70,6 +78,8 @@ def _dispatch(message, stage, graph_factory, worker=None):
     if method == "initialize" and stage == "new":
         if not isinstance(params.get("protocolVersion"), str):
             return stage, _error(-32602, "protocolVersion required")
+        if worker is not None and not _verified(worker):
+            return stage, _error(-32001, "worker authentication failed")
         requested = params["protocolVersion"]
         version = requested if requested in (PROTOCOL, "2025-06-18", "2025-03-26") else PROTOCOL
         return "initializing", {"result": {"protocolVersion": version, "capabilities": {"tools": {}},
@@ -81,6 +91,8 @@ def _dispatch(message, stage, graph_factory, worker=None):
         return stage, _error(-32002, "initialization required")
     if method == "tools/list":
         if worker is not None:
+            if not _verified(worker):
+                return "new", _error(-32001, "worker authentication failed")
             from ichnix.worker_client import TOOLS as worker_tools
             return stage, {"result": {"tools": worker_tools}}
         return stage, {"result": {"tools": TOOLS}}

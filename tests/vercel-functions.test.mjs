@@ -296,7 +296,7 @@ test("organization workspace forwards scoped bearer requests and restricts repli
   assert.equal((await workspace.fetch(orgReq("org-api/cases"))).status, 401);
   assert.equal(
     (await workspace.fetch(orgReq("org-api/handoffs/claim", write))).status,
-    404,
+    400,
   );
   assert.equal(
     (
@@ -406,4 +406,130 @@ test("private case pages forward only a bounded navigation cursor", async () => 
     assert.equal((await workspace.fetch(request(query))).status, 400);
   }
   assert.equal(upstream, undefined);
+});
+
+test("hosted identities and leases use only the credentialed private origin", async () => {
+  const workspace = (await import("../api/org-workspace.mjs")).default;
+  const org = "https://private.example.org";
+  process.env.ICHNIX_WORKSPACE_ORIGIN = org;
+  process.env.ICHNIX_PUBLIC_ORIGIN = "https://demo.example.org";
+  const secret = randomBytes(32).toString("hex");
+  process.env.ICHNIX_ORIGIN_SECRET = secret;
+  const bearer = "Bearer " + randomBytes(32).toString("hex");
+  const token = randomBytes(32).toString("base64url");
+  const id = "a".repeat(64);
+  const context = {
+    report: { id: "IX-24" },
+    evidence: [],
+    ranked_checks: [],
+    recommendations: [],
+  };
+  const job = {
+    id,
+    case_id: "IX-24",
+    kind: "owner-review",
+    service: "fixture",
+    component: "fixture",
+    revision: "r1",
+    state: "leased",
+    expires: 2000000000,
+    attempts: 1,
+    worker: "fixture",
+  };
+  const identity = { name: "fixture", role: "worker" };
+  const request = (path, body, auth = bearer) =>
+    new Request("https://frontend.example.org/org-api/" + path, {
+      method: body === undefined ? "GET" : "POST",
+      headers: {
+        authorization: auth,
+        "content-type": "application/json",
+        cookie: "discard",
+        "x-ichnix-origin-secret": "discard",
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  for (const [path, body, result, extra] of [
+    ["auth/status", undefined, identity, { digest: "discard" }],
+    ["handoffs/claim", {}, null, null],
+    [
+      "handoffs/claim",
+      { lease_seconds: 90 },
+      { ...job, token },
+      { token_hash: "discard" },
+    ],
+    [
+      "handoffs/" + id + "/context",
+      { token },
+      context,
+      { related_reports: ["discard"] },
+    ],
+    [
+      "handoffs/" + id + "/finish",
+      { token, disposition: "needs-owner-review" },
+      {
+        ...job,
+        state: "complete",
+        expires: null,
+        disposition: "needs-owner-review",
+      },
+      { token },
+    ],
+  ]) {
+    let called = false;
+    globalThis.fetch = async (url, options) => {
+      called = true;
+      assert.equal(String(url), org + "/api/" + path);
+      assert.equal(options.method, body === undefined ? "GET" : "POST");
+      if (body !== undefined) assert.deepEqual(JSON.parse(options.body), body);
+      assert.equal(options.headers.authorization, bearer);
+      assert.equal(options.headers["x-ichnix-origin-secret"], secret);
+      assert.equal(options.headers.cookie, undefined);
+      assert.equal(options.redirect, "error");
+      return Response.json(result === null ? null : { ...result, ...extra }, {
+        headers: { "set-cookie": "discard" },
+      });
+    };
+    const response = await workspace.fetch(request(path, body));
+    assert.equal(response.status, 200, path);
+    assert.equal(called, true);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.has("set-cookie"), false);
+    assert.deepEqual(await response.json(), result);
+  }
+  let forwarded = 0;
+  globalThis.fetch = async () => {
+    forwarded++;
+    return Response.json({ error: "internal identity data" }, { status: 403 });
+  };
+  for (const [path, body, expected] of [
+    ["auth/status", {}, 405],
+    ["auth/status?token=abc", undefined, 400],
+    ["handoffs/claim", undefined, 405],
+    ["handoffs/claim", [], 400],
+    ["handoffs/claim", { lease_seconds: false }, 400],
+    ["handoffs/claim", { lease_seconds: 3601 }, 400],
+    ["handoffs/claim", { worker: "other" }, 400],
+    ["handoffs/claim", { junk: "x".repeat(2048) }, 413],
+    ["handoffs/claim?token=abc", {}, 400],
+    ["handoffs/000/context", { token }, 404],
+    ["handoffs/" + id + "/context", { token, case_id: "elsewhere" }, 400],
+    ["handoffs/" + id + "/context", {}, 400],
+    ["handoffs/" + id + "/finish", { token, disposition: "accept-owner" }, 400],
+    ["handoffs/" + id + "/enqueue", {}, 404],
+    ["auth/issue", {}, 404],
+  ])
+    assert.equal(
+      (await workspace.fetch(request(path, body))).status,
+      expected,
+      path,
+    );
+  assert.equal(
+    (await workspace.fetch(request("handoffs/claim", {}, ""))).status,
+    401,
+  );
+  assert.equal(forwarded, 0);
+  const denial = await workspace.fetch(request("handoffs/claim", {}));
+  assert.equal(denial.status, 403);
+  assert.deepEqual(await denial.json(), { error: "request denied" });
+  assert.equal(forwarded, 1);
 });

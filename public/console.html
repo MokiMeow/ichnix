@@ -35,9 +35,16 @@
         <div>
           <p class="loc">Workspace <span aria-hidden="true">/</span> Review</p>
           <h1>Review console</h1>
-          <p id="workspace-label">Private workspace</p>
+          <p id="workspace-label"></p>
         </div>
         <button id="leave" class="cmd" hidden>Disconnect</button>
+        <div
+          id="activity"
+          class="pending-line"
+          role="progressbar"
+          aria-label="Connecting to workspace"
+          hidden
+        ></div>
       </header>
       <form id="connect" hidden>
         <h2>Connect to workspace</h2>
@@ -56,8 +63,8 @@
         </p>
       </form>
       <form id="report-upload" hidden>
-        <label for="report-file">Mapped report JSON</label>
-        <div class="input-row">
+        <label id="report-drop" for="report-file">
+          Drop a mapped report here or choose a file
           <input
             type="file"
             id="report-file"
@@ -65,8 +72,10 @@
             required
             aria-describedby="report-format"
           />
-          <button class="cmd primary">Import report</button>
-        </div>
+        </label>
+        <button id="report-submit" class="cmd primary" disabled>
+          Import report
+        </button>
         <p class="hint" id="report-format">
           Choose one JSON object with id, title, service, component, revision
           and owner. Maximum 1 MiB.
@@ -76,7 +85,8 @@
         <summary>Learning curve</summary>
         <div id="evaluation-result" aria-live="polite"></div>
       </details>
-      <p id="status" role="status">Opening workspace…</p>
+      <p id="status" role="status"></p>
+      <button id="retry" type="button" class="cmd" hidden>Try again</button>
       <noscript>Enable JavaScript to open the review console.</noscript>
       <div id="desk" hidden>
         <aside>

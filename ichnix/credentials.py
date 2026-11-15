@@ -126,11 +126,10 @@ def history(path, name=None):
         return [dict(row) for row in db.execute(f"SELECT {fields} FROM {source}{where} ORDER BY {order}", params)]
 
 
-def identify(header, edit=False, worker=False, intake=False):
-    prefix = "Bearer "
-    if not header.startswith(prefix):
+def principal(header):
+    if not header.startswith("Bearer "):
         return None
-    token = header[len(prefix):]
+    token = header[len("Bearer "):]
     if not token.isascii() or not 32 <= len(token) <= 512:
         return None
     if "ICHNIX_IDENTITY_DB" in os.environ:
@@ -140,18 +139,21 @@ def identify(header, edit=False, worker=False, intake=False):
                                  (_digest(token),)).fetchone()
         except (sqlite3.Error, OSError, ValueError):
             return None
-        roles = ("review", "read", "intake")
-        if worker or intake or edit:
-            roles = ("worker" if worker else "intake" if intake else "review",)
-        if row and row[1] in roles:
-            return row[0]
+        if row and row[1] in ("read", "review", "intake", "worker"):
+            return {"name": row[0], "role": row[1]}
         return None
-    if worker or intake:
-        return None
-    roles = [("ICHNIX_REVIEW_TOKEN", "shared:review")]
-    if not edit:
-        roles.append(("ICHNIX_READ_TOKEN", "shared:read"))
-    return next((name for key, name in roles if hmac.compare_digest(token.encode(), os.getenv(key, "").encode())), None)
+    for role, key in (("review", "ICHNIX_REVIEW_TOKEN"), ("read", "ICHNIX_READ_TOKEN")):
+        if hmac.compare_digest(token.encode(), os.getenv(key, "").encode()):
+            return {"name": "shared:" + role, "role": role}
+    return None
+
+
+def identify(header, edit=False, worker=False, intake=False):
+    identity = principal(header)
+    roles = ("review", "read", "intake")
+    if worker or intake or edit:
+        roles = ("worker" if worker else "intake" if intake else "review",)
+    return identity["name"] if identity and identity["role"] in roles else None
 
 
 def main():

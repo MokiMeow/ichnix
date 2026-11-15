@@ -11,6 +11,7 @@ let token = "";
 const caseImages = new Set();
 let selected;
 let generation = 0;
+let sessionVersion = 0;
 let publicDemo = false;
 let currentPage = "";
 let canReview = false;
@@ -23,12 +24,48 @@ function element(tag, text, className) {
   return el;
 }
 
+function beginView(label) {
+  const activity = byId("activity");
+  activity.setAttribute("aria-label", label);
+  activity.hidden = false;
+  detail.setAttribute("aria-busy", "true");
+  detail.inert = true;
+  byId("retry").hidden = true;
+  byId("retry").onclick = null;
+  status.textContent = "";
+  return ++generation;
+}
+
+function endView(view) {
+  if (view !== generation) return;
+  byId("activity").hidden = true;
+  detail.removeAttribute("aria-busy");
+  detail.inert = false;
+}
+
+function showError(message, retry) {
+  status.textContent = message;
+  const button = byId("retry");
+  button.hidden = !retry;
+  button.onclick = retry || null;
+}
+
 function clearCaseImages() {
   for (const url of caseImages) URL.revokeObjectURL(url);
   caseImages.clear();
 }
 
 async function loadCaseImage(container, caseId, path, className, alt, failure) {
+  container.setAttribute("aria-busy", "true");
+  const retryImage = () => {
+    if (!container.isConnected || selected !== caseId) return;
+    const retry = element("button", "Retry image", "cmd");
+    retry.type = "button";
+    retry.onclick = () =>
+      loadCaseImage(container, caseId, path, className, alt, failure);
+    container.replaceChildren(element("p", failure), retry);
+  };
+  container.replaceChildren();
   try {
     const response = await request(
       "cases/" + encodeURIComponent(caseId) + "/" + path,
@@ -47,22 +84,34 @@ async function loadCaseImage(container, caseId, path, className, alt, failure) {
       () => {
         URL.revokeObjectURL(url);
         caseImages.delete(url);
-        container.textContent = failure;
+        retryImage();
       },
       { once: true },
     );
     container.replaceChildren(image);
   } catch {
-    if (container.isConnected && selected === caseId)
-      container.textContent = failure;
+    retryImage();
+  } finally {
+    container.removeAttribute("aria-busy");
   }
 }
 
 function clearSession() {
+  sessionVersion++;
+  byId("report-file").disabled = false;
+  byId("report-drop").classList.remove("dragging");
   byId("report-upload").hidden = true;
   byId("report-upload").reset();
+  byId("report-submit").disabled = true;
   byId("token").value = "";
-  generation++;
+  endView(++generation);
+  byId("activity").removeAttribute("aria-label");
+  byId("retry").hidden = true;
+  byId("retry").onclick = null;
+  for (const id of ["previous-page", "next-page"]) {
+    byId(id).value = "";
+    byId(id).disabled = true;
+  }
   currentPage = "";
   byId("case-pager").hidden = true;
   token = "";
@@ -80,6 +129,7 @@ function clearSession() {
 }
 
 async function request(path, options = {}) {
+  const session = sessionVersion;
   let response;
   try {
     response = await fetch(apiBase + path, {
@@ -90,21 +140,24 @@ async function request(path, options = {}) {
       },
       redirect: "error",
       cache: "no-store",
+      signal: AbortSignal.timeout(30000),
     });
   } catch {
     throw new Error("Connection failed. Check that the workspace is running.");
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403)
-      throw Object.assign(
-        new Error(
-          path === "import/report"
-            ? "A named intake credential is required."
-            : options.method === "POST"
-              ? "A reviewer token is required to save decisions."
-              : "Access denied. Check your workspace token.",
-        ),
-        { denied: true },
+    if (response.status === 401 || response.status === 403) {
+      const message =
+        "Access denied. Reconnect with an authorized workspace token.";
+      if (token && !publicDemo && session === sessionVersion) {
+        clearSession();
+        showError(message);
+      }
+      throw new Error(message);
+    }
+    if (response.status === 400 && path === "import/report")
+      throw new Error(
+        "The workspace rejected the report. Check its identifiers, field names and field lengths.",
       );
     if (response.status === 404 && path.startsWith("case-page"))
       throw new Error(
@@ -207,7 +260,7 @@ async function renderCase(
   }
   detail.replaceChildren(heading);
   const diagram = element("details", undefined, "case-diagram");
-  const diagramBody = element("div", "Loading workflow diagram…");
+  const diagramBody = element("div");
   diagram.append(element("summary", "Review workflow diagram"), diagramBody);
   diagram.addEventListener("toggle", () => {
     if (!diagram.open || diagramBody.dataset.loaded) return;
@@ -366,33 +419,34 @@ async function renderCase(
 }
 
 async function openCase(caseId) {
-  const view = ++generation;
-  selected = caseId;
-  byId("case-select").value = caseId;
-  clearCaseImages();
-  detail.textContent = "Loading case…";
-  for (const button of byId("cases").querySelectorAll("button")) {
-    button.setAttribute(
-      "aria-current",
-      String(button.dataset.caseId === caseId),
-    );
-  }
+  const view = beginView("Retrieving case " + caseId);
   try {
     const result = await request("cases/" + encodeURIComponent(caseId));
     const context = await result.json();
     if (view !== generation) return;
-    status.textContent = "";
+    selected = caseId;
+    byId("case-select").value = caseId;
+    for (const button of byId("cases").querySelectorAll("button")) {
+      button.setAttribute(
+        "aria-current",
+        String(button.dataset.caseId === caseId),
+      );
+    }
+    endView(view);
     await renderCase(context, view);
   } catch (error) {
-    if (view === generation) detail.textContent = error.message;
+    if (view !== generation) return;
+    showError(error.message, () => openCase(caseId));
+    byId("case-select").value = selected || "";
+  } finally {
+    endView(view);
   }
 }
 
-async function refresh(query = currentPage) {
-  const view = ++generation;
+async function refresh(query = currentPage, preferred = selected) {
+  const view = beginView("Retrieving cases");
   const upload = byId("report-upload");
   let canImport = false;
-  status.textContent = "Loading cases…";
   try {
     if (!publicDemo) {
       const session = await (await request("session")).json();
@@ -444,7 +498,7 @@ async function refresh(query = currentPage) {
       list.append(li);
     }
     if (cases.length)
-      await openCase(cases.find((r) => r.id === selected)?.id || cases[0].id);
+      await openCase(cases.find((r) => r.id === preferred)?.id || cases[0].id);
     else {
       selected = null;
       clearCaseImages();
@@ -454,31 +508,43 @@ async function refresh(query = currentPage) {
     }
   } catch (error) {
     if (view === generation) {
-      if (!publicDemo && (desk.hidden || error.denied)) clearSession();
-      status.textContent = error.message;
+      showError(error.message, () => refresh(query, preferred));
     }
+  } finally {
+    endView(view);
   }
+}
+
+function validReportFile(input) {
+  const file = input.files[0];
+  if (file && file.size && file.size <= 1024 * 1024) return file;
+  input.value = "";
+  status.textContent = "Choose a JSON file between one byte and 1 MiB.";
+  return null;
 }
 
 async function uploadReport(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const file = byId("report-file").files[0];
-  if (!file || file.size > 1024 * 1024 || !file.size) {
-    status.textContent = "Choose a JSON file between one byte and 1 MiB.";
-    return;
-  }
-  const button = form.querySelector("button");
+  const input = byId("report-file");
+  if (form.hidden || input.disabled) return;
+  const file = validReportFile(input);
+  if (!file) return;
+  const button = byId("report-submit");
   button.disabled = true;
+  input.disabled = true;
+  const session = sessionVersion;
   const view = generation;
   try {
-    const body = await file.text();
+    const body = await file.arrayBuffer();
     if (view !== generation) return;
     let report;
     try {
-      report = JSON.parse(body);
+      report = JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(body),
+      );
     } catch {
-      status.textContent = "The selected file is not valid JSON.";
+      status.textContent = "Choose a valid UTF-8 JSON file.";
       return;
     }
     const keys = ["id", "title", "service", "revision", "component", "owner"];
@@ -501,12 +567,15 @@ async function uploadReport(event) {
     const saved = await response.json();
     if (view !== generation) return;
     form.reset();
-    await refresh("?from=" + encodeURIComponent(saved.id));
+    await refresh("?from=" + encodeURIComponent(saved.id), saved.id);
     if (selected === saved.id) status.textContent = "Imported " + saved.id;
   } catch (error) {
     if (view === generation) status.textContent = error.message;
   } finally {
-    button.disabled = false;
+    if (session === sessionVersion) {
+      input.disabled = false;
+      button.disabled = !input.files.length;
+    }
   }
 }
 
@@ -522,9 +591,63 @@ function initializeConsole() {
       .removeAttribute("aria-current");
     byId("private-signin").setAttribute("aria-current", "page");
   }
+  const drop = byId("report-drop");
+  const input = byId("report-file");
+  for (const type of ["dragover", "drop"]) {
+    document.addEventListener(type, (event) => {
+      if (
+        !event.dataTransfer.types.includes("Files") ||
+        drop.contains(event.target)
+      )
+        return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "none";
+    });
+  }
+  drop.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = input.disabled ? "none" : "copy";
+    drop.classList.toggle("dragging", !input.disabled);
+  });
+  drop.addEventListener("dragleave", (event) => {
+    if (!drop.contains(event.relatedTarget)) drop.classList.remove("dragging");
+  });
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    drop.classList.remove("dragging");
+    if (input.disabled || byId("report-upload").hidden) return;
+    const items = [...event.dataTransfer.items];
+    if (items.some((item) => item.webkitGetAsEntry?.()?.isDirectory)) {
+      input.value = "";
+      byId("report-submit").disabled = true;
+      status.textContent = "Choose a file instead of a folder.";
+      return;
+    }
+    const files = event.dataTransfer.files;
+    if (files.length !== 1) {
+      input.value = "";
+      byId("report-submit").disabled = true;
+      status.textContent = "Drop one file at a time.";
+      return;
+    }
+    input.files = files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  input.addEventListener("change", () => {
+    if (!input.files.length) {
+      byId("report-submit").disabled = true;
+      status.textContent = "";
+      return;
+    }
+    const file = validReportFile(input);
+    byId("report-submit").disabled = !file;
+    if (file) status.textContent = "Ready to import " + file.name;
+  });
   byId("report-upload").addEventListener("submit", uploadReport);
   login.addEventListener("submit", (event) => {
     event.preventDefault();
+    sessionVersion++;
     token = byId("token").value.trim();
     refresh();
   });
@@ -553,7 +676,7 @@ function initializeConsole() {
     )
       return;
     result.setAttribute("aria-busy", "true");
-    result.textContent = "Loading measured results…";
+    result.replaceChildren();
     try {
       const response = await request("evaluation");
       const { curve } = await response.json();
@@ -627,29 +750,44 @@ function initializeConsole() {
   });
 
   async function initializeWorkspace() {
+    const view = beginView("Connecting to workspace");
     try {
       const response = await fetch(apiBase + "session", {
         cache: "no-store",
         redirect: "error",
         signal: AbortSignal.timeout(4000),
       });
+      if (!response.ok && !(response.status === 401 && !hostedPreview)) {
+        throw new Error(
+          "The workspace is unavailable. Check the connection and try again.",
+        );
+      }
       const session = response.ok ? await response.json() : {};
+      if (view !== generation) return;
       publicDemo =
         !orgWorkspace && (hostedPreview || session.public_demo === true);
       disclosedCase = publicDemo ? session.disclosed_case : null;
+      evaluation.hidden = !publicDemo;
+      if (publicDemo) {
+        byId("workspace-label").textContent = disclosedCase
+          ? "Read-only workspace · public disclosure and sample cases"
+          : "Read-only demo · synthetic cases";
+        selected ??= disclosedCase;
+        return refresh();
+      }
+      if (!orgWorkspace)
+        byId("workspace-label").textContent = "Private workspace";
+      login.hidden = false;
     } catch {
-      publicDemo = hostedPreview;
+      if (view !== generation) return;
+      login.hidden = true;
+      showError(
+        "The workspace is unavailable. Check the connection and try again.",
+        initializeWorkspace,
+      );
+    } finally {
+      endView(view);
     }
-    evaluation.hidden = !publicDemo;
-    if (publicDemo) {
-      byId("workspace-label").textContent = disclosedCase
-        ? "Read-only workspace · public disclosure and sample cases"
-        : "Read-only demo · synthetic cases";
-      selected ??= disclosedCase;
-      return refresh();
-    }
-    status.textContent = "";
-    login.hidden = false;
   }
 
   window.addEventListener("pagehide", clearSession);

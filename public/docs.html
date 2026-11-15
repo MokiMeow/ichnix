@@ -226,8 +226,9 @@ docker compose ps</code></pre>
               credential. The hosted relay forwards a bearer credential to the
               organization API for case reads, owner reviews and single-report
               intake. A named intake credential is required to upload. The
-              public demo at <code>/console</code> stays anonymous. Workers
-              continue to use the private service’s dedicated handoff API.
+              public demo at <code>/console</code> stays anonymous. Remote
+              workers can use the hosted organization relay with a named worker
+              credential and the hosted client setting below.
             </p>
             <p>
               For platform events, register <code>/hooks/hackerone</code> or
@@ -353,6 +354,15 @@ python3 cli.py survey --out /tmp/new-survey.json</code></pre>
           </section>
           <section id="providers">
             <h2>Connect a program</h2>
+            <p>
+              Sign in with an intake credential. Drop a single mapped JSON file
+              on the upload area or use the file picker, then select
+              <strong>Import report</strong>. The console opens the saved case.
+              Use UTF-8 JSON up to 1 MiB. Extra fields, duplicate keys, report
+              bodies and attachments are rejected. The command-line equivalent
+              is <code>python3 cli.py human import-report report.json</code>
+              with the workspace URL and intake token file configured.
+            </p>
             <p>
               To send one mapped report directly to a private installation,
               issue a named credential with
@@ -512,9 +522,18 @@ python3 cli.py staging h1-curl-2236133 \
               tabindex="0"
             ><code>export ICHNIX_WORKSPACE_URL=https://workspace.example.org
 export ICHNIX_USER_TOKEN_FILE="$HOME/.config/ichnix/reviewer.token"
+python3 cli.py auth status
 python3 cli.py human cases
 python3 cli.py human context CASE_ID
 python3 cli.py human review CASE_ID TEAM --accept --request-id review-001</code></pre>
+            <p>
+              For the Vercel organization relay, set the workspace URL to its
+              HTTPS origin and <code>ICHNIX_WORKSPACE_HOSTED=1</code>. This
+              routes CLI and worker requests through <code>/org-api</code>.
+              Direct self-hosted clients use <code>/api</code>. The status
+              command returns the identity name and role. To check a worker,
+              pass <code>--token-file</code> with its private credential file.
+            </p>
             <details class="manual-subsection" id="agent-profiles">
               <summary>Agent profiles</summary>
               <p>
@@ -559,20 +578,21 @@ python3 cli.py console --port 8765</code></pre>
                 the worker’s checkout, generate a client configuration with
                 absolute paths valid on that machine.
               </p>
-              <pre
-                tabindex="0"
-              ><code>python3 cli.py mcp-config --profile worker \
+              <pre tabindex="0"><code>mkdir -p -m 700 .local
+python3 cli.py mcp-config --profile worker \
   --workspace-url https://ichnix.example.org \
   --worker-token-file "$HOME/.config/ichnix/worker.token" \
-  --out ichnix-mcp.json</code></pre>
+  --out .local/ichnix-mcp.json</code></pre>
               <p>
                 Use the generated <code>mcpServers</code> entry in a compatible
                 JSON stdio client. For Codex, use
                 <code>--format codex --out ichnix-mcp.toml</code> and add that
-                table to the client configuration. The profile references a
-                credential file. Its contents and each lease secret stay outside
-                the model context. Remote origins require HTTPS. Loopback HTTP
-                works for a local session.
+                table to the client configuration. Worker initialization and
+                tool discovery verify the credential with the private workspace.
+                Revoking the worker removes access on subsequent requests. The
+                profile references a credential file. Its contents and each
+                lease secret stay outside the model context. Remote origins
+                require HTTPS. Loopback HTTP works for a local session.
               </p>
             </details>
             <details class="manual-subsection" id="worker-lease">

@@ -68,14 +68,21 @@ def _credential(path):
 
 
 class WorkspaceClient:
-    def __init__(self, url, token_file):
+    def __init__(self, url, token_file, *, hosted=False):
         origin = workspace_origin(url)
+        if hosted and origin.scheme != "https":
+            raise ValueError("hosted workspace requires HTTPS")
+        self.hosted = hosted
         self.connection = HTTPSConnection if origin.scheme == "https" else HTTPConnection
         self.host, self.port = origin.hostname, origin.port
         self.bearer = _credential(token_file)
 
     def request(self, method, path, body=None, *, request_id=None):
         # http.client never follows redirects or sends credentials through environment proxies.
+        if self.hosted:
+            if not path.startswith("/api/"):
+                raise ValueError("expected a workspace API route")
+            path = "/org-api/" + path[len("/api/"):]
         connection = self.connection(self.host, self.port, timeout=15)
         try:
             headers = {"Authorization": "Bearer " + self.bearer}
@@ -102,11 +109,26 @@ class WorkspaceClient:
         finally:
             connection.close()
 
+    def auth_status(self):
+        data = self.request("GET", "/api/auth/status")
+        if (not isinstance(data, dict) or set(data) != {"name", "role"}
+                or data["role"] not in ("read", "review", "intake", "worker")
+                or not isinstance(data["name"], str)
+                or not re.fullmatch(r"[a-zA-Z0-9_.@-]{1,80}|shared:(?:read|review)", data["name"])
+                or self.bearer in data["name"]):
+            raise PermissionError("invalid workspace identity")
+        return data
+
+
 class Worker(WorkspaceClient):
-    def __init__(self, url, token_file):
-        super().__init__(url, token_file)
+    def __init__(self, url, token_file, *, hosted=False):
+        super().__init__(url, token_file, hosted=hosted)
         self.lease = None
         self.completed = None
+
+    def verify(self):
+        if self.auth_status()["role"] != "worker":
+            raise PermissionError("worker credential required")
 
     def _post(self, path, body):
         try:

@@ -45,6 +45,18 @@
       "destination": "/api/org-workspace?route=org-api/:route"
     },
     {
+      "source": "/org-api/auth/status",
+      "destination": "/api/org-workspace?route=org-api/auth/status"
+    },
+    {
+      "source": "/org-api/handoffs/claim",
+      "destination": "/api/org-workspace?route=org-api/handoffs/claim"
+    },
+    {
+      "source": "/org-api/handoffs/:id/:action(context|finish)",
+      "destination": "/api/org-workspace?route=org-api/handoffs/:id/:action"
+    },
+    {
       "source": "/org-api/import/report",
       "destination": "/api/org-workspace?route=org-api/import/report"
     },

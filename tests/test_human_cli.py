@@ -22,7 +22,7 @@ class HumanClientTests(unittest.TestCase):
                         component="journal", revision="v1", owner="editors")
             graph.import_report(case)
             with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(db)), ConsoleServer(("127.0.0.1", 0), Handler) as http:
-                for role in ("read", "review", "worker"):
+                for role in ("read", "review", "worker", "intake"):
                     issue(db, role, role, root / role)
                 thread = Thread(target=http.serve_forever, daemon=True)
                 thread.start()
@@ -31,6 +31,19 @@ class HumanClientTests(unittest.TestCase):
                                "ICHNIX_WORKSPACE_URL": f"http://127.0.0.1:{http.server_port}",
                                "ICHNIX_USER_TOKEN_FILE": str(root / role), "ICHNIX_HYDRA_TOKEN_FILE": "/missing"})
                 try:
+                    for role in ("read", "review", "worker", "intake"):
+                        result = cli("auth", "status", "--workspace-url", f"http://127.0.0.1:{http.server_port}",
+                                     "--token-file", str(root / role))
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(json.loads(result.stdout), {"name": role, "role": role})
+                        self.assertNotIn((root / role).read_text().strip(), result.stdout + result.stderr)
+                    upload = root / "case.json"
+                    mapped = dict(case, id="intake-case")
+                    upload.write_text(json.dumps(mapped))
+                    self.assertNotEqual(invoke("review", "import-report", str(upload)).returncode, 0)
+                    result = invoke("intake", "import-report", str(upload))
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(json.loads(invoke("read", "context", mapped["id"]).stdout)["report"], mapped)
                     for role, can_review in (("read", False), ("review", True)):
                         con = HTTPConnection(*http.server_address, timeout=5)
                         try:
