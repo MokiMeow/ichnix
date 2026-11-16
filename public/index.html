@@ -58,8 +58,8 @@
           <p class="eyebrow">Bug bounty triage</p>
           <h1 id="intro-title">Every finding<br />has a history.</h1>
           <p class="lede">
-            Trace a security report to the code that shipped, the checks your
-            team ran and the engineer who reviewed it.
+            Trace a security report to the release it affects, the checks your
+            team ran and what the reviewer confirmed.
           </p>
           <div class="launch-actions">
             <a class="primary-link" href="/console"
@@ -80,7 +80,7 @@
           <h2 id="case-heading">From report to reviewer</h2>
           <p>
             A bounty report names the affected asset. A reviewer still needs to
-            know which version shipped, what CI observed and who owns the fix.
+            know which version shipped, what CI observed and what still needs evidence.
           </p>
         </div>
         <section class="specimen" aria-labelledby="sample-title">
@@ -226,7 +226,7 @@
                       /></svg
                     >Review decision
                   </dt>
-                  <dd>Suggested owner and prior feedback</dd>
+                  <dd>Assessment of a signed failed check</dd>
                 </div>
                 <div>
                   <dt>
@@ -249,9 +249,9 @@
                 </div>
               </dl>
               <p>
-                A reviewer can accept or reject an owner. An MCP worker can read
-                the evidence for its assigned case and record what still needs
-                attention.
+                A named reviewer can confirm a failure with a priority, dismiss it
+                or request more evidence. A worker reads that assessment through
+                MCP and records the outcome of its assigned review.
               </p>
             </div>
           </div>

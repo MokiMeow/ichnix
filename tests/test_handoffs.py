@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
+from ichnix.contracts import ReviewContextRequired
 from ichnix.eval_graph import isolated_graph
 from ichnix.handoffs import Handoffs
 
@@ -54,7 +55,7 @@ class HandoffTests(unittest.TestCase):
             queue.case_context(graph, job["id"], "first", lease["token"])
             ref = graph.context(case["id"], review_refs=True)["evidence"][0]["review_ref"]
             graph.assess_observation(case["id"], {"review_ref": ref, "decision": "confirmed", "priority": "medium"}, "lead")
-            with self.assertRaises(PermissionError):
+            with self.assertRaises(ReviewContextRequired):
                 queue.finish(job["id"], "first", lease["token"], disposition="evidence-reviewed", graph=graph)
             scoped = queue.case_context(graph, job["id"], "first", lease["token"])
             result = queue.finish(job["id"], "first", lease["token"], disposition="evidence-reviewed", graph=graph)

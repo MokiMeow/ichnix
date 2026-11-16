@@ -5,6 +5,10 @@ DISPOSITIONS = {"owner-review": ("needs-owner-review",),
                 "evidence-review": ("evidence-reviewed", "needs-evidence")}
 
 
+class ReviewContextRequired(RuntimeError):
+    """The caller holds the lease but must read the current context to record a disposition."""
+
+
 def _field(obj, name, limit=160):
     value = obj.get(name)
     if not isinstance(value, str) or not value.strip() or len(value) > limit:

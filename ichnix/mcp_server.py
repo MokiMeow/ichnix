@@ -3,6 +3,8 @@
 import json
 import sys
 
+from ichnix.contracts import ReviewContextRequired
+
 PROTOCOL = "2025-11-25"
 MAX_FRAME = 512 * 1024
 TOOLS = [
@@ -52,7 +54,10 @@ def _call(params, graph_factory, worker=None):
             return _error(-32602, "unknown tool or invalid arguments")
         text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=True)
         return {"result": {"content": [{"type": "text", "text": text}]}}
-    except (KeyError, LookupError, ValueError, RuntimeError, OSError):
+    except ReviewContextRequired:
+        return {"result": {"isError": True, "content": [{"type": "text",
+                           "text": "Read the current context with get_review_context before submitting a disposition."}]}}
+    except (LookupError, ValueError, RuntimeError, OSError):
         detail = "review unavailable; verify the lease and workspace access" if worker is not None else "case or graph unavailable"
         return {"result": {"isError": True, "content": [{"type": "text", "text": detail}]}}
 

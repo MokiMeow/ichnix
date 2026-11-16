@@ -9,7 +9,7 @@ import stat
 import time
 from urllib.parse import urlsplit
 
-from ichnix.contracts import DISPOSITIONS
+from ichnix.contracts import DISPOSITIONS, ReviewContextRequired
 from ichnix.report_context import report_readme
 
 
@@ -104,6 +104,8 @@ class WorkspaceClient:
                 headers["Idempotency-Key"] = request_id
             connection.request(method, path, payload, headers)
             response = connection.getresponse()
+            if response.status == 409 and path.endswith("/finish"):
+                raise ReviewContextRequired("read the current review context")
             if response.status in (401, 403):
                 raise PermissionError("workspace access denied")
             if response.status != 200 or response.headers.get_content_type() != "application/json":

@@ -1,5 +1,8 @@
 # Local credentials and generated client profiles
 .env*
+*.env
+*.env.*
+!/examples/desktop.env
 .dev.vars
 .dev.vars.*
 *.token
@@ -25,7 +28,13 @@ ichnix-reader.toml
 data/
 artifacts/
 reports/
+backups/
 *.facts.json
+*-selfgraph.json
+*.zip
+graph_data.tar
+graph_auth.tar
+console_data.tar
 *.sqlite*
 *.db
 *.db-wal
@@ -52,3 +61,5 @@ test-results/
 *.webm
 *.mp4
 *.mov
+*.mp3
+*.pptx

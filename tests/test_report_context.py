@@ -17,6 +17,7 @@ from unittest.mock import patch
 from zipfile import ZipFile
 
 from ichnix.credentials import issue
+from ichnix.contracts import ReviewContextRequired
 from ichnix.eval_graph import isolated_graph
 from ichnix.handoffs import Handoffs
 from ichnix.server import ConsoleServer, Handler
@@ -102,7 +103,7 @@ class ReportContextTests(unittest.TestCase):
             lease = handoffs.claim("qa-worker", 120)
             args = (lease["id"], "qa-worker", lease["token"])
             self.assertEqual(handoffs.case_context(graph, *args, metadata_only=True), {"report": CASE})
-            with self.assertRaises(PermissionError):
+            with self.assertRaises(ReviewContextRequired):
                 handoffs.finish(*args, disposition="needs-owner-review", graph=graph)
             self.assertEqual(len(objects), 1)
             readme = next(iter(objects.values()))

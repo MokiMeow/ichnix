@@ -21,14 +21,10 @@
   --muted: #aaaead;
   --line: #393b3e;
   --accent: #a4c0ff;
-  --good: #a8c5ac;
-  --warn: #d6c69a;
-  --bad: #dfaaa9;
   --button: #d9d9d2;
   --sans: "Instrument Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   --frame: min(1256px, calc(100% - 96px));
-  --gutter: clamp(16px, 3vw, 48px);
   font: 400 16px/1.55 var(--sans);
 }
 * {

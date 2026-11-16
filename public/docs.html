@@ -126,11 +126,11 @@
         <article class="manual-article">
           <header class="manual-intro">
             <h1>Operator manual</h1>
-            <p>Follow a report from intake to the team that owns it.</p>
+            <p>Follow a report from intake through staging evidence, human review and agent handoff.</p>
             <ul>
               <li>
-                <a href="/console">Open the read-only console</a> to browse
-                published cases.
+                <a href="/console">Open the review console</a> to inspect a case.
+                The hosted public demo is read-only.
               </li>
               <li>
                 <a href="#containers">Start a private workspace</a> to upload
@@ -150,7 +150,7 @@
 
             <p>
               Open a report in the review console. The case brings the
-              deployment, recorded checks and owner decisions into one view.
+              deployment, recorded checks and reviewer assessments into one view.
             </p>
             <ol class="walkthrough-steps">
               <li>
@@ -165,16 +165,19 @@
                 <strong>Inspect the evidence.</strong>
                 <p>
                   Open a recorded run to read its CI observations. Compare runs
-                  when more than one is available. A missing observation leaves
-                  the check inconclusive.
+                  when more than one is available. If an expected setting is missing
+                  from the manifest, its result is inconclusive. A check absent from a run is shown as “not
+                  recorded” in the comparison.
                 </p>
               </li>
               <li>
-                <strong>Review ownership.</strong>
+                <strong>Follow the handoff.</strong>
                 <p>
-                  Read the suggested owners and prior decisions. In a private
-                  workspace, a reviewer can accept or reject a team. A worker
-                  assigned to the case can record the outcome of its review.
+                  Under Recorded evidence, read any human assessments alongside
+                  the signed checks. Suggested CI checks come from other reports
+                  on this component revision. Worker handoffs shows the outcome
+                  a worker returned. Owner reviews record a separate decision
+                  about which team should investigate.
                 </p>
               </li>
             </ol>
@@ -189,15 +192,16 @@
                 >
                   <img
                     src="/report-review.svg"
-                    width="677"
+                    width="675"
                     height="730"
                     loading="lazy"
                     decoding="async"
-                    alt="The report snapshot holds its own staging checks. Its component revision leads to earlier reports, earlier checks and owner decisions. Reviewers record owner feedback and workers record a disposition on their leased snapshot."
+                    alt="A case links to its release and staging observations. A signed failed check links to its human assessment. A leased worker reads that assessment and check suggestions from earlier cases on the same component revision."
                   />
                 </a>
                 <figcaption>
-                  Follow the revision to find earlier checks and owner decisions. The current report keeps its own staging evidence.
+                  Follow the shared revision to earlier checks. The worker also reads
+                  the assessment attached to this case’s signed failed check.
                   Open the diagram for a larger view.
                 </figcaption>
               </figure>
@@ -477,9 +481,10 @@ python3 cli.py human cases</code></pre>
               <li>
                 <strong>Review</strong>
                 <p>
-                  Record a decision. Replace <code>TEAM</code> with the owner
-                  under review. Reuse the request ID if you retry that same
-                  decision.
+                  Record an owner decision. Replace <code>TEAM</code> with
+                  a suggested owner. Reuse the request ID when retrying the
+                  same decision. To assess a signed failed check, follow
+                  <a href="#ci">Capture CI evidence</a>.
                 </p>
                 <pre
                   tabindex="0"
@@ -844,6 +849,9 @@ python3 cli.py mcp-config --profile worker \
                 >. Use <code>evidence-review</code> for cases with staging
                 observations. That worker can record
                 <code>evidence-reviewed</code> or <code>needs-evidence</code>.
+                If a reviewer changes an assessment after the worker reads the
+                case, read the full context again under the active lease before
+                submitting an evidence-review disposition.
               </p>
               <p>
                 To queue work automatically after intake and CI, set
@@ -1201,8 +1209,8 @@ python3 cli.py check-workspace</code></pre>
                 </li>
               </ol>
               <p>
-                The workspace keeps the report text and chooses the layout
-                locally if the provider is unavailable.
+                The workspace keeps the mapped fields private and selects a
+                local layout if the provider is unavailable.
               </p>
               <a
                 href="https://developers.cloudflare.com/workers-ai/features/json-mode/"
@@ -1276,17 +1284,17 @@ export SELFGRAPH_NAMESPACE=YOUR_NAMESPACE
               HydraDB links a report to a service-specific snapshot, the exact
               component revision, its CI observations and owner reviews. When
               another case uses that component revision, a traversal retrieves
-              prior outcomes. Those earlier decisions and checks inform the next
-              review.
+              earlier owner decisions and checks. A human assessment stays
+              attached to the signed failed observation on its own snapshot.
             </p>
             <dl class="manual-terms">
               <dt>Owner ranking</dt>
               <dd>
-                The catalog owner starts with one positive vote. For each
-                candidate, the score is
-                <code>(accepted + 1) / (accepted + rejected + 2)</code>. Later
-                decisions update the ranking while the case keeps its decision
-                history.
+                For each candidate, the score is
+                <code>(accepted + prior + 1) / (accepted + rejected + prior + 2)</code>.
+                The catalog owner has a prior of 1. Other candidates have a
+                prior of 0. A later decision updates the ranking while the case
+                keeps its decision history.
               </dd>
               <dt>CI check ranking</dt>
               <dd>
@@ -1335,7 +1343,11 @@ export SELFGRAPH_NAMESPACE=YOUR_NAMESPACE
             </p>
             <p>
               These figures come from local runs on disposable HydraDB nodes.
-              The console’s learning curve uses a separate six-case synthetic dataset.
+              For the separate six-case synthetic evaluation, run
+              <code>python3 cli.py evaluate</code> on the graph host. Across four
+              rounds the first suggested CI check matched on 0, 2, 4 and 6 of
+              the six cases. Pooled feedback matched on 0, 2, 2 and 2. The
+              console’s learning curve charts owner accuracy on that same cohort.
             </p>
             <p>
               One console host coordinates leases in a private SQLite file.

@@ -11,7 +11,7 @@ import secrets
 import sqlite3
 import time
 
-from ichnix.contracts import DISPOSITIONS
+from ichnix.contracts import DISPOSITIONS, ReviewContextRequired
 from ichnix.storage import connect_private, state_directory, verify_tables
 
 LEASE_TABLES = {
@@ -221,13 +221,13 @@ class Handoffs:
                 raise ValueError("invalid disposition for this review")
             read = db.execute("SELECT snapshot FROM job_reads WHERE job_id=? AND attempt=?",
                               (job_id, row["attempts"])).fetchone()
-            if not read:
-                raise PermissionError("read the queued review material under this lease first")
             snapshot, context = graph.snapshot_context(row["case_id"], include_operator=False)
-            if read[0] != _read_stamp(snapshot, row["kind"], context) or _job_identity(context, row["kind"])[0] != job_id:
+            if _job_identity(context, row["kind"])[0] != job_id:
                 raise PermissionError("review material changed")
             if row["expires"] <= int(time.time()):
                 raise PermissionError("lease expired during validation")
+            if not read or read[0] != _read_stamp(snapshot, row["kind"], context):
+                raise ReviewContextRequired("read the current review context")
             at = datetime.now(timezone.utc).isoformat(timespec="microseconds")
             db.execute("INSERT INTO outcomes VALUES (?, ?, ?, ?)", (job_id, snapshot, disposition, at))
             db.execute("UPDATE jobs SET state='publishing', expires=NULL WHERE id=?", (job_id,))

@@ -2,7 +2,7 @@
 
 # Ichnix · Release-aware bug bounty triage
 
-Ichnix is a self-hosted bug bounty triage workspace for product security teams. It connects each report to the software version it affects, the checks that ran in staging, and the people who reviewed it. Engineers and coding agents can pick up a review with the same evidence and see which questions are still open.
+Ichnix is a self-hosted bug bounty triage workspace for product security teams. It connects each report to the software version it affects, the checks that ran in staging, and the people who reviewed it. The next engineer or coding agent can see which check failed, what a reviewer confirmed and where the team still needs evidence.
 
 [Explore the read-only console](https://ichnix.vercel.app/console) · [Set up a private workspace](https://ichnix.vercel.app/docs#install)
 
@@ -12,9 +12,9 @@ Ichnix is a self-hosted bug bounty triage workspace for product security teams. 
 2. **Trace the evidence.** Self-hosted HydraDB ties each report snapshot to its staging results. Through the component revision, Ichnix finds earlier reviews, ranks potential owners using their accepted or rejected assignments, and suggests checks that mattered on that release.
    Two researchers can describe the same failure in different words. Ichnix flags submissions on the same deployment when both record at least two of the same failures on one signed staging manifest. A reviewer can compare the named checks and both histories before deciding whether the reports describe the same bug.
    A named reviewer can confirm a signed failed check with a priority, dismiss it or request more evidence in the console or CLI. HydraDB links that decision to the observation on the reviewed release.
-3. **Hand off the review.** Engineers inspect the case in the console or CLI. A coding agent can claim a review through the Model Context Protocol (MCP), read the evidence for its assigned case, and record an outcome such as a request for more evidence.
+3. **Hand off the review.** Engineers inspect the case in the console or CLI. A coding agent can claim one review through the Model Context Protocol (MCP), read its evidence and human assessments, and return an outcome such as a request for more evidence. If an assessment changes during an evidence review, the worker must reread the case before submitting its outcome.
 
-<p align="center"><img src="docs/architecture.svg" width="640" alt="Report intake and staging checks feed HydraDB. Reviewers use the console or CLI. MCP workers retrieve assigned cases through an API backed by SQLite leases." /></p>
+<p align="center"><img src="docs/architecture.svg" width="640" alt="HydraDB connects report snapshots, staging observations and reviewer assessments. MCP workers retrieve evidence through a leased review and return an outcome to the snapshot." /></p>
 
 ## Try it locally
 

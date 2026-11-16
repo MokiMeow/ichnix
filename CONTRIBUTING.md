@@ -1,6 +1,6 @@
 # Contributing to Ichnix
 
-Use a local checkout and synthetic examples when developing or sharing a change. The [operator manual](public/docs.html) describes the user workflows, and the [project instructions](AGENTS.md) explain data boundaries and repository conventions.
+Use a local checkout and synthetic examples when developing or sharing a change. The [operator manual](https://ichnix.vercel.app/docs) describes the user workflows, and the [project instructions](AGENTS.md) explain data boundaries and repository conventions.
 
 ## Set up a development environment
 
@@ -18,9 +18,9 @@ The Python core uses the standard library. For native tests of report storage an
 
 | Change                        | Code                                                                                                 | Check                                                                                                                                                 |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source intake and staging     | [Connectors](ichnix/connectors.py), [CI checks](ichnix/staging.py)                                   | Preserve program and asset scope. Check mapped and unmapped reports or signed, altered and missing observations.                                      |
+| Source intake and staging     | [Connectors](ichnix/connectors.py), [CI checks](ichnix/staging.py)                                   | Check program and catalog scope, signatures over the original bytes, and missing settings in staging manifests.                                      |
 | Graph retrieval and feedback  | [Graph](ichnix/graph.py), [evaluation](ichnix/eval_graph.py)                                         | Run the affected graph tests and `python3 cli.py evaluate`. Check that prior evidence and owner decisions stay associated with the intended revision. |
-| Agent access and coordination | [HTTP console](ichnix/server.py), [handoffs](ichnix/handoffs.py), [MCP server](ichnix/mcp_server.py) | Drive a real stdio client through initialization and a tool call. Verify its role, scope, expiry or retry behavior, and persisted outcome.            |
+| Agent access and coordination | [HTTP console](ichnix/server.py), [handoffs](ichnix/handoffs.py), [MCP server](ichnix/mcp_server.py) | Drive a stdio client through claim, context and completion. Verify scope, lease expiry and the reread after a human assessment changes.            |
 | User interface and docs       | [UI design guide](DESIGN.md), [operator manual](public/docs.html)                                    | Start the demo and exercise the changed route at a narrow viewport and desktop size. Check the actual response to a user action.                      |
 
 Use the smallest relevant regression test while developing. For example, `python3 -m unittest discover -s tests -p test_worker_api.py` exercises the private worker HTTP interface. Run the full suite for changes spanning boundaries. Use the existing pnpm lockfile and preserve separate runtime and font notices.

@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+from ichnix.contracts import ReviewContextRequired
 from ichnix.credentials import identify, principal
 from ichnix.graph import Graph
 from ichnix.handoffs import Handoffs
@@ -260,6 +261,8 @@ class Handler(BaseHTTPRequestHandler):
                 if len(expected) < 32 or not hmac.compare_digest(supplied.encode(), expected.encode()):
                     raise PermissionError("origin access denied")
             self.dispatch(write)
+        except ReviewContextRequired:
+            self.send(409, {"error": "read the current review context"})
         except PermissionError:
             self.send(403, {"error": "forbidden"})
         except KeyError:

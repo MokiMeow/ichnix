@@ -514,7 +514,7 @@ function renderCase({
       element("h3", "How to read this example"),
       element(
         "p",
-        "Compare the recorded checks, inspect the ownership decision, then follow the outstanding evidence request. This walkthrough uses a synthetic report.",
+        "Compare the two staging runs, read the assessment of the baseline failure and follow the worker’s request for more evidence. This report is synthetic.",
       ),
     );
     const jumps = element("nav", undefined, "case-jumps");

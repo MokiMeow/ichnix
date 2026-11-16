@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from ichnix.credentials import issue
+from ichnix.contracts import ReviewContextRequired
 from ichnix.eval_graph import isolated_graph
 from ichnix.graph import Graph
 from ichnix.handoffs import Handoffs
@@ -21,7 +22,8 @@ class WorkerOutcomeTests(unittest.TestCase):
     def test_private_tool_disposition_and_retries(self):
         with isolated_graph() as graph, tempfile.TemporaryDirectory() as folder:
             graph.import_report(CASE)
-            graph.add_evidence(CASE["id"], {"step": "retention", "result": "failed", "revision": "r2"})
+            graph.add_evidence(CASE["id"], {"step": "retention", "result": "failed", "revision": "r2",
+                                            "run_id": "ci-1", "source_method": "hmac-sha256", "source_digest": "b" * 64})
             before = graph.context(CASE["id"])
             job = Handoffs().enqueue(graph, CASE["id"], "evidence-review")
             db, token = Path(folder) / "ids.sqlite", Path(folder) / "worker.token"
@@ -37,6 +39,12 @@ class WorkerOutcomeTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         tool("finish_review", {"job_id": job_id, "disposition": "needs-owner-review"})
                     args = {"job_id": job_id, "disposition": "needs-evidence"}
+                    ref = graph.context(CASE["id"], review_refs=True)["evidence"][0]["review_ref"]
+                    graph.assess_observation(CASE["id"], {"review_ref": ref, "decision": "confirmed", "priority": "high"}, "lead")
+                    with self.assertRaises(ReviewContextRequired):
+                        tool("finish_review", args)
+                    latest = tool("get_review_context", {"job_id": job_id})
+                    self.assertEqual(latest["assessments"][0]["priority"], "high")
                     result = tool("finish_review", args)
                     self.assertEqual((result["state"], result["disposition"]), ("complete", "needs-evidence"))
                     self.assertEqual(tool("finish_review", args), result)
@@ -63,9 +71,10 @@ class WorkerOutcomeTests(unittest.TestCase):
             new = queue.claim("b", 120)
             def finish(actor, proof):
                 return queue.finish(job_id, actor, proof, disposition="needs-owner-review", graph=graph)
-            for actor, proof in (("a", first["token"]), ("b", new["token"])):
-                with self.assertRaises(PermissionError):
-                    finish(actor, proof)
+            with self.assertRaises(PermissionError):
+                finish("a", first["token"])
+            with self.assertRaises(ReviewContextRequired):
+                finish("b", new["token"])
             queue.case_context(graph, job_id, "b", new["token"])
             with patch.object(graph, "publish_outcome", side_effect=RuntimeError("offline")):
                 with self.assertRaises(RuntimeError):
@@ -86,8 +95,8 @@ class WorkerOutcomeTests(unittest.TestCase):
             for change in ("observation", "mapping"):
                 job_id = q.enqueue(graph, CASE["id"], "evidence-review")["id"]
                 job = q.claim("w")
-                q.case_context(graph, job_id, "w", job["token"])
                 if change == "mapping":
+                    q.case_context(graph, job_id, "w", job["token"])
                     graph.import_report({**CASE, "revision": "r3"})
                 else:
                     graph.add_evidence(CASE["id"], {**obs, "result": "passed"})

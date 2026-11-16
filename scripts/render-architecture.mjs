@@ -7,7 +7,7 @@ const diagram = `flowchart TB
   U["Console / CLI upload"] -->|Mapped report| I
   I -->|Report snapshot| G["HydraDB evidence graph"]
   C["Signed staging checks"] --> G
-  G <-->|Evidence and owner decisions| H["Console / CLI reviewer"]
+  G <-->|Evidence and assessments| H["Console / CLI reviewer"]
   G <-->|Case context and outcomes| A["Worker API"]
   A <-->|Identity and lease| Q["SQLite"]
   W["Coding agent via MCP"] <-->|Assigned review| A`;
@@ -35,6 +35,8 @@ const review = `flowchart TB
   V --> O["Owner decisions"]
   C -->|Rank checks| H["Review context"]
   O -->|Rank owners| H
+  E -->|Signed failed check| F["Human assessment"]
+  F --> H
   E --> H
   H --> A["Reviewer via console / CLI"]
   H --> W["Worker via MCP"]
