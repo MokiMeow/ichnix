@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 import demo from "../api/public-demo.mjs";
 import layout from "../api/report-layout.mjs";
@@ -22,6 +23,65 @@ afterEach(() => {
     if (value == null) delete process.env[key];
     else process.env[key] = value;
   }
+});
+
+test("the configured hosted assessment route reaches the authenticated relay", async () => {
+  const { rewrites } = JSON.parse(
+    await readFile(new URL("../vercel.json", import.meta.url), "utf8"),
+  );
+  const route = rewrites.find(({ source }) =>
+    source.startsWith("/org-api/cases/:id/:view("),
+  );
+  assert.ok(route, "private case actions need a deployment rewrite");
+  const pattern = route.source
+    .replace(":id", "(?<id>[^/]+)")
+    .replace(":view(", "(?<view>");
+  const match = new RegExp("^" + pattern + "$").exec(
+    "/org-api/cases/QA-101/assessments",
+  );
+  assert.ok(match, "the deployment rewrite must accept assessment saves");
+  const destination = route.destination
+    .replace(":id", match.groups.id)
+    .replace(":view", match.groups.view);
+  const url = new URL(destination, "https://frontend.example.org");
+  const workspace = (await import("../api/org-workspace.mjs")).default;
+  process.env.ICHNIX_WORKSPACE_ORIGIN = "https://org.example.org";
+  process.env.ICHNIX_ORIGIN_SECRET = randomBytes(32).toString("hex");
+  const bearer = "Bearer " + randomBytes(32).toString("hex");
+  const assessment = {
+    review_ref: "1234567890abcdef",
+    decision: "confirmed",
+    priority: "high",
+  };
+  let calls = 0;
+  globalThis.fetch = async (target, options) => {
+    calls++;
+    assert.equal(
+      String(target),
+      "https://org.example.org/api/cases/QA-101/assessments",
+    );
+    assert.equal(options.method, "POST");
+    assert.equal(options.headers.authorization, bearer);
+    assert.deepEqual(JSON.parse(options.body), assessment);
+    return Response.json(assessment);
+  };
+  assert.equal((await workspace.fetch(new Request(url))).status, 405);
+  const post = {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(assessment),
+  };
+  assert.equal((await workspace.fetch(new Request(url, post))).status, 401);
+  assert.equal(calls, 0);
+  const response = await workspace.fetch(
+    new Request(url, {
+      ...post,
+      headers: { ...post.headers, authorization: bearer },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), assessment);
+  assert.equal(calls, 1);
 });
 
 test("relay only fetches fixture context from an explicitly public session", async () => {
