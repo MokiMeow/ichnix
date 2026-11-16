@@ -37,6 +37,32 @@ class HumanClientTests(unittest.TestCase):
                         self.assertEqual(result.returncode, 0, result.stderr)
                         self.assertEqual(json.loads(result.stdout), {"name": role, "role": role})
                         self.assertNotIn((root / role).read_text().strip(), result.stdout + result.stderr)
+                    observation = dict(step="retention", result="failed", revision="v1", run_id="staging-1",
+                                       source_method="hmac-sha256", source_digest="a" * 64)
+                    graph.add_evidence(case["id"], observation)
+                    self.assertNotIn("review_ref", json.loads(invoke("read", "context", case["id"]).stdout)["evidence"][0])
+                    ref = json.loads(invoke("review", "context", case["id"]).stdout)["evidence"][0]["review_ref"]
+                    args = ("assess", case["id"], ref, "confirmed", "--priority", "high")
+                    for role in ("worker", "intake", "read"):
+                        self.assertNotEqual(invoke(role, *args).returncode, 0)
+                    for _ in range(2):
+                        result = invoke("review", *args)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                    assessment, = graph.context(case["id"])["assessments"]
+                    self.assertEqual((assessment["reviewer"], assessment["decision"], assessment["priority"]),
+                                     ("review", "confirmed", "high"))
+                    self.assertNotIn("reviewer", graph.snapshot_context(case["id"], include_operator=False)[1]["assessments"][0])
+                    self.assertNotEqual(invoke("review", "assess", case["id"], ref, "dismissed",
+                                               "--priority", "high").returncode, 0)
+                    self.assertEqual(invoke("review", "assess", case["id"], ref, "needs-evidence").returncode, 0)
+                    updated, = graph.context(case["id"])["assessments"]
+                    self.assertEqual((updated["decision"], updated["priority"]), ("needs-evidence", ""))
+                    graph.import_report(dict(case, id="other"))
+                    self.assertNotEqual(invoke("review", "assess", "other", ref, "dismissed").returncode, 0)
+                    graph.import_report(dict(case, revision="next"))
+                    self.assertNotEqual(invoke("review", *args).returncode, 0)
+                    self.assertNotIn("assessments", graph.context(case["id"]))
+                    graph.import_report(case)
                     upload = root / "case.json"
                     mapped = dict(case, id="intake-case")
                     upload.write_text(json.dumps(mapped))

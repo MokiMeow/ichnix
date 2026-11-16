@@ -41,6 +41,29 @@ class HandoffTests(unittest.TestCase):
                 result = queue.finish(job["id"], "worker", lease["token"], disposition="evidence-reviewed", graph=graph)
                 self.assertEqual(result["state"], "complete")
 
+    def test_worker_must_reread_after_a_human_assessment(self):
+        case = {"id": "human-review", "title": "Retention", "service": "ledger", "component": "archive",
+                "revision": "r2", "owner": "records"}
+        with isolated_graph() as graph:
+            graph.import_report(case)
+            graph.add_evidence(case["id"], {"step": "retention", "result": "failed", "revision": "r2",
+                                           "run_id": "ci-1", "source_method": "hmac-sha256", "source_digest": "b" * 64})
+            queue = Handoffs()
+            job = queue.enqueue(graph, case["id"], "evidence-review")
+            lease = queue.claim("first")
+            queue.case_context(graph, job["id"], "first", lease["token"])
+            ref = graph.context(case["id"], review_refs=True)["evidence"][0]["review_ref"]
+            graph.assess_observation(case["id"], {"review_ref": ref, "decision": "confirmed", "priority": "medium"}, "lead")
+            with self.assertRaises(PermissionError):
+                queue.finish(job["id"], "first", lease["token"], disposition="evidence-reviewed", graph=graph)
+            scoped = queue.case_context(graph, job["id"], "first", lease["token"])
+            result = queue.finish(job["id"], "first", lease["token"], disposition="evidence-reviewed", graph=graph)
+            self.assertEqual(result["state"], "complete")
+            assessed, = scoped["assessments"]
+            self.assertEqual(assessed["decision"], "confirmed")
+            self.assertNotIn("reviewer", assessed)
+            self.assertNotIn("review_ref", scoped["evidence"][0])
+
     def test_duplicate_enqueue_exclusive_claim_and_expiry_fencing(self):
         with TemporaryDirectory() as directory:
             q = Handoffs(Path(directory) / "queue.sqlite3")

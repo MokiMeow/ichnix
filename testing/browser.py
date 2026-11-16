@@ -64,6 +64,8 @@ def named_workspace(hosted=False):
         for report in json.loads((ROOT / "examples/cases.json").read_text()):
             graph.import_report(report)
         graph.record_review("IX-104", "records", True, actor="fixture-reviewer")
+        graph.add_evidence("IX-104", {"revision": "build-108", "step": "retention", "result": "failed",
+                                     "run_id": "ui-check", "source_method": "hmac-sha256", "source_digest": "a" * 64})
         for index in range(19):
             graph.import_report({**report, "id": f"PAGE-{index:02d}"})
         with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(registry)), ConsoleServer(("127.0.0.1", 0), HostedShell if hosted else Handler) as http:
@@ -473,7 +475,16 @@ def role_checks(browser, origin, tokens, width, hosted=False):
                 expect(page.locator("#report-upload")).to_be_hidden()
                 expect(page.locator("#desk")).to_be_hidden()
                 continue
+            if role == "review":
+                manifest = page.locator(".manifest-source").first
+                manifest.locator("summary").click()
+                save = manifest.get_by_role("button", name="Save assessment")
+                expect(save).to_be_disabled()
+                manifest.get_by_label("Review this failed check").select_option("medium")
+                save.click()
+                expect(page.locator("#case-content")).to_contain_text("browser-review · confirmed · medium priority")
             if role == "read":
+                expect(page.get_by_role("button", name="Save assessment", include_hidden=True)).to_have_count(0)
                 case = page.locator(".case-id").inner_text()
                 with page.expect_download() as ready:
                     page.get_by_role("button", name="Download report README").click()

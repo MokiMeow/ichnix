@@ -51,6 +51,7 @@ const caseLists = {
     "source_digest",
     "source_method",
   ],
+  assessments: ["step", "run_id", "decision", "priority"],
   ranked_checks: ["step", "score", "observations", "reason"],
   review_history: ["owner", "accepted", "actor", "at"],
   related_reports: ["id", "title", "score", "reason", "possible_duplicate"],

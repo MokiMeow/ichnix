@@ -18,6 +18,7 @@ let publicDemo = false;
 const publishedCases = new Map();
 let currentPage = "";
 let canReview = false;
+let canAssess = false;
 let disclosedCase;
 
 function element(tag, text, className) {
@@ -147,6 +148,7 @@ function clearSession() {
   byId("case-pager").hidden = true;
   token = "";
   canReview = false;
+  canAssess = false;
   selected = null;
   clearCaseImages();
   detail.replaceChildren();
@@ -335,6 +337,54 @@ function sampleReadme(report) {
   return link;
 }
 
+function assessmentForm(caseId, item) {
+  const form = element("form");
+  const label = element("label", "Review this failed check");
+  const select = element("select");
+  select.required = true;
+  select.append(new Option("Choose a decision", ""));
+  for (const priority of ["low", "medium", "high", "critical"])
+    select.append(new Option("Confirm · " + priority + " priority", priority));
+  select.append(
+    new Option("Request more evidence", "needs-evidence"),
+    new Option("Dismiss", "dismissed"),
+  );
+  label.append(select);
+  const save = element("button", "Save assessment", "cmd");
+  save.type = "submit";
+  save.disabled = true;
+  select.onchange = () => {
+    save.disabled = !select.value;
+  };
+  form.append(label, save);
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    if (save.disabled || !select.value) return;
+    const view = generation;
+    const confirmed = !["needs-evidence", "dismissed"].includes(select.value);
+    save.disabled = select.disabled = true;
+    const finish = startActivity(form, "Saving assessment");
+    try {
+      await request("cases/" + encodeURIComponent(caseId) + "/assessments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          review_ref: item.review_ref,
+          decision: confirmed ? "confirmed" : select.value,
+          priority: confirmed ? select.value : "",
+        }),
+      });
+      if (view === generation) await openCase(caseId);
+    } catch (error) {
+      if (view === generation) showError(error.message);
+    } finally {
+      save.disabled = select.disabled = false;
+      finish();
+    }
+  };
+  return form;
+}
+
 function appendObservations(parent, observations) {
   for (const item of observations) {
     const row = element("div", undefined, "evidence-row");
@@ -350,6 +400,8 @@ function appendObservations(parent, observations) {
         element("summary", origin),
         element("code", item.source_digest),
       );
+      if (canAssess && item.review_ref)
+        details.append(assessmentForm(selected, item));
       parent.append(details);
     }
   }
@@ -422,6 +474,7 @@ function renderCase({
   review_history = [],
   related_reports = [],
   worker_outcomes = [],
+  assessments = [],
 }) {
   clearCaseImages();
   const heading = element("header", undefined, "case-heading");
@@ -561,7 +614,9 @@ function renderCase({
         element("span", "lexical similarity " + match.score, "case-meta"),
       );
       if (match.possible_duplicate === true)
-        detail.append(element("strong", "Possible duplicate · compare reports"));
+        detail.append(
+          element("strong", "Possible duplicate · compare reports"),
+        );
       detail.append(row, element("p", match.reason, "review-reason"));
     }
   }
@@ -612,6 +667,21 @@ function renderCase({
   if (!evidence.length) {
     detail.append(element("p", "No checks recorded for this revision."));
     return;
+  }
+  if (assessments.length) {
+    detail.append(element("h4", "Human assessments"));
+    for (const item of assessments) {
+      const row = element("div", undefined, "evidence-row");
+      const priority = item.priority ? " · " + item.priority + " priority" : "";
+      row.append(
+        element("strong", item.step + " · " + item.run_id),
+        element(
+          "span",
+          [item.reviewer, item.decision].filter(Boolean).join(" · ") + priority,
+        ),
+      );
+      detail.append(row);
+    }
   }
   renderEvidence(evidence);
   const trace = imageDisclosure(
@@ -711,6 +781,7 @@ async function refresh(query = currentPage, preferred = selected) {
     }
     if (view !== generation) return;
     canReview = session?.can_review === true;
+    canAssess = session?.can_assess === true;
     currentPage = query;
     const pager = byId("case-pager");
     pager.hidden = publicDemo || !(page.previous || page.next);

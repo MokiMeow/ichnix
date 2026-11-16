@@ -46,6 +46,14 @@ def _job_identity(context, kind):
     return ident, scope
 
 
+def _read_stamp(snapshot, kind, context):
+    if kind != "evidence-review" or not context.get("assessments"):
+        return snapshot
+    # Snapshot keys are positive. A negative stamp also binds this read to the human decisions.
+    reviewed = json.dumps([snapshot, context["assessments"]], sort_keys=True, separators=(",", ":"))
+    return -1 - int(_digest(reviewed)[:15], 16)
+
+
 def _default_db():
     graph = [os.getenv(name, default) for name, default in (
         ("ICHNIX_HYDRA_URL", "http://127.0.0.1:8443"), ("ICHNIX_HYDRA_NAMESPACE", "default"),
@@ -175,9 +183,10 @@ class Handoffs:
             db.execute("BEGIN IMMEDIATE")
             job = active()
             if not metadata_only and _job_identity(context, job["kind"])[0] == job_id:
-                db.execute("INSERT OR REPLACE INTO job_reads VALUES (?, ?, ?)", (job_id, job["attempts"], snapshot))
+                stamp = _read_stamp(snapshot, job["kind"], context)
+                db.execute("INSERT OR REPLACE INTO job_reads VALUES (?, ?, ?)", (job_id, job["attempts"], stamp))
             db.commit()
-            return {key: context[key] for key in ("report", "evidence", "recommendations", "ranked_checks") if key in context}
+            return {key: context[key] for key in ("report", "evidence", "recommendations", "ranked_checks", "assessments") if key in context}
 
     def _publish(self, graph, job_id):
         with closing(self._connect()) as db:
@@ -215,7 +224,7 @@ class Handoffs:
             if not read:
                 raise PermissionError("read the queued review material under this lease first")
             snapshot, context = graph.snapshot_context(row["case_id"], include_operator=False)
-            if read[0] != snapshot or _job_identity(context, row["kind"])[0] != job_id:
+            if read[0] != _read_stamp(snapshot, row["kind"], context) or _job_identity(context, row["kind"])[0] != job_id:
                 raise PermissionError("review material changed")
             if row["expires"] <= int(time.time()):
                 raise PermissionError("lease expired during validation")

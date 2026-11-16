@@ -66,7 +66,13 @@ function workspaceReply(path, action, data) {
     throw new Error("invalid handoff response");
   const fields =
     action === "context"
-      ? ["report", "evidence", "recommendations", "ranked_checks"]
+      ? [
+          "report",
+          "evidence",
+          "recommendations",
+          "ranked_checks",
+          "assessments",
+        ]
       : [
           "id",
           "case_id",
@@ -122,7 +128,7 @@ export default {
       ? signatures[route]
       : null;
     const resource =
-      /^org-api\/(auth\/status|session|cases|case-page|import\/report|cases\/([A-Za-z0-9._:-]{1,160})(?:\/(diagram\.svg|trace\.svg|readme\.md|reviews))?)$/.exec(
+      /^org-api\/(auth\/status|session|cases|case-page|import\/report|cases\/([A-Za-z0-9._:-]{1,160})(?:\/(diagram\.svg|trace\.svg|readme\.md|reviews|assessments))?)$/.exec(
         route,
       );
     const handoff =
@@ -145,7 +151,7 @@ export default {
       action ||
       signature ||
       resource?.[1] === "import/report" ||
-      resource?.[3] === "reviews";
+      ["reviews", "assessments"].includes(resource?.[3]);
     if (request.method !== (write ? "POST" : "GET"))
       return json({ error: "method not allowed" }, 405);
     const svg = resource?.[3]?.endsWith(".svg");

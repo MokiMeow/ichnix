@@ -26,6 +26,9 @@ class GuidedCaseTests(unittest.TestCase):
             })
             self.assertEqual({row["source_method"] for row in observations}, {"hmac-sha256"})
             self.assertEqual(len({row["source_digest"] for row in observations}), 2)
+            decision, = result["assessments"]
+            self.assertEqual((decision["run_id"], decision["step"], decision["priority"], decision["decision"]),
+                             ("baseline", "retention_days", "medium", "confirmed"))
             self.assertEqual(graph.evidence_trace(case)["run"], "after-change")
             self.assertEqual(result["recommendations"][0]["owner"], "data-platform")
             self.assertEqual([(r["owner"], r["accepted"]) for r in result["review_history"]],

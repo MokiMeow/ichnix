@@ -1,6 +1,8 @@
 """Private, bounded Markdown exports and optional S3-compatible report archives."""
 
 from contextlib import closing
+from io import BytesIO
+from zipfile import ZipFile
 import hashlib
 import json
 import os
@@ -83,7 +85,7 @@ def private_export(path, data):
         os.link(temp.name, path)
 
 
-def convert_document(path):
+def convert_document(path, *, bundle=False):
     """Run AnyDoc offline with a private environment and hard limits on the Linux host."""
     if sys.platform != "linux":
         raise RuntimeError("use the Linux workspace or its container for document conversion")
@@ -106,7 +108,17 @@ def convert_document(path):
         )
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
         raise ValueError("local document conversion failed") from None
-    return child.stdout
+    if not bundle:
+        return child.stdout
+    # Preserve the same source bytes that were converted, including embedded images.
+    suffix = path.suffix.lower()
+    if suffix not in {".pdf", ".docx", ".pptx", ".xlsx", ".odt", ".ods", ".odp", ".rtf", ".epub", ".csv"}:
+        suffix = ".bin"
+    archive = BytesIO()
+    with ZipFile(archive, "w") as output:
+        output.writestr("README.md", child.stdout)
+        output.writestr("original" + suffix, data)
+    return archive.getvalue()
 
 
 if __name__ == "__main__":

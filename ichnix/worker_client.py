@@ -198,7 +198,7 @@ class Worker(WorkspaceClient):
             if not isinstance(report, dict) or report.get("id") != lease["case_id"] or any(
                     report.get(key) != lease[key] for key in ("service", "component", "revision")):
                 raise RuntimeError("case mapping differs from the active lease")
-            data = {key: data[key] for key in ("report", "evidence", "recommendations", "ranked_checks") if key in data}
+            data = {key: data[key] for key in ("report", "evidence", "recommendations", "ranked_checks", "assessments") if key in data}
         else:
             if data.get("id") != lease["id"] or data.get("state") != "complete":
                 raise RuntimeError("unexpected completion response")

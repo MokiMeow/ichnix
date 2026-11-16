@@ -52,6 +52,11 @@ def seed_guided_case(graph, policy, baseline):
                         graph.add_evidence(report_id, dict(evidence, run_id=run, **provenance),
                                            expected_service=case["service"], expected_component=case["component"])
 
+        failure = next(e for e in graph.context(case_id, review_refs=True)["evidence"]
+                       if e["run_id"] == "baseline" and e["step"] == "retention_days")
+        graph.assess_observation(case_id, {"review_ref": failure["review_ref"], "decision": "confirmed",
+                                          "priority": "medium"}, "sample-reviewer")
+
         # Exercise a real lease without claiming jobs from the optional disclosure replay.
         queue = Handoffs(Path(folder) / "sample-queue.sqlite")
         job = queue.enqueue(graph, case_id, "evidence-review", expected_scope=case)

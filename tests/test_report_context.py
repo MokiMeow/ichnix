@@ -6,6 +6,7 @@ import os
 from contextlib import ExitStack
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from io import BytesIO
 from pathlib import Path
 import subprocess
 import sys
@@ -13,6 +14,7 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
 from unittest.mock import patch
+from zipfile import ZipFile
 
 from ichnix.credentials import issue
 from ichnix.eval_graph import isolated_graph
@@ -210,3 +212,35 @@ class ReportContextTests(unittest.TestCase):
             self.assertIn("| Example | Records |", out.read_text())
             self.assertEqual(out.stat().st_mode & 0o777, 0o600)
             self.assertNotEqual(subprocess.run(cmd, capture_output=True).returncode, 0)
+            bundle = Path(tmp) / "case.zip"
+            subprocess.run([*cmd[:-1], str(bundle), "--bundle"], check=True, capture_output=True)
+            self.assertEqual(bundle.stat().st_mode & 0o777, 0o600)
+            with ZipFile(bundle) as archive:
+                self.assertEqual(archive.namelist(), ["README.md", "original.csv"])
+                self.assertEqual(archive.read("original.csv"), source.read_bytes())
+                self.assertEqual(archive.read("README.md"), out.read_bytes())
+
+    @unittest.skipUnless(importlib.util.find_spec("anydoc") and sys.platform.startswith("linux"), "optional Linux AnyDoc")
+    def test_bundle_keeps_embedded_image_with_original_document(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "evidence.docx"
+            image = (ROOT / "public/evidence-graph.png").read_bytes()
+            with ZipFile(path, "w") as document:
+                document.writestr("[Content_Types].xml",
+                    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                    '<Default Extension="png" ContentType="image/png"/>'
+                    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.'
+                    'wordprocessingml.document.main+xml"/></Types>')
+                document.writestr("_rels/.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    '<Relationship Id="doc" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                    'officeDocument" Target="word/document.xml"/></Relationships>')
+                document.writestr("word/document.xml", '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+                    'wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Approved staging evidence</w:t></w:r></w:p>'
+                    '</w:body></w:document>')
+                document.writestr("word/media/diagram.png", image)
+            with ZipFile(BytesIO(report_context.convert_document(path, bundle=True))) as archive:
+                self.assertIn(b"Approved staging evidence", archive.read("README.md"))
+                original = archive.read("original.docx")
+                self.assertEqual(original, path.read_bytes())
+                with ZipFile(BytesIO(original)) as document:
+                    self.assertEqual(document.read("word/media/diagram.png"), image)

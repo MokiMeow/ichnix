@@ -608,6 +608,22 @@ body:has(> .workspace) {
 .review-history li {
   justify-content: space-between;
 }
+.manifest-source form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  padding-block: 0.75rem;
+}
+.manifest-source label {
+  display: grid;
+  gap: 0.3rem;
+}
+.manifest-source select {
+  font: inherit;
+  min-height: 44px;
+  max-width: 100%;
+}
 .manifest-source summary,
 #evaluation summary {
   cursor: pointer;

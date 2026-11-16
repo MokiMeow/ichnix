@@ -182,7 +182,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/session" and not write:
             if not self.authorized():
                 return self.send(401, {"error": "valid access token required"})
-            return self.send(200, {"public_demo": False, "can_review": self.authorized(edit=True),
+            can_review = self.authorized(edit=True)
+            return self.send(200, {"public_demo": False, "can_review": can_review,
+                                   "can_assess": can_review and bool(os.getenv("ICHNIX_IDENTITY_DB")),
                                    "can_import": bool(identify(self.headers.get("Authorization", ""), intake=True))})
         if not self.authorized(write):
             return self.send(401, {"error": "valid access token required"})
@@ -192,10 +194,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, graph.case_page(*cursor[0]) if cursor else graph.case_page())
         if path == "/api/cases" and not write:
             return self.send(200, graph.cases())
-        match = re.fullmatch(r"/api/cases/([\w.:_-]{1,160})(?:/(reviews|trace\.svg|diagram\.svg|readme\.md))?", path)
+        match = re.fullmatch(r"/api/cases/([\w.:_-]{1,160})(?:/(reviews|assessments|trace\.svg|diagram\.svg|readme\.md))?", path)
         if not match:
             return self.send(404, {"error": "unknown route"})
         case_id, action = match.groups()
+        if action == "assessments":
+            if not write:
+                return self.send(405, {"error": "method"})
+            if not os.getenv("ICHNIX_IDENTITY_DB"):
+                return self.send(403, {"error": "named reviewer required"})
+            if self.headers.get_content_type() != "application/json" or "Content-Encoding" in self.headers:
+                return self.send(415, {"error": "expected application/json"})
+            return self.send(200, graph.assess_observation(case_id, json.loads(self.body()), self.review_actor))
         if write and action == "reviews":
             data = json.loads(self.body())
             if not isinstance(data, dict) or type(data.get("accepted")) is not bool or not isinstance(data.get("owner"), str):
@@ -205,7 +215,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("unknown recommendation")
             graph.record_review(case_id, data["owner"], data["accepted"], actor=self.review_actor,
                                 request_id=self.headers.get("Idempotency-Key"), expected_scope=data.get("scope"))
-            return self.send(200, graph.context(case_id))
+            return self.send(200, graph.context(case_id, review_refs=bool(os.getenv("ICHNIX_IDENTITY_DB"))))
         if not write and action == "readme.md":
             return self.send(200, graph.case_readme(case_id).encode(), "text/markdown; charset=utf-8",
                              [("Content-Disposition", 'attachment; filename="README.md"')])
@@ -215,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
         if not write and action == "trace.svg":
             return self.send(200, diagram_svg(graph.evidence_trace(case_id)), "image/svg+xml")
         if not write and action != "reviews":
-            return self.send(200, graph.context(case_id))
+            return self.send(200, graph.context(case_id, review_refs=bool(os.getenv("ICHNIX_IDENTITY_DB")) and self.authorized(edit=True)))
         return self.send(405, {"error": "method"})
 
     def handoff(self, path, write):

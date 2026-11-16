@@ -270,8 +270,8 @@ class Graph:
     def case_readme(self, case_id):
         return report_context.report_readme(self.case_metadata(case_id))
 
-    def context(self, case_id):
-        snapshot, context = self.snapshot_context(case_id)
+    def context(self, case_id, *, review_refs=False):
+        snapshot, context = self.snapshot_context(case_id, review_refs=review_refs)
         context["worker_outcomes"] = self._query(
             "MATCH (s:Snapshot {id:$id})-[:WORKER_OUTCOME]->(o) "
             "RETURN o.job AS job_id, o.kind AS kind, o.worker AS worker, o.disposition AS disposition, "
@@ -284,11 +284,38 @@ class Graph:
         self._put("WorkerOutcome", eid, job=job_id, kind=kind, worker=worker, disposition=disposition, at=at)
         self._link(snapshot, "WORKER_OUTCOME", eid)
 
-    def _snapshot_evidence(self, snapshot):
-        return self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
+    def _snapshot_evidence(self, snapshot, *, review_refs=False):
+        rows = self._query("MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e) "
                            "RETURN e.step AS step, e.result AS result, e.revision AS revision, e.run AS run_id, "
-                           "e.digest AS source_digest, e.method AS source_method ORDER BY e.observed, e.id",
-                           id=snapshot)
+                           "e.digest AS source_digest, e.method AS source_method, e.id AS evidence_id "
+                           "ORDER BY e.observed, e.id", id=snapshot)
+        for row in rows:
+            ident = row.pop("evidence_id")
+            if review_refs and row["source_method"] == "hmac-sha256" and row["result"] == "failed":
+                row["review_ref"] = f"{ident:016x}"
+        return rows
+
+    def assess_observation(self, case_id, data, reviewer):
+        if not isinstance(data, dict) or set(data) != {"review_ref", "decision", "priority"}:
+            raise ValueError("expected an observation reference, decision and priority")
+        ref, decision, priority = data["review_ref"], data["decision"], data["priority"]
+        if not isinstance(ref, str) or not re.fullmatch(r"[0-7][0-9a-f]{15}", ref):
+            raise ValueError("invalid observation reference")
+        if decision not in ("confirmed", "dismissed", "needs-evidence"):
+            raise ValueError("invalid assessment")
+        if priority not in (("low", "medium", "high", "critical") if decision == "confirmed" else ("",)):
+            raise ValueError("only a confirmed finding requires priority")
+        evidence_id = int(ref, 16)
+        rows = self._query("MATCH (r:Report {id:$report})-[:HAS_SNAPSHOT]->(s)-[:HAS_EVIDENCE]->(e {id:$eid}) "
+                           "WHERE r.snapshot = s.id AND e.method = 'hmac-sha256' AND e.result = 'failed' "
+                           "RETURN e.id AS id", report=_key("case", _case_id(case_id)), eid=evidence_id)
+        if not rows:
+            raise ValueError("signed failed observation missing from current snapshot")
+        # A reviewer's current decision belongs to this immutable observation, even if intake remaps the case.
+        assessment_id = _key("evidence-assessment", evidence_id, reviewer)
+        self._put("EvidenceAssessment", assessment_id, reviewer=reviewer, decision=decision, priority=priority)
+        self._link(evidence_id, "HAS_ASSESSMENT", assessment_id)
+        return {"review_ref": ref, "reviewer": reviewer, "decision": decision, "priority": priority}
 
     def selfgraph_facts(self, case_id):
         report = self._report(case_id)
@@ -313,11 +340,11 @@ class Graph:
                               "evidence": [{"source_id": source}]})
         return {"entities": entities, "relations": relations}
 
-    def snapshot_context(self, case_id, *, include_operator=True):
+    def snapshot_context(self, case_id, *, include_operator=True, review_refs=False):
         report = self._report(case_id)
         snapshot = report.pop("snapshot")
         stored = report.pop("vector")
-        evidence = self._snapshot_evidence(snapshot)
+        evidence = self._snapshot_evidence(snapshot, review_refs=review_refs and include_operator)
         legacy = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW]->(v) "
                             "RETURN v.id AS decision, v.owner AS owner, v.accepted AS accepted", id=snapshot)
         events = self._query("MATCH (s:Snapshot {id:$id})-[:USES_COMPONENT]->(c)-[:HAS_REVIEW_EVENT]->(v) "
@@ -340,6 +367,15 @@ class Graph:
         items.sort(key=lambda item: (-item["score"], item["owner"] != report["owner"], item["owner"]))
         context = {"report": report, "recommendations": items, "evidence": evidence,
                    "ranked_checks": self._ranked_checks(snapshot)}
+        if any(e["result"] == "failed" and e["source_method"] == "hmac-sha256" for e in evidence):
+            reviewer_column = ", a.reviewer AS reviewer" if include_operator else ""
+            assessments = self._query(
+                "MATCH (s:Snapshot {id:$id})-[:HAS_EVIDENCE]->(e)-[:HAS_ASSESSMENT]->(a) "
+                "RETURN e.step AS step, e.run AS run_id, e.digest AS source_digest, "
+                "a.decision AS decision, a.priority AS priority" + reviewer_column + " ORDER BY e.id, a.id",
+                id=snapshot)
+            if assessments:
+                context["assessments"] = assessments
         if include_operator:
             context["review_history"] = self._query("MATCH (s:Snapshot {id:$id})-[:AUDIT]->(v) "
                 "RETURN v.owner AS owner, v.accepted AS accepted, v.actor AS actor, v.at AS at ORDER BY v.at", id=snapshot)

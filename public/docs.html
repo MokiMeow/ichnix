@@ -899,6 +899,12 @@ python3 cli.py export-readme CASE_ID --out private/README.md</code></pre>
                 the full original report. Review it before sharing it with an
                 agent. The browser uploader accepts the six-field JSON format.
               </p>
+              <p>
+                To keep embedded screenshots with the converted text, add
+                <code>--bundle</code> and choose a new ZIP output path. The
+                archive contains README.md and the original document, including
+                its embedded media. This export stays on the operator’s machine.
+              </p>
             </details>
           </section>
           <section id="ci">
@@ -941,10 +947,21 @@ python3 cli.py staging CASE_ID \
             </p>
             <p class="manual-note">
               A signed manifest attests to bytes provided by the holder of the
-              shared key. A review records an owner decision. The original
-              bounty finding requires independent verification by the security
-              team.
+              shared key. Review the finding in your approved staging
+              environment. A named reviewer can then expand the signed failed
+              check and save a decision. Choose a priority when confirming,
+              dismiss it, or request more evidence. Owner votes are separate.
             </p>
+            <p>
+              In a configured reviewer CLI profile, run
+              <code>python3 cli.py human context CASE_ID</code> to find the
+              failed observation’s <code>review_ref</code>, then save the
+              decision below. A reviewer can update their decision on that same
+              observation. Leased workers can read the assessment.
+            </p>
+            <pre
+              tabindex="0"
+            ><code>python3 cli.py human assess CASE_ID REVIEW_REF confirmed --priority high</code></pre>
           </section>
           <section id="storage">
             <h2><span class="chapter-no">07</span>Configure storage</h2>

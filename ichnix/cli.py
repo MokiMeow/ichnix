@@ -70,6 +70,7 @@ def parser():
     readme.add_argument("case_id")
     document = commands.add_parser("document-readme", help="convert a local office document to private Markdown on Linux")
     document.add_argument("file", type=Path)
+    document.add_argument("--bundle", action="store_true", help="write a private ZIP with README.md and the original file")
     for output in (readme, document):
         output.add_argument("--out", required=True, type=Path, help="create a new private Markdown file")
     load = commands.add_parser("import", help="import local metadata JSON as an object or array")
@@ -95,6 +96,11 @@ def parser():
     remote.add_parser("cases", help="list the reports available to this identity")
     remote.add_parser("context", help="read a case and its evidence").add_argument("case_id")
     remote.add_parser("import-report", help="upload one mapped report with an intake credential").add_argument("file", type=Path)
+    assess = remote.add_parser("assess", help="record a named reviewer's assessment of a signed observation")
+    assess.add_argument("case_id")
+    assess.add_argument("review_ref", help="review_ref of a failed signed observation from human context")
+    assess.add_argument("decision", choices=("confirmed", "dismissed", "needs-evidence"))
+    assess.add_argument("--priority", choices=("low", "medium", "high", "critical"), help="required for confirmed findings")
     remote_review = remote.add_parser("review", help="record a named owner decision")
     remote_review.add_argument("--request-id", help="stable idempotency key when retrying a decision")
     review = commands.add_parser("review", help="review a suggested remediation owner")
@@ -201,6 +207,9 @@ def human_request(args):
     if args.action == "cases":
         return client.request("GET", route)
     route += "/" + _case_id(args.case_id)
+    if args.action == "assess":
+        return client.request("POST", route + "/assessments", {
+            "review_ref": args.review_ref, "decision": args.decision, "priority": args.priority or ""})
     context = client.request("GET", route)
     if args.action == "context":
         return context
@@ -251,8 +260,8 @@ def main():
     args = parser().parse_args()
     try:
         if args.command == "document-readme":
-            private_export(args.out, convert_document(args.file))
-            print("wrote private Markdown document")
+            private_export(args.out, convert_document(args.file, bundle=args.bundle))
+            print("wrote private document bundle" if args.bundle else "wrote private Markdown document")
             return 0
         if args.command == "auth":
             from ichnix.worker_client import WorkspaceClient
