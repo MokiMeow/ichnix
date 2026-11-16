@@ -5,7 +5,7 @@ from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from ichnix.credentials import issue
+from ichnix.credentials import issue, revoke
 from ichnix.contracts import ReviewContextRequired
 from ichnix.eval_graph import isolated_graph
 from ichnix.graph import Graph
@@ -19,6 +19,45 @@ CASE = {"id": "outcome-1", "service": "records", "component": "store", "revision
 
 
 class WorkerOutcomeTests(unittest.TestCase):
+    def test_remapped_worker_can_retire_lease_without_recording_outcome(self):
+        with isolated_graph() as graph, tempfile.TemporaryDirectory() as folder:
+            graph.import_report(CASE)
+            queue = Handoffs()
+            job = queue.enqueue(graph, CASE["id"], "owner-review")
+            registry, token = Path(folder) / "ids.sqlite", Path(folder) / "worker.token"
+            issue(registry, "worker-1", "worker", token)
+            with patch.dict(os.environ, ICHNIX_IDENTITY_DB=str(registry)), ConsoleServer(("127.0.0.1", 0), Handler) as api:
+                thread = Thread(target=api.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    worker = Worker(f"http://127.0.0.1:{api.server_port}", token)
+                    job_id = job["id"]
+                    self.assertEqual(worker.call("claim_review", {})["id"], job_id)
+                    worker.call("get_review_context", {"job_id": job_id})
+                    graph.import_report({**CASE, "revision": "r3"})
+                    with self.assertRaises(PermissionError):
+                        worker.call("get_review_context", {"job_id": job_id})
+                    with self.assertRaises(PermissionError):
+                        worker.call("finish_review", {"job_id": job_id, "disposition": "needs-owner-review"})
+                    self.assertEqual(queue.status(job_id)["state"], "leased")
+                    result = worker.call("finish_review", {"job_id": job_id})
+                    self.assertEqual(result["state"], "complete")
+                    self.assertEqual(worker.call("finish_review", {"job_id": job_id}), result)
+                    self.assertIsNone(worker.lease)
+                    self.assertEqual(graph.context(CASE["id"])["worker_outcomes"], [])
+                    self.assertIsNone(worker.call("claim_review", {}))
+
+                    # Retaining proof locally must not bypass credential revocation.
+                    next_job = queue.enqueue(graph, CASE["id"], "owner-review")
+                    self.assertEqual(worker.call("claim_review", {})["id"], next_job["id"])
+                    revoke(registry, "worker-1")
+                    with self.assertRaises(PermissionError):
+                        worker.call("finish_review", {"job_id": next_job["id"]})
+                    self.assertEqual(queue.status(next_job["id"])["state"], "leased")
+                finally:
+                    api.shutdown()
+                    thread.join()
+
     def test_private_tool_disposition_and_retries(self):
         with isolated_graph() as graph, tempfile.TemporaryDirectory() as folder:
             graph.import_report(CASE)

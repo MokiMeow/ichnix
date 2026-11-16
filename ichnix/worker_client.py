@@ -143,11 +143,9 @@ class Worker(WorkspaceClient):
             raise PermissionError("worker credential required")
 
     def _post(self, path, body):
-        try:
-            return self.request("POST", path, body)
-        except PermissionError:
-            self.lease = None
-            raise
+        # A remapped case denies context and dispositions, but still permits
+        # completion without a disposition. Keep proof for that server-checked cleanup.
+        return self.request("POST", path, body)
 
     def call(self, name, args):
         if name == "claim_review":
