@@ -65,7 +65,7 @@
       "destination": "/api/org-workspace?route=org-api/cases/:id"
     },
     {
-      "source": "/org-api/cases/:id/:view(diagram\\.svg|trace\\.svg|readme\\.md|reviews)",
+      "source": "/org-api/cases/:id/:view(diagram\\.svg|trace\\.svg|readme\\.md|reviews|assessments)",
       "destination": "/api/org-workspace?route=org-api/cases/:id/:view"
     },
     {
