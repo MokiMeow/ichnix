@@ -736,6 +736,18 @@ body:has(> .workspace) {
   margin: 0 0 0.65rem;
   max-width: 54ch;
 }
+.curve-benchmark {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-block-start: 1rem;
+}
+.curve-benchmark p {
+  max-width: 68ch;
+}
+.curve-benchmark > a {
+  display: inline-block;
+  margin-top: 0.75rem;
+}
 .curve-scores {
   border-top: 1px solid var(--line);
 }

@@ -1,0 +1,42 @@
+[
+  {
+    "training": 0,
+    "heldout": 64,
+    "scoped": 16,
+    "pooled": 16,
+    "catalog": 16,
+    "unseen_scoped": 4
+  },
+  {
+    "training": 8,
+    "heldout": 64,
+    "scoped": 16,
+    "pooled": 15,
+    "catalog": 16,
+    "unseen_scoped": 4
+  },
+  {
+    "training": 16,
+    "heldout": 64,
+    "scoped": 24,
+    "pooled": 10,
+    "catalog": 16,
+    "unseen_scoped": 4
+  },
+  {
+    "training": 24,
+    "heldout": 64,
+    "scoped": 33,
+    "pooled": 13,
+    "catalog": 16,
+    "unseen_scoped": 4
+  },
+  {
+    "training": 32,
+    "heldout": 64,
+    "scoped": 46,
+    "pooled": 19,
+    "catalog": 16,
+    "unseen_scoped": 4
+  }
+]

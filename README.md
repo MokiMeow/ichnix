@@ -36,7 +36,7 @@ HydraDB connects each report snapshot to a component revision. An owner decision
 
 | What the graph does | How it helps triage | Evidence |
 | --- | --- | --- |
-| Ranks owners from reviews on the affected release | Surfaces teams that accepted earlier reports on that revision | On 64 **synthetic** holdouts, correct first choices rose from **16 to 46**. Pooled feedback finished at **19**, catalog alone at **16**. [Replay the comparison](testing/owner_curve.py) |
+| Ranks owners from reviews on the affected release | Surfaces teams that accepted earlier reports on that revision | On 64 **synthetic** holdouts, correct first choices rose from **16 to 46**. Pooled feedback finished at **19**, catalog alone at **16**. [Published checkpoints](testing/fixtures/owner-curve.json) · [Replay the comparison](testing/owner_curve.py) |
 | Ranks staging checks from prior observations | Suggests which existing check to inspect first | On a separate six-case **synthetic** cohort, first-choice checks rose from **0 to 2 to 4 to 6** across four rounds. [Live evaluation JSON](https://ichnix.vercel.app/api/evaluation) · [Evaluator](ichnix/eval_graph.py) |
 | Finds separate submissions that cite the same failed checks | Gives reviewers evidence to compare even when titles differ | In the [read-only console](https://ichnix.vercel.app/console), open **IX-214 → Compare submissions** and follow **IX-104**. Both cite the same two failures. [Matching rules and boundary tests](tests/test_related.py) |
 

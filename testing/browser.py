@@ -375,6 +375,10 @@ def public_checks(browser, origin, width, hosted=False):
                     table = page.get_by_role("table", name=caption)
                     expect(table.locator("tbody tr")).to_have_count(4)
                     expect(table.locator("tbody tr").last.locator("td")).to_have_text([expected, expected])
+                page.get_by_text("View 64-report scores", exact=True).click()
+                owners = page.get_by_role("table", name="Correct first-choice owners at each checkpoint")
+                expect(owners.locator("tbody tr")).to_have_count(5)
+                expect(owners.locator("tbody tr").last.locator("th, td")).to_have_text(["32", "46", "19", "16"])
         assert not errors, errors
         assert not external, external
     finally:

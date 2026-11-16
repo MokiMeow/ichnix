@@ -104,6 +104,18 @@ function publicRecord(path, data) {
   if (path === "evaluation") {
     return {
       ...publicFields(data, ["dataset", "fixed_catalog_owner_top1"]),
+      ...(Array.isArray(data.owner_curve_64) && {
+        owner_curve_64: data.owner_curve_64.map((row) =>
+          publicFields(row, [
+            "training",
+            "heldout",
+            "scoped",
+            "pooled",
+            "catalog",
+            "unseen_scoped",
+          ]),
+        ),
+      }),
       curve: data.curve.map((row) =>
         publicFields(row, [
           "training_cases",

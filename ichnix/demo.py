@@ -105,6 +105,8 @@ def _run():
     if args.public_readonly:
         with isolated_graph() as benchmark:
             evaluation = evaluate(benchmark)
+        checkpoints = ROOT / "testing/fixtures/owner-curve.json"
+        evaluation["owner_curve_64"] = json.loads(checkpoints.read_text(encoding="utf-8"))
     with isolated_graph() as graph:
         receipt = run_local_workflow() if args.with_disclosure else None
         cases = json.loads((ROOT / "examples/cases.json").read_text())

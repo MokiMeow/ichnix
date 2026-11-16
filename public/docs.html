@@ -1347,7 +1347,13 @@ export SELFGRAPH_NAMESPACE=YOUR_NAMESPACE
               <code>python3 cli.py evaluate</code> on the graph host. Across four
               rounds the first suggested CI check matched on 0, 2, 4 and 6 of
               the six cases. Pooled feedback matched on 0, 2, 2 and 2. The
-              console’s learning curve charts owner accuracy on that same cohort.
+              <a href="/console">console’s Learning curve</a> charts owner accuracy
+              on that same cohort. Open <strong>View 64-report scores</strong>
+              for the separate owner benchmark. Replay it with
+              <code>python3 -m testing.owner_curve</code>. The
+              <a href="/api/evaluation">evaluation JSON</a> includes the six-case
+              fractions in <code>curve</code> and the 64-report counts in
+              <code>owner_curve_64</code>.
             </p>
             <p>
               One console host coordinates leases in a private SQLite file.

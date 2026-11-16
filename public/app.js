@@ -1109,30 +1109,29 @@ function initializeConsole() {
     result.setAttribute("aria-busy", "true");
     try {
       const response = await request("evaluation");
-      const { curve } = await response.json();
+      const { curve, owner_curve_64: ownerCheckpoints } = await response.json();
       const percent = new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: 1,
       });
-      function scoreTable(caption, ownerMetric, checkMetric) {
+      function scoreTable(caption, labels, rows) {
         const table = element("table");
         table.append(element("caption", caption));
         const head = table.createTHead().insertRow();
-        for (const label of ["Training cases", "Owner", "CI check"]) {
+        for (const label of labels) {
           const cell = element("th", label);
           cell.scope = "col";
           head.append(cell);
         }
         const body = table.createTBody();
-        for (const point of curve) {
-          const trainingCases = element("th", point.training_cases);
+        for (const [training, ...scores] of rows) {
+          const trainingCases = element("th", training);
           trainingCases.scope = "row";
           body
             .insertRow()
             .append(
               trainingCases,
-              element("td", percent.format(point[ownerMetric])),
-              element("td", percent.format(point[checkMetric])),
+              ...scores.map((score) => element("td", score)),
             );
         }
         return table;
@@ -1142,10 +1141,21 @@ function initializeConsole() {
           Number.isFinite(point.pooled_owner_top1) &&
           Number.isFinite(point.pooled_ci_check_top1),
       );
+      function sixCaseTable(caption, ownerMetric, checkMetric) {
+        return scoreTable(
+          caption,
+          ["Training cases", "Owner", "CI check"],
+          curve.map((point) => [
+            point.training_cases,
+            percent.format(point[ownerMetric]),
+            percent.format(point[checkMetric]),
+          ]),
+        );
+      }
       const scores = element("details", undefined, "curve-scores");
       scores.append(
         element("summary", "View exact scores"),
-        scoreTable(
+        sixCaseTable(
           "Feedback from the same component revision",
           "owner_top1",
           "ci_check_top1",
@@ -1153,7 +1163,7 @@ function initializeConsole() {
       );
       if (pooled) {
         scores.append(
-          scoreTable(
+          sixCaseTable(
             "Same feedback pooled across components",
             "pooled_owner_top1",
             "pooled_ci_check_top1",
@@ -1182,6 +1192,36 @@ function initializeConsole() {
         scores,
       );
       result.replaceChildren(ownerCurve(curve, pooled), explanation);
+      if (ownerCheckpoints?.length) {
+        const last = ownerCheckpoints.at(-1);
+        const section = element("section", undefined, "curve-benchmark");
+        const details = element("details", undefined, "curve-scores");
+        details.append(
+          element("summary", "View 64-report scores"),
+          scoreTable(
+            "Correct first-choice owners at each checkpoint",
+            ["Training reports", "Same revision", "Pooled", "Catalog"],
+            ownerCheckpoints.map((row) => [
+              row.training,
+              row.scoped,
+              row.pooled,
+              row.catalog,
+            ]),
+          ),
+        );
+        const reference = element("a", "Method and public disclosure results");
+        reference.href = "/docs#routing-results";
+        section.append(
+          element("h3", "Owner routing · 64 synthetic reports"),
+          element(
+            "p",
+            `After ${last.training} training reports, feedback from the same revision identified the first-choice owner on ${last.scoped}/${last.heldout} reports. Pooled feedback scored ${last.pooled}/${last.heldout} and the catalog alone scored ${last.catalog}/${last.heldout}.`,
+          ),
+          details,
+          reference,
+        );
+        result.append(section);
+      }
     } catch {
       result.textContent = "Results unavailable. Close and reopen to retry.";
     } finally {

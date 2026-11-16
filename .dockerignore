@@ -64,6 +64,7 @@
 !testing/fixtures/manifest.json
 !testing/fixtures/manifest-clean.json
 !testing/fixtures/policy.json
+!testing/fixtures/owner-curve.json
 !public/404.html
 !public/missing.css
 !public/missing-trace.webp

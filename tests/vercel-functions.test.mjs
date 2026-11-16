@@ -77,6 +77,35 @@ test("relay only fetches fixture context from an explicitly public session", asy
   });
 });
 
+test("evaluation publishes aggregate owner checkpoints alongside the six-case curve", async () => {
+  process.env.ICHNIX_PUBLIC_ORIGIN = "https://demo.example.org";
+  const checkpoint = {
+    training: 32,
+    heldout: 64,
+    scoped: 46,
+    pooled: 19,
+    catalog: 16,
+    unseen_scoped: 4,
+  };
+  globalThis.fetch = async (url) =>
+    Response.json(
+      url.pathname === "/api/session"
+        ? { public_demo: true }
+        : {
+            curve: [{ heldout_cases: 6 }],
+            owner_curve_64: [{ ...checkpoint, reports: ["private"] }],
+          },
+    );
+  const response = await demo.fetch(
+    new Request("https://frontend.example.org/api/evaluation"),
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    curve: [{ heldout_cases: 6 }],
+    owner_curve_64: [checkpoint],
+  });
+});
+
 test("public SelfGraph download is limited to approved case facts", async () => {
   process.env.ICHNIX_PUBLIC_ORIGIN = "https://demo.example.org";
   const snapshot = {
